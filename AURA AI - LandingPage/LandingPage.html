@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="lenis lenis-smooth" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - MANIFIESTO BRUTALISTA</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Inter:wght@400;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Lenis for ultra-smooth scrolling -->
+<script src="https://unpkg.com/@studio-freight/lenis@1.0.34/dist/lenis.min.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#000000",
+                        "brutal-teal": "#2DD4BF",
+                        "brutal-purple": "#A855F7",
+                        "brutal-coral": "#FB7185",
+                        "background": "#FFFFFF"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["Space Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            html {
+                scroll-behavior: smooth;
+            }
+            * {
+                border-radius: 0 !important;
+                @apply border-black;
+            }
+            body {
+                @apply text-black bg-transparent;
+            }
+        }
+        .brutal-border {
+            border: 4px solid #000000;
+        }
+        .brutal-shadow {
+            box-shadow: 8px 8px 0px 0px #000000;
+        }
+        .brutal-shadow-sm {
+            box-shadow: 4px 4px 0px 0px #000000;
+        }
+        .brutal-card {
+            @apply brutal-border bg-white p-6 transition-all;
+        }
+        .brutal-btn {
+            @apply brutal-border brutal-shadow-sm px-6 py-3 font-bold uppercase tracking-tighter transition-all active:translate-x-1 active:translate-y-1 active:shadow-none;
+        }
+    
+        @keyframes scroll-ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .ticker-container {
+            display: flex;
+            width: max-content;
+            animation: scroll-ticker 20s linear infinite;
+        }
+        .ticker-item {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 4rem;
+            border-right: 4px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        html.lenis {
+          height: auto;
+        }
+        .lenis.lenis-smooth {
+          scroll-behavior: auto;
+        }
+        .lenis.lenis-smooth [data-lenis-prevent] {
+          overscroll-behavior: contain;
+        }
+        .lenis.lenis-stopped {
+          overflow: hidden;
+        }
+        .lenis.lenis-scrolling iframe {
+          pointer-events: none;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        .glowing-orb {
+            border-radius: 50% !important;
+            background: radial-gradient(circle, #ffffff 20%, #c5c8f5 60%, #dde0ff 100%);
+            filter: blur(8px);
+            opacity: 0.85;
+            position: absolute;
+            pointer-events: none;
+            z-index: -1;
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+<style>
+  @media (max-width: 768px) {
+    .section-heading-mobile {
+      font-size: 5vw !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+      max-width: 100% !important;
+    }
+    section {
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+  }
+</style></head>
+<body class="font-body antialiased relative">
+<!-- Fixed Pastel Gradient Background -->
+<div class="fixed inset-0 z-[-1] bg-white overflow-hidden pointer-events-none">
+<div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[rgba(100,230,210,0.35)] blur-[80px]"></div>
+<div class="absolute top-[20%] right-[-20%] w-[50%] h-[70%] rounded-full bg-[rgba(200,170,255,0.35)] blur-[80px]"></div>
+<div class="absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-[rgba(255,180,190,0.35)] blur-[80px]"></div>
+</div>
+<nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md brutal-border border-t-0 border-l-0 border-r-0">
+<div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-gradient-to-tr from-brutal-purple to-brutal-teal opacity-80 blur-[2px] brutal-border" style="border: 6px solid #000000; outline: none; box-shadow: none; border-radius: 0; box-sizing: border-box; opacity: 1; filter: none;"></div>
+<div class="text-3xl font-black tracking-tighter uppercase font-headline" style="">
+                Aura <span class="text-brutal-purple" style="">AI</span>
+</div>
+</div>
+<div class="hidden md:flex items-center gap-8 font-mono text-sm font-bold uppercase">
+<a class="hover:underline underline-offset-4 decoration-4" href="#" style="">Inicio</a>
+<a class="hover:underline underline-offset-4 decoration-4" href="#funcionalidades" style="">Funcionalidades</a>
+<a class="hover:underline underline-offset-4 decoration-4" href="#testimonios" style="">Testimonios</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="font-mono font-bold uppercase text-sm hover:underline" style="">Log_In</button>
+<button class="brutal-btn bg-brutal-teal text-black" style="">START_FREE</button>
+</div>
+</div>
+</nav>
+<section class="relative pt-40 pb-20 px-6 lg:px-8">
+<!-- Glowing Orb 1 -->
+<div class="glowing-orb" style="width: 250px; height: 250px; top: 10%; right: 5%; animation-delay: 0s;"></div>
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+<div class="z-10">
+<div class="inline-block bg-black text-white font-mono text-xs px-3 py-1 mb-6" style="">
+                STATUS: ONLINE_SECURE_ZONE
+            </div>
+<h1 class="font-headline text-6xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.9] mb-8" style="">
+                BIENESTAR <br/><span class="bg-black text-white px-2" style="">MENTAL</span> <br/>PARA TODOS
+            </h1>
+<p class="text-xl font-bold font-mono border-l-8 border-black pl-6 mb-10 max-w-lg uppercase" style="">
+                Aura AI es tu compañero 24/7. Sin adornos. Sin distracciones. Solo herramientas de contención pura.
+            </p>
+<div class="flex flex-col sm:flex-row gap-6">
+<button class="brutal-btn bg-brutal-purple text-white text-xl px-10 py-5 brutal-shadow" style="">
+                    COMIENZA AHORA
+                </button>
+<button class="brutal-btn bg-white text-black text-xl px-10 py-5" style="">
+                    VER DEMO_
+                </button>
+</div>
+</div>
+<div class="relative">
+<div class="brutal-border brutal-shadow bg-black">
+<img alt="Woman meditating" class="w-full aspect-square object-cover grayscale contrast-125" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpTp16D6oNsu5Nljan11aDO2gnBntVZbghVnHM0-AifYtdhiBEqgxuR4t2xlxXmeyg9isoZ3AUmyxRaLoXq2tM_3THFEzI1LhuoDC0ATYDkNimuxlWSeiGy5yoBTGRTujrHblmMG_PFr4N-sq9TDujLvRqa_7mv8uLl-Odujvdmy9bF4aptcwY9VKe4x_kSQgkQWCviZqiWA2u6mjmQes7PD7DGhfJK3B1U6rYlra2LxcIOBNT6xrVZvqEiufBW1_Wrw84_Vn6lJ4w" style=""/>
+</div>
+<div class="absolute -bottom-6 -left-6 bg-brutal-teal brutal-border p-4 brutal-shadow-sm font-mono text-sm font-black uppercase" style="">
+                CALMA_INMEDIATA</div>
+</div>
+</div>
+</section>
+<section class="bg-black text-white py-12 relative z-10">
+<div class="max-w-7xl mx-auto px-6">
+<div class="overflow-hidden whitespace-nowrap">
+<div class="ticker-container font-mono">
+<!-- First set of items -->
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">12K+</span>
+<span class="text-brutal-teal" style="">USUARIOS_ACTIVOS</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">94%</span>
+<span class="text-brutal-purple" style="">EFICIENCIA_ANSIEDAD</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">4.9★</span>
+<span class="text-brutal-coral" style="">RATING_CRÍTICO</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">24/7</span>
+<span class="text-white" style="">SUPPORT_ENGINE</span>
+</div>
+<!-- Second set of items for loop -->
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">12K+</span>
+<span class="text-brutal-teal" style="">USUARIOS_ACTIVOS</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">94%</span>
+<span class="text-brutal-purple" style="">EFICIENCIA_ANSIEDAD</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">4.9★</span>
+<span class="text-brutal-coral" style="">RATING_CRÍTICO</span>
+</div>
+<div class="ticker-item">
+<span class="text-6xl font-black" style="">24/7</span>
+<span class="text-white" style="">SUPPORT_ENGINE</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 px-6 relative z-10 overflow-x-hidden" id="funcionalidades" style="padding-left: 1rem; padding-right: 1rem; overflow-x: hidden;">
+<div class="max-w-7xl mx-auto">
+<h2 class="font-headline text-5xl font-black mb-12 uppercase tracking-tighter section-heading-mobile" style="font-size: clamp(1.2rem, 8vw, 2.5rem); word-break: break-word; overflow-wrap: break-word;">MÓDULOS_<br class="md:hidden"/>OPERATIVOS</h2>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<div class="md:col-span-8 brutal-card bg-brutal-coral/20 backdrop-blur-sm brutal-shadow flex flex-col justify-between">
+<div>
+<span class="material-symbols-outlined text-5xl mb-4" style="">emergency</span>
+<h3 class="text-3xl font-black uppercase mb-4" style="">Botón de Pánico SOS</h3>
+<p class="font-mono text-sm font-bold uppercase" style="">PROTOCOLO DE ENRAIZAMIENTO ACTIVADO CON UN CLIC. SIN DEMORAS.</p>
+</div>
+<div class="mt-8 bg-brutal-coral p-2 brutal-border text-center font-mono font-bold uppercase" style="">NIVEL_URGENCIA_ALTO</div>
+</div>
+<div class="md:col-span-4 brutal-card bg-brutal-purple/20 backdrop-blur-sm brutal-shadow-sm">
+<span class="material-symbols-outlined text-4xl mb-4" style="">smart_toy</span>
+<h3 class="text-2xl font-black uppercase mb-2" style="">Chatbot IA</h3>
+<p class="font-mono text-xs uppercase" style="">ANÁLISIS EMPÁTICO SIN FILTROS. PROCESAMIENTO 24/7.</p>
+</div>
+<div class="md:col-span-4 brutal-card bg-brutal-teal/20 backdrop-blur-sm brutal-shadow-sm">
+<span class="material-symbols-outlined text-4xl mb-4" style="">mood</span>
+<h3 class="text-2xl font-black uppercase mb-2" style="">Mood Tracker</h3>
+<p class="font-mono text-xs uppercase" style="">LOG_DIARIO_ESTADO_EMOCIONAL. SIN JUICIOS.</p>
+</div>
+<div class="md:col-span-4 brutal-card bg-white/80 backdrop-blur-sm brutal-shadow-sm flex flex-col justify-center items-center text-center min-h-[200px]">
+<span class="material-symbols-outlined text-4xl mb-4 text-brutal-teal" style=""><svg class="mb-4" fill="none" height="48" stroke="#00E5CC" stroke-linecap="round" stroke-width="3" viewbox="0 0 24 24" width="48">
+<line x1="4" x2="4" y1="14" y2="10"></line>
+<line x1="8" x2="8" y1="18" y2="6"></line>
+<line x1="12" x2="12" y1="15" y2="9"></line>
+<line x1="16" x2="16" y1="20" y2="4"></line>
+<line x1="20" x2="20" y1="14" y2="10"></line>
+</svg></span>
+<h3 class="text-3xl font-black uppercase mb-2 text-brutal-teal" style="">AUDIO_DATA</h3>
+<p class="font-mono text-xs font-bold uppercase text-black" id="temp-anchor-for-svg" style="">MODULACIÓN DE FRECUENCIAS CEREBRALES VÍA BINAURAL.</p>
+</div>
+<div class="md:col-span-4 brutal-card bg-white/60 backdrop-blur-sm border-dashed brutal-shadow-sm">
+<span class="material-symbols-outlined text-4xl mb-4" style="">videogame_asset</span>
+<h3 class="text-2xl font-black uppercase mb-2" style="">Minijuegos</h3>
+<p class="font-mono text-xs uppercase" style="">DISTRACCIÓN COGNITIVA CONTROLADA PARA CICLOS DE RUMIACIÓN.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 px-6 relative z-10" id="testimonios">
+<!-- Glowing Orb 2 -->
+<div class="glowing-orb" style="width: 200px; height: 200px; bottom: 10%; left: 5%; animation-delay: 2s;"></div>
+<div class="max-w-7xl mx-auto">
+<div class="mb-12">
+<p class="font-mono font-bold uppercase text-sm mb-4" style="">// EXPERIENCIAS REALES DE USUARIOS ACTIVOS</p>
+<h2 class="font-headline text-5xl font-black uppercase tracking-tighter section-heading-mobile" style="">VOCES_COMUNIDAD</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="brutal-card bg-black text-white brutal-shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex gap-1 mb-4 text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+</div>
+<p class="text-black italic mb-8" style="">"El botón SOS ha sido un salvavidas en mis momentos de mayor ansiedad. Saber que está ahí me da una paz inmensa."</p>
+</div>
+<p class="font-mono font-bold uppercase text-brutal-teal" style="">— Maria G.</p>
+</div>
+<div class="brutal-card bg-black text-white brutal-shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex gap-1 mb-4 text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+</div>
+<p class="text-black italic mb-8" style="">"El diseño es tan suave y sin distracciones. Abro la app y automáticamente siento que mi ritmo cardíaco baja."</p>
+</div>
+<p class="font-mono font-bold uppercase text-brutal-purple" style="">— Carlos T.</p>
+</div>
+<div class="brutal-card bg-black text-white brutal-shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex gap-1 mb-4 text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+<span class="material-symbols-outlined" style="">star</span>
+</div>
+<p class="text-black italic mb-8" style="">"El diario y el mood tracker me han ayudado a identificar qué desencadena mis bajones. Es como tener un psicólogo de bolsillo."</p>
+</div>
+<p class="font-mono font-bold uppercase text-brutal-coral" style="">— Laura M.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 px-6 relative z-10 overflow-x-hidden max-w-full">
+<!-- Glowing Orb 3 -->
+<div class="glowing-orb" style="width: 300px; height: 300px; top: 30%; right: -5%; animation-delay: 4s;"></div>
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-headline text-5xl font-black uppercase tracking-tighter mb-4 section-heading-mobile" style="">ADQUISICIÓN_DE_PLANES</h2>
+<p class="font-mono font-bold uppercase" style="">SELECCIONE NIVEL DE ACCESO REQUERIDO</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-0 max-w-6xl mx-auto font-mono">
+<div class="bg-white/80 backdrop-blur-md brutal-border p-8 flex flex-col h-full">
+<div class="bg-brutal-teal text-black p-2 mb-6 brutal-border border-black text-center font-black uppercase text-xl" style="">
+                    Gratis
+                </div>
+<div class="mb-6">
+<span class="text-6xl font-black" style="">0€</span>
+<span class="text-xs font-bold uppercase" style="">/UNIDAD_TIEMPO</span>
+</div>
+<p class="text-xs font-bold uppercase mb-8 border-b-2 border-black pb-4" style="">ID: ACCESO_BÁSICO_LIMITADO</p>
+<ul class="space-y-4 mb-auto text-sm font-bold uppercase">
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-teal" style="">check</span> Botón SOS Básico</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-teal" style="">check</span> Diario simple</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-teal" style="">check</span> 3 Ambientes sonoros</li>
+</ul>
+<button class="w-full brutal-btn bg-brutal-teal mt-12 text-black" style="">
+                    ACTIVAR_LICENCIA
+                </button>
+</div>
+<div class="bg-white/90 backdrop-blur-md brutal-border border-l-0 md:border-l-4 md:-translate-y-4 brutal-shadow p-8 flex flex-col h-full z-10 relative">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-white brutal-border border-black px-4 py-1 text-xs font-black uppercase flex items-center gap-1 z-20" style="">
+                    ⭐ MÁS POPULAR
+                </div>
+<div class="bg-brutal-purple text-white p-2 mb-6 brutal-border border-black text-center font-black uppercase text-xl" style="">
+                    Personal
+                </div>
+<div class="mb-6">
+<span class="text-6xl font-black" style="">6€</span>
+<span class="text-xs font-bold uppercase" style="">/UNIDAD_TIEMPO</span>
+</div>
+<p class="text-xs font-bold uppercase mb-8 border-b-2 border-black pb-4" style="">ID: EQUILIBRIO_OPTIMIZADO</p>
+<ul class="space-y-4 mb-auto text-sm font-black uppercase">
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-purple" style="">check</span> Todo lo de Gratis</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-purple" style="">check</span> Chatbot con IA (Ilimitado)</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-purple" style="">check</span> Insights de Mood Tracker</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-purple" style="">check</span> Todos los minijuegos</li>
+</ul>
+<button class="w-full brutal-btn bg-brutal-purple mt-12 text-white" style="">
+                    EJECUTAR_PLAN
+                </button>
+</div>
+<div class="bg-white/80 backdrop-blur-md brutal-border border-l-0 p-8 flex flex-col h-full">
+<div class="bg-brutal-coral text-white p-2 mb-6 brutal-border border-black text-center font-black uppercase text-xl" style="">
+                    Premium
+                </div>
+<div class="mb-6">
+<span class="text-6xl font-black" style="">12€</span>
+<span class="text-xs font-bold uppercase" style="">/UNIDAD_TIEMPO</span>
+</div>
+<p class="text-xs font-bold uppercase mb-8 border-b-2 border-black pb-4" style="">ID: CUIDADO_PROFUNDO_MAX</p>
+<ul class="space-y-4 mb-auto text-sm font-bold uppercase">
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-coral" style="">check</span> Todo lo de Personal</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-coral" style="">check</span> Sesiones de audio guiadas</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-coral" style="">check</span> Red de contactos ilimitada</li>
+<li class="flex items-center gap-2" style=""><span class="material-symbols-outlined text-brutal-coral" style="">check</span> Reportes exportables</li>
+</ul>
+<button class="w-full brutal-btn bg-brutal-coral mt-12 text-white" style="">
+                    UPGRADE_FULL
+                </button>
+</div>
+</div>
+</div>
+</section>
+<footer class="bg-black text-white py-16 px-8 brutal-border border-b-0 border-l-0 border-r-0 relative z-10">
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 items-start gap-12 font-mono">
+<div>
+<div class="text-4xl font-black tracking-tighter uppercase mb-4" style="">
+                Aura AI
+            </div>
+<p class="text-xs font-bold uppercase text-gray-400" style="">MANIFESTO_BRUTALISTA_V1.0</p>
+</div>
+<div class="flex flex-col gap-4 font-bold uppercase">
+<a class="hover:text-brutal-teal" href="#" style="">Privacidad_Data</a>
+<a class="hover:text-brutal-purple" href="#" style="">Términos_Legales</a>
+<a class="hover:text-brutal-coral" href="#" style="">Contacto_Soporte</a>
+</div>
+<div class="md:text-right font-black uppercase" style="">
+            © 2026 Aura AI. <br/>
+            REFUGIO_DIGITAL_TOTAL. <br/>
+            SISTEMA_OPERATIVO.
+        </div>
+</div>
+</footer>
+<script>
+    // Initialize Lenis for smooth scrolling
+    const lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // easeOutExpo
+        direction: 'vertical',
+        gestureDirection: 'vertical',
+        smooth: true,
+        mouseMultiplier: 1,
+        smoothTouch: false,
+        touchMultiplier: 2,
+        infinite: false,
+    });
+
+    function raf(time) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+</script>
+</body></html>
