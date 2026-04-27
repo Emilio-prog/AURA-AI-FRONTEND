@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface font-sans text-ink antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f0f0f0;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #000;
+  }
+
+  *:focus-visible {
+    outline: 3px solid theme('colors.brutal.purple');
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Tarjeta brutalista canónica: borde 4px negro + sombra dura.
+     Úsala como base; matiza con `bg-*` y `p-*`. */
+  .brutal-card {
+    @apply border-4 border-brutal-black bg-white p-6 shadow-brutal;
+  }
+
+  .brutal-card-sm {
+    @apply border-4 border-brutal-black bg-white p-4 shadow-brutal-sm;
+  }
+
+  /* Botón: sigue el patrón "press in" del HTML de referencia. */
+  .brutal-btn {
+    @apply inline-flex items-center justify-center gap-2 border-3 border-brutal-black bg-white px-5 py-2.5 font-sans text-xs font-bold uppercase tracking-wider text-brutal-black shadow-brutal-sm transition-transform duration-100 hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none;
+  }
+
+  .brutal-btn-coral {
+    @apply brutal-btn bg-brutal-coral text-white;
+  }
+  .brutal-btn-purple {
+    @apply brutal-btn bg-brutal-purple text-white;
+  }
+  .brutal-btn-teal {
+    @apply brutal-btn bg-brutal-teal text-brutal-black;
+  }
+  .brutal-btn-black {
+    @apply brutal-btn bg-brutal-black text-white;
+  }
+
+  /* Chip / badge mono. */
+  .brutal-chip {
+    @apply inline-flex items-center gap-1.5 border-2 border-brutal-black px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider;
+  }
+  .brutal-chip-coral {
+    @apply brutal-chip bg-brutal-coral text-white;
+  }
+  .brutal-chip-purple {
+    @apply brutal-chip bg-brutal-purple text-white;
+  }
+  .brutal-chip-teal {
+    @apply brutal-chip bg-brutal-teal text-brutal-black;
+  }
+  .brutal-chip-black {
+    @apply brutal-chip bg-brutal-black text-white;
+  }
+
+  /* Etiqueta mono pequeña: label de campos, breadcrumbs decorativos, stats. */
+  .brutal-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.08em] text-ink-muted;
+  }
+
+  /* Input base: sin radius, con borde. */
+  .brutal-input {
+    @apply focus-visible:outline-3 block w-full border-3 border-brutal-black bg-white px-4 py-2.5 font-sans text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-0 focus-visible:outline-offset-2 focus-visible:outline-brutal-purple;
+  }
+}
