@@ -2,7 +2,7 @@ export const STORAGE_KEYS = {
   token: 'aura.token',
   user: 'aura.user',
   users: 'aura.users',
-  section: 'aura.section',
+  section: 'aura-section',
 } as const;
 
 export function readJSON<T>(key: string): T | null {

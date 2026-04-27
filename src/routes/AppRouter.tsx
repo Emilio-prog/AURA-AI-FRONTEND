@@ -4,18 +4,7 @@ import { DevPlayground } from '@/pages/DevPlayground';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import {
-  DashboardHome,
-  SOSPage,
-  ChatbotPage,
-  MoodTrackerPage,
-  MinigamesPage,
-  SoundscapesPage,
-  DiaryPage,
-  ContactsPage,
-  SettingsPage,
-} from '@/pages/dashboard';
+import { AuraPanelPage } from '@/pages/dashboard/AuraPanelPage';
 import { PrivateRoute } from './PrivateRoute';
 import { PublicRoute } from './PublicRoute';
 
@@ -34,17 +23,7 @@ export function AppRouter() {
 
         {/* Dashboard: solo accesible CON sesión */}
         <Route element={<PrivateRoute />}>
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="sos" element={<SOSPage />} />
-            <Route path="chatbot" element={<ChatbotPage />} />
-            <Route path="mood" element={<MoodTrackerPage />} />
-            <Route path="juegos" element={<MinigamesPage />} />
-            <Route path="sonidos" element={<SoundscapesPage />} />
-            <Route path="diario" element={<DiaryPage />} />
-            <Route path="contactos" element={<ContactsPage />} />
-            <Route path="config" element={<SettingsPage />} />
-          </Route>
+          <Route path="/dashboard/*" element={<AuraPanelPage />} />
         </Route>
 
         {/* Playground del sistema de diseño — solo en desarrollo */}
