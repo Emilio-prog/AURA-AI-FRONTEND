@@ -90,6 +90,10 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateX(-12px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
+        'slide-in-left': {
+          from: { transform: 'translateX(-100%)' },
+          to: { transform: 'translateX(0)' },
+        },
       },
       animation: {
         breathe: 'breathe 14s ease-in-out infinite',
@@ -100,6 +104,7 @@ const config: Config = {
         marquee: 'marquee 22s linear infinite',
         'fade-up': 'fade-up 0.5s ease-out',
         'slide-in': 'slide-in 0.4s ease-out',
+        'slide-in-left': 'slide-in-left 0.25s ease-out',
       },
       backdropBlur: {
         brutal: '20px',

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import heroMeditationImage from '@/assets/landing/imagenYoga.png';
 
 export function HeroSection() {
@@ -27,12 +28,18 @@ export function HeroSection() {
           </p>
 
           <div className="flex flex-col gap-6 sm:flex-row">
-            <button className="border-4 border-brutal-black bg-brutal-purple px-10 py-5 text-xl font-bold uppercase tracking-tighter text-white shadow-brutal transition-all active:translate-x-1 active:translate-y-1 active:shadow-none">
+            <Link
+              to="/register"
+              className="border-4 border-brutal-black bg-brutal-purple px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-white shadow-brutal transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+            >
               COMIENZA AHORA
-            </button>
-            <button className="border-4 border-brutal-black bg-white px-10 py-5 text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none">
+            </Link>
+            <Link
+              to="/login"
+              className="border-4 border-brutal-black bg-white px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+            >
               VER DEMO_
-            </button>
+            </Link>
           </div>
         </div>
 

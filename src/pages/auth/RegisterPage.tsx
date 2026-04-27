@@ -1,0 +1,134 @@
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Button, Input } from '@/components/ui';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthLayout } from './AuthLayout';
+
+export function RegisterPage() {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+
+    if (name.trim().length < 2) {
+      setError('Nombre demasiado corto.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await register({ name, email, password });
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear cuenta.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthLayout
+      badge="ID: REGISTRO_NUEVO"
+      title="CREAR_CUENTA"
+      subtitle="// PROVISIÓN_USUARIO_NUEVO"
+      footer={
+        <p className="font-mono text-xs font-bold uppercase tracking-wider text-ink-muted">
+          ¿Ya tienes cuenta?{' '}
+          <Link to="/login" className="text-brutal-purple hover:underline">
+            INICIAR_SESIÓN →
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <Input
+          label="NOMBRE_COMPLETO"
+          type="text"
+          autoComplete="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          leftIcon={<User className="h-4 w-4" />}
+          placeholder="Tu nombre y apellido"
+        />
+
+        <Input
+          label="EMAIL_USUARIO"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          leftIcon={<Mail className="h-4 w-4" />}
+          placeholder="tu@email.com"
+        />
+
+        <Input
+          label="CONTRASEÑA"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          leftIcon={<Lock className="h-4 w-4" />}
+          placeholder="Mín. 6 caracteres"
+          hint="MIN_6_CHARS"
+        />
+
+        <Input
+          label="CONFIRMAR_CONTRASEÑA"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          leftIcon={<Lock className="h-4 w-4" />}
+          placeholder="Repite la contraseña"
+        />
+
+        {error && (
+          <div
+            role="alert"
+            className="border-3 border-brutal-coral bg-brutal-coral/10 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-brutal-coral"
+          >
+            ERR_REG: {error}
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          variant="purple"
+          size="lg"
+          loading={loading}
+          leftIcon={<UserPlus className="h-4 w-4" />}
+          className="w-full justify-center"
+        >
+          CREAR_CUENTA
+        </Button>
+
+        <p className="border-t-2 border-dashed border-brutal-black pt-4 font-mono text-[9px] font-bold uppercase leading-relaxed tracking-wider text-ink-muted">
+          ⚠ FASE_MOCK: Las cuentas se almacenan únicamente en localStorage de este navegador. No hay
+          persistencia en servidor.
+        </p>
+      </form>
+    </AuthLayout>
+  );
+}
