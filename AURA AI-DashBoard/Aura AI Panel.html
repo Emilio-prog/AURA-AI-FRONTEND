@@ -556,40 +556,225 @@ function BubbleGame(){
 }
 
 /* ── MINIJUEGOS VIEW ── */
+/* ── GAME HERO VISUALS (SVG atmospheric) ── */
+const GameHero={
+  arena:(
+    <svg width="100%" height="100%" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gh1sky" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#bae6fd"/><stop offset="100%" stopColor="#e0f2fe"/></linearGradient>
+        <linearGradient id="gh1fade" x1="0%" y1="60%" x2="0%" y2="100%"><stop offset="0%" stopColor="white" stopOpacity="0"/><stop offset="100%" stopColor="white" stopOpacity=".95"/></linearGradient>
+        <radialGradient id="gh1glow" cx="50%" cy="85%" r="50%"><stop offset="0%" stopColor="#fef9c3" stopOpacity=".6"/><stop offset="100%" stopColor="transparent"/></radialGradient>
+      </defs>
+      <rect width="480" height="200" fill="url(#gh1sky)"/>
+      <rect width="480" height="200" fill="url(#gh1glow)"/>
+      {/* Ground */}
+      <ellipse cx="240" cy="195" rx="260" ry="30" fill="#e0f7fa" opacity=".5"/>
+      {/* Cathedral */}
+      <g fill="white" opacity=".9" stroke="rgba(186,230,253,0.4)" strokeWidth=".5">
+        {/* Main body */}
+        <rect x="155" y="90" width="170" height="110"/>
+        {/* Front towers */}
+        <rect x="155" y="50" width="38" height="80"/><rect x="287" y="50" width="38" height="80"/>
+        {/* Spires */}
+        <polygon points="174,50 155,50 164.5,14"/><polygon points="174,50 193,50 164.5,14"/>
+        <polygon points="306,50 287,50 296.5,14"/><polygon points="306,50 325,50 296.5,14"/>
+        {/* Center nave */}
+        <rect x="193" y="70" width="94" height="30"/>
+        {/* Rose window */}
+        <circle cx="240" cy="82" r="10" fill="rgba(186,230,253,.5)" stroke="rgba(186,230,253,.8)" strokeWidth="1.5"/>
+        {/* Door arch */}
+        <rect x="224" y="130" width="32" height="70"/>
+        <path d="M224 130 Q240 112 256 130" fill="rgba(186,230,253,.35)"/>
+        {/* Side windows */}
+        {[175,205,255,285].map((x,i)=><rect key={i} x={x} y="100" width="14" height="26" rx="7" fill="rgba(186,230,253,.45)"/>)}
+      </g>
+      <rect width="480" height="200" fill="url(#gh1fade)"/>
+    </svg>
+  ),
+  cromatica:(
+    <svg width="100%" height="100%" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gh2bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#0f0c29"/><stop offset="50%" stopColor="#1e1b4b"/><stop offset="100%" stopColor="#0d1117"/></linearGradient>
+        <radialGradient id="gh2orb" cx="50%" cy="52%" r="28%"><stop offset="0%" stopColor="#a5f3fc" stopOpacity=".95"/><stop offset="35%" stopColor="#818cf8" stopOpacity=".55"/><stop offset="100%" stopColor="transparent"/></radialGradient>
+        <radialGradient id="gh2halo" cx="50%" cy="52%" r="55%"><stop offset="0%" stopColor="#6366f1" stopOpacity=".15"/><stop offset="100%" stopColor="transparent"/></radialGradient>
+        <linearGradient id="gh2fade" x1="0%" y1="55%" x2="0%" y2="100%"><stop offset="0%" stopColor="white" stopOpacity="0"/><stop offset="100%" stopColor="white" stopOpacity=".92"/></linearGradient>
+      </defs>
+      <rect width="480" height="200" fill="url(#gh2bg)"/>
+      <rect width="480" height="200" fill="url(#gh2halo)"/>
+      {/* Star field */}
+      {[[60,30],[120,55],[300,22],[380,40],[440,70],[30,80],[180,35],[420,18],[90,15],[350,65]].map(([x,y],i)=>(
+        <circle key={i} cx={x} cy={y} r={i%3===0?1.5:.8} fill="white" opacity={.4+i*.04}/>
+      ))}
+      {/* Light beam */}
+      <ellipse cx="240" cy="104" rx="22" ry="7" fill="#e0f2fe" opacity=".9"/>
+      <ellipse cx="240" cy="104" rx="60" ry="18" fill="url(#gh2orb)"/>
+      {/* Horizon line */}
+      <line x1="80" y1="104" x2="160" y2="104" stroke="#c7d2fe" strokeWidth=".5" opacity=".4"/>
+      <line x1="320" y1="104" x2="400" y2="104" stroke="#c7d2fe" strokeWidth=".5" opacity=".4"/>
+      <rect width="480" height="200" fill="url(#gh2fade)"/>
+    </svg>
+  ),
+  burbujas:(
+    <svg width="100%" height="100%" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gh3bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#fce7f3"/><stop offset="60%" stopColor="#f5d0fe"/><stop offset="100%" stopColor="#fecdd3"/></linearGradient>
+        <linearGradient id="gh3fade" x1="0%" y1="55%" x2="0%" y2="100%"><stop offset="0%" stopColor="white" stopOpacity="0"/><stop offset="100%" stopColor="white" stopOpacity=".92"/></linearGradient>
+      </defs>
+      <rect width="480" height="200" fill="url(#gh3bg)"/>
+      {[
+        {cx:90,cy:70,r:44,f:'#f0abfc',o:.5},{cx:240,cy:50,r:32,f:'#c084fc',o:.42},
+        {cx:370,cy:80,r:54,f:'#fb7185',o:.42},{cx:155,cy:140,r:26,f:'#f9a8d4',o:.45},
+        {cx:320,cy:150,r:38,f:'#fda4af',o:.4},{cx:50,cy:155,r:20,f:'#e879f9',o:.35},
+        {cx:430,cy:45,r:28,f:'#c084fc',o:.4},{cx:450,cy:155,r:22,f:'#fb7185',o:.3},
+        {cx:200,cy:100,r:18,f:'#f0abfc',o:.38},{cx:280,cy:95,r:15,f:'#818cf8',o:.35},
+      ].map(({cx,cy,r,f,o},i)=>(
+        <g key={i}>
+          <circle cx={cx} cy={cy} r={r} fill={f} opacity={o} stroke="white" strokeWidth="1.5" strokeOpacity=".5"/>
+          <ellipse cx={cx-r*.28} cy={cy-r*.32} rx={r*.2} ry={r*.12} fill="white" opacity=".4"/>
+        </g>
+      ))}
+      <rect width="480" height="200" fill="url(#gh3fade)"/>
+    </svg>
+  ),
+  memoria:(
+    <svg width="100%" height="100%" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gh4bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#f5f3ff"/><stop offset="100%" stopColor="#ede9fe"/></linearGradient>
+        <linearGradient id="gh4fade" x1="0%" y1="55%" x2="0%" y2="100%"><stop offset="0%" stopColor="white" stopOpacity="0"/><stop offset="100%" stopColor="white" stopOpacity=".92"/></linearGradient>
+      </defs>
+      <rect width="480" height="200" fill="url(#gh4bg)"/>
+      {/* Grid of tiles */}
+      {[['#a855f7','#2dd4bf','#fb7185','#818cf8','#34d399'],
+        ['#2dd4bf','#fb7185','#a855f7','#34d399','#818cf8'],
+        ['#818cf8','#a855f7','#2dd4bf','#fb7185','#34d399']].map((row,ri)=>
+        row.map((col,ci)=>{
+          const show=[[1,0,1,1,0],[0,1,1,0,1],[1,1,0,1,0]][ri][ci];
+          return show?(
+            <rect key={`${ri}-${ci}`} x={80+ci*66} y={20+ri*55} width={52} height={42}
+              fill={col} opacity=".38" stroke="white" strokeWidth="2.5"/>
+          ):null;
+        })
+      )}
+      {/* Highlight one */}
+      <rect x={80+2*66} y={20} width={52} height={42} fill="#a855f7" opacity=".65" stroke="#000" strokeWidth="2"/>
+      <rect width="480" height="200" fill="url(#gh4fade)"/>
+    </svg>
+  ),
+};
+
 function MinijuegosView(){
+  const [active,setActive]=useState(null);
+
   const juegos=[
-    {icon:'🏖️',l:'PINTURA_CON_ARENA',desc:'Dibuja libremente sin metas ni game over',c:T,bg:TL,badge:'SIN_GAME_OVER'},
-    {icon:'🎨',l:'ORDENACIÓN_CROMÁTICA',desc:'Clasifica gradientes por tono',c:M,bg:ML,badge:'DURACIÓN: 3-5_MIN'},
-    {icon:'💬',l:'EXPLOTAR_BURBUJAS',desc:'Bubble wrap digital infinito',c:CR,bg:CL,badge:'SIN_LÍMITE_TIEMPO'},
-    {icon:'🧩',l:'MEMORIA_VISUAL_TETRIS',desc:'Vacuna cognitiva para pensamientos intrusivos',c:K,bg:'#f0f0f0',badge:'BASADO_EVIDENCIA'},
+    {
+      id:'arena',
+      hero:'arena',
+      chips:[{l:'SIN_GAME_OVER',c:T,bg:TL},{l:'DURACIÓN_SUGERIDA: 5_MIN',c:'#555',bg:'#f5f5f5'}],
+      title:'PINTURA_CON_ARENA',
+      desc:'Flujos cromáticos interactivos para enraizar tu atención en el momento presente.',
+      cta:'COMENZAR_VIAJE →',
+      btnBg:T,btnColor:K,
+    },
+    {
+      id:'cromatica',
+      hero:'cromatica',
+      chips:[{l:'SIN_GAME_OVER',c:M,bg:ML},{l:'DURACIÓN_SUGERIDA: 10_MIN',c:'#555',bg:'#f5f5f5'}],
+      title:'ORDENACIÓN_CROMÁTICA',
+      desc:'Organiza gradientes suaves para estructurar tus pensamientos caóticos.',
+      cta:'EXPLORAR_ARMONÍA →',
+      btnBg:M,btnColor:W,
+    },
+    {
+      id:'burbujas',
+      hero:'burbujas',
+      chips:[{l:'SIN_GAME_OVER',c:CR,bg:CL},{l:'FLUJO_INFINITO',c:'#555',bg:'#f5f5f5'}],
+      title:'EXPLOTAR_BURBUJAS',
+      desc:'Estímulo táctil de baja carga cognitiva. Sin consecuencias. Solo desahogo.',
+      cta:'LIBERAR_TENSIÓN →',
+      btnBg:CR,btnColor:W,
+    },
+    {
+      id:'memoria',
+      hero:'memoria',
+      chips:[{l:'BASADO_EN_EVIDENCIA',c:M,bg:ML},{l:'DURACIÓN_SUGERIDA: 8_MIN',c:'#555',bg:'#f5f5f5'}],
+      title:'MEMORIA_VISUAL',
+      desc:'Vacuna cognitiva para pensamientos intrusivos. Redirige el foco con suavidad.',
+      cta:'EXPLORAR_CALMA →',
+      btnBg:K,btnColor:W,
+    },
   ];
+
   return(
-    <div style={{display:'flex',flexDirection:'column',gap:16,animation:'fadeUp .3s ease'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div>
-          <div style={{fontWeight:900,fontSize:20,letterSpacing:'-0.03em'}}>MINIJUEGOS_ANTI_ANSIEDAD</div>
-          <div className="lbl" style={{marginTop:4}}>SIN_GAME_OVER · SIN_PRESIÓN · SOLO_CALMA</div>
+    <div style={{display:'flex',flexDirection:'column',gap:28,animation:'fadeUp .3s ease'}}>
+      {/* Header */}
+      <div>
+        <div style={{fontWeight:900,fontSize:34,letterSpacing:'-0.04em',lineHeight:1.05,fontFamily:'Inter,sans-serif'}}>
+          REFUGIO_LÚDICO<span style={{color:M}}>.</span>
         </div>
-        <span className="chip chip-turquesa">4_DISPONIBLES</span>
+        <div style={{fontSize:14,color:'#555',marginTop:10,maxWidth:520,lineHeight:1.75}}>
+          Ejercicios interactivos diseñados para reducir la carga cognitiva y promover la calma activa. Sin puntuaciones. Sin presión.
+        </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-        {juegos.map(({icon,l,desc,c,bg,badge},i)=>(
-          <div key={l} className="bc" style={{background:bg,gap:12,display:'flex',flexDirection:'column'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <span style={{fontSize:32}}>{icon}</span>
-              <span style={{border:`2px solid ${c}`,padding:'3px 8px',fontFamily:'Space Mono',fontSize:8,fontWeight:700,color:c,background:W}}>{badge}</span>
+
+      {/* 2-col bento grid */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+        {juegos.map(({id,hero,chips,title,desc,cta,btnBg,btnColor})=>(
+          <div key={id}
+            style={{border:BORDE,boxShadow:SOMBRA,background:W,display:'flex',flexDirection:'column',overflow:'hidden',transition:'transform .12s,box-shadow .12s'}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translate(-3px,-3px)';e.currentTarget.style.boxShadow='12px 12px 0 0 #000';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=SOMBRA;}}>
+            {/* Hero image */}
+            <div style={{height:200,overflow:'hidden',borderBottom:BORDE,flexShrink:0,position:'relative'}}>
+              {GameHero[hero]}
             </div>
-            <div style={{fontWeight:900,fontSize:13,letterSpacing:'-0.01em'}}>{l}</div>
-            <div className="lbl" style={{fontSize:10,lineHeight:1.5}}>{desc}</div>
-            <button className="btn" style={{background:c,color:c===K?W:K,borderColor:K,justifyContent:'center',fontSize:10}}>JUGAR_AHORA →</button>
+            {/* Card body */}
+            <div style={{padding:'20px 22px 24px',display:'flex',flexDirection:'column',gap:14,flex:1}}>
+              {/* Chips */}
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {chips.map(({l,c,bg})=>(
+                  <span key={l} style={{border:`2px solid ${K}`,padding:'3px 10px',fontFamily:'Space Mono,monospace',fontSize:9,fontWeight:700,letterSpacing:'0.05em',background:bg,color:c}}>{l}</span>
+                ))}
+              </div>
+              {/* Title */}
+              <div style={{fontWeight:900,fontSize:19,letterSpacing:'-0.025em',lineHeight:1.1}}>{title}</div>
+              {/* Desc */}
+              <div style={{fontSize:13,color:'#444',lineHeight:1.75,flex:1}}>{desc}</div>
+              {/* CTA */}
+              <button
+                onClick={()=>setActive(active===id?null:id)}
+                style={{border:BORDE,boxShadow:SOMBRA_SM,padding:'13px 20px',background:active===id?'#f5f5f5':btnBg,color:active===id?K:btnColor,fontFamily:'Space Mono,monospace',fontSize:11,fontWeight:700,letterSpacing:'0.05em',cursor:'pointer',textAlign:'left',transition:'transform .1s,box-shadow .1s',alignSelf:'flex-start'}}
+                onMouseDown={e=>{e.currentTarget.style.transform='translate(4px,4px)';e.currentTarget.style.boxShadow='none';}}
+                onMouseUp={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=SOMBRA_SM;}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=SOMBRA_SM;}}>
+                {active===id?'CERRAR_SESIÓN ×':cta}
+              </button>
+            </div>
           </div>
         ))}
       </div>
-      <div className="bc">
-        <div style={{fontWeight:900,fontSize:13,marginBottom:14}}>EXPLOTAR_BURBUJAS · DEMO_INTERACTIVA</div>
-        <BubbleGame/>
-        <div className="lbl" style={{marginTop:8,fontSize:9}}>SIN_PRESIÓN · SIN_PUNTUACIÓN_COMPETITIVA · SOLO_DESAHOGO</div>
-      </div>
+
+      {/* Active game panel */}
+      {active==='burbujas'&&(
+        <div style={{border:BORDE,boxShadow:SOMBRA,background:W,padding:28,animation:'fadeUp .25s ease'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div>
+              <div style={{fontWeight:900,fontSize:16,letterSpacing:'-0.02em'}}>EXPLOTAR_BURBUJAS · EN_SESIÓN</div>
+              <div className="lbl" style={{fontSize:9,color:'#555',marginTop:3}}>SIN_PRESIÓN · SIN_PUNTUACIÓN · SOLO_DESAHOGO</div>
+            </div>
+          </div>
+          <BubbleGame/>
+        </div>
+      )}
+      {active&&active!=='burbujas'&&(
+        <div style={{border:BORDE,boxShadow:SOMBRA,background:W,padding:28,animation:'fadeUp .25s ease'}}>
+          <div style={{fontWeight:900,fontSize:15,letterSpacing:'-0.02em',marginBottom:14}}>MÓDULO_EN_DESARROLLO</div>
+          <div style={{border:'3px dashed #ddd',padding:'32px',textAlign:'center',background:'#fafafa'}}>
+            <div className="lbl" style={{fontSize:10,marginBottom:8,color:'#999'}}>PRÓXIMAMENTE_DISPONIBLE</div>
+            <div style={{fontSize:13,color:'#555',lineHeight:1.7}}>Este ejercicio estará disponible en la próxima actualización.<br/>Mientras tanto, prueba EXPLOTAR_BURBUJAS.</div>
+            <button onClick={()=>setActive('burbujas')} className="btn btn-turquesa" style={{marginTop:16,fontSize:10}}>IR_A_BURBUJAS →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
