@@ -1,155 +1,109 @@
-import { Check } from 'lucide-react';
-import { Button } from '@/components/ui';
-import { cn } from '@/utils/cn';
-
-interface PlanFeature {
-  text: string;
-}
-
-interface Plan {
-  id: string;
-  name: string;
-  price: string;
-  period: string;
-  tagline: string;
-  features: PlanFeature[];
-  accentBg: string; // header bg
-  accentText: string; // header text
-  accentCheck: string; // check icon color
-  ctaLabel: string;
-  ctaVariant: 'teal' | 'purple' | 'coral';
-  highlighted?: boolean;
-}
-
-const plans: Plan[] = [
+const plans = [
   {
-    id: 'gratis',
     name: 'Gratis',
     price: '0€',
-    period: '/UNIDAD_TIEMPO',
-    tagline: 'ID: ACCESO_BÁSICO_LIMITADO',
-    features: [
-      { text: 'Botón SOS Básico' },
-      { text: 'Diario simple' },
-      { text: '3 Ambientes sonoros' },
-    ],
-    accentBg: 'bg-brutal-teal',
-    accentText: 'text-brutal-black',
-    accentCheck: 'text-brutal-teal',
-    ctaLabel: 'ACTIVAR_LICENCIA',
-    ctaVariant: 'teal',
+    id: 'ID: ACCESO_BÁSICO_LIMITADO',
+    features: ['Botón SOS Básico', 'Diario simple', '3 Ambientes sonoros'],
+    cta: 'ACTIVAR_LICENCIA',
+    headerClassName: 'bg-brutal-teal text-black',
+    className: 'bg-white/80 backdrop-blur-md border-4 border-brutal-black p-8 flex flex-col h-full',
+    buttonClassName: 'bg-brutal-teal text-black',
+    checkClassName: 'text-brutal-teal',
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    price: '9€',
-    period: '/MES',
-    tagline: 'ID: EQUILIBRIO_OPTIMIZADO',
+    name: 'Personal',
+    price: '6€',
+    id: 'ID: EQUILIBRIO_OPTIMIZADO',
     features: [
-      { text: 'Todo lo de Gratis' },
-      { text: 'Chatbot IA ilimitado' },
-      { text: 'Insights de Mood Tracker' },
-      { text: 'Todos los minijuegos' },
-      { text: 'Todos los ambientes sonoros' },
+      'Todo lo de Gratis',
+      'Chatbot con IA (Ilimitado)',
+      'Insights de Mood Tracker',
+      'Todos los minijuegos',
     ],
-    accentBg: 'bg-brutal-purple',
-    accentText: 'text-white',
-    accentCheck: 'text-brutal-purple',
-    ctaLabel: 'EJECUTAR_PLAN',
-    ctaVariant: 'purple',
-    highlighted: true,
+    cta: 'EJECUTAR_PLAN',
+    headerClassName: 'bg-brutal-purple text-white',
+    className:
+      'relative z-10 flex h-full -translate-y-4 flex-col border-4 border-l-0 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md md:border-l-4',
+    buttonClassName: 'bg-brutal-purple text-white',
+    checkClassName: 'text-brutal-purple',
+    popular: true,
   },
   {
-    id: 'equipo',
-    name: 'Equipo',
-    price: '29€',
-    period: '/MES',
-    tagline: 'ID: CUIDADO_COLECTIVO_MAX',
+    name: 'Premium',
+    price: '12€',
+    id: 'ID: CUIDADO_PROFUNDO_MAX',
     features: [
-      { text: 'Todo lo de Pro' },
-      { text: 'Panel de administración' },
-      { text: 'Hasta 20 usuarios' },
-      { text: 'Reportes y exportación' },
-      { text: 'Soporte prioritario' },
+      'Todo lo de Personal',
+      'Sesiones de audio guiadas',
+      'Red de contactos ilimitada',
+      'Reportes exportables',
     ],
-    accentBg: 'bg-brutal-coral',
-    accentText: 'text-white',
-    accentCheck: 'text-brutal-coral',
-    ctaLabel: 'UPGRADE_FULL',
-    ctaVariant: 'coral',
+    cta: 'UPGRADE_FULL',
+    headerClassName: 'bg-brutal-coral text-white',
+    className:
+      'flex h-full flex-col border-4 border-l-0 border-brutal-black bg-white/80 p-8 backdrop-blur-md',
+    buttonClassName: 'bg-brutal-coral text-white',
+    checkClassName: 'text-brutal-coral',
   },
 ];
 
 export function PricingSection() {
   return (
-    <section id="precios" className="relative z-10 overflow-x-hidden px-6 py-24 lg:px-8">
+    <section className="relative z-10 max-w-full overflow-x-hidden px-6 py-24" id="precios">
+      <div
+        aria-hidden="true"
+        className="glowing-orb"
+        style={{ width: 300, height: 300, top: '30%', right: '-5%', animationDelay: '4s' }}
+      />
+
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
         <div className="mb-16 text-center">
-          <h2 className="mb-4 font-headline text-4xl font-black uppercase tracking-tighter lg:text-5xl">
+          <h2 className="section-heading-mobile mb-4 font-headline text-5xl font-black uppercase tracking-tighter">
             ADQUISICIÓN_DE_PLANES
           </h2>
-          <p className="font-mono text-xs font-bold uppercase">
-            SELECCIONE NIVEL DE ACCESO REQUERIDO
-          </p>
+          <p className="font-mono font-bold uppercase">SELECCIONE NIVEL DE ACCESO REQUERIDO</p>
         </div>
 
-        {/* Plans grid */}
-        <div className="mx-auto grid max-w-5xl grid-cols-1 md:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-0 font-mono md:grid-cols-3">
           {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={cn(
-                'relative flex flex-col border-4 border-brutal-black bg-white/85 p-8 backdrop-blur-md',
-                // Remove left border on middle and right cards on desktop (adjacent borders collapse)
-                plan.id !== 'gratis' && 'md:border-l-0',
-                plan.highlighted && 'z-10 shadow-brutal md:-translate-y-4 md:border-l-4',
-              )}
-            >
-              {/* "Más popular" badge */}
-              {plan.highlighted && (
-                <div className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap border-4 border-brutal-black bg-white px-4 py-1 font-mono text-[10px] font-black uppercase">
-                  ⭐ MÁS POPULAR
+            <div key={plan.name} className={plan.className}>
+              {plan.popular && (
+                <div className="absolute -top-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 border-4 border-brutal-black bg-white px-4 py-1 text-xs font-black uppercase">
+                  ★ MÁS POPULAR
                 </div>
               )}
 
-              {/* Plan name header */}
               <div
-                className={`mb-6 border-4 border-brutal-black p-2 text-center font-headline text-xl font-black uppercase ${plan.accentBg} ${plan.accentText}`}
+                className={`mb-6 border-4 border-brutal-black p-2 text-center text-xl font-black uppercase ${plan.headerClassName}`}
               >
                 {plan.name}
               </div>
 
-              {/* Price */}
               <div className="mb-6">
-                <span className="font-headline text-6xl font-black">{plan.price}</span>
-                <span className="ml-1 font-mono text-[10px] font-bold uppercase text-ink-muted">
-                  {plan.period}
-                </span>
+                <span className="text-6xl font-black">{plan.price}</span>
+                <span className="text-xs font-bold uppercase">/UNIDAD_TIEMPO</span>
               </div>
 
-              {/* Tagline */}
-              <p className="mb-8 border-b-2 border-brutal-black pb-4 font-mono text-[10px] font-bold uppercase">
-                {plan.tagline}
+              <p className="mb-8 border-b-2 border-black pb-4 text-xs font-bold uppercase">
+                {plan.id}
               </p>
 
-              {/* Features */}
-              <ul className="mb-auto space-y-4">
-                {plan.features.map(({ text }) => (
-                  <li
-                    key={text}
-                    className="flex items-center gap-2 font-mono text-xs font-bold uppercase"
-                  >
-                    <Check className={`h-4 w-4 shrink-0 ${plan.accentCheck}`} aria-hidden="true" />
-                    {text}
+              <ul className="mb-auto space-y-4 text-sm font-bold uppercase">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <span className={`material-symbols-outlined ${plan.checkClassName}`}>
+                      check
+                    </span>
+                    {feature}
                   </li>
                 ))}
               </ul>
 
-              {/* CTA */}
-              <Button variant={plan.ctaVariant} size="md" className="mt-12 w-full justify-center">
-                {plan.ctaLabel}
-              </Button>
+              <button
+                className={`mt-12 w-full border-4 border-brutal-black px-6 py-3 font-bold uppercase tracking-tighter shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none ${plan.buttonClassName}`}
+              >
+                {plan.cta}
+              </button>
             </div>
           ))}
         </div>

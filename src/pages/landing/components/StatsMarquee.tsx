@@ -5,27 +5,22 @@ const stats = [
   { value: '24/7', label: 'SUPPORT_ENGINE', color: 'text-white' },
 ];
 
-// Duplicamos para el loop infinito del marquee
-const doubled = [...stats, ...stats];
+const tickerItems = [...stats, ...stats];
 
 export function StatsMarquee() {
   return (
-    <section
-      className="relative z-10 overflow-hidden border-y-4 border-brutal-black bg-brutal-black py-12 text-white"
-      aria-label="Estadísticas de AURA IA"
-    >
-      <div className="flex w-max animate-marquee items-center gap-0">
-        {doubled.map(({ value, label, color }, i) => (
-          <div
-            key={i}
-            className="flex shrink-0 flex-col items-center border-r border-white/20 px-16"
-          >
-            <span className="font-headline text-6xl font-black leading-none">{value}</span>
-            <span className={`mt-1 font-mono text-xs font-bold uppercase tracking-widest ${color}`}>
-              {label}
-            </span>
+    <section className="relative z-10 bg-black py-12 text-white" aria-label="Estadísticas">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="overflow-hidden whitespace-nowrap">
+          <div className="landing-ticker-container font-mono">
+            {tickerItems.map(({ value, label, color }, index) => (
+              <div key={`${label}-${index}`} className="landing-ticker-item">
+                <span className="text-6xl font-black">{value}</span>
+                <span className={color}>{label}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

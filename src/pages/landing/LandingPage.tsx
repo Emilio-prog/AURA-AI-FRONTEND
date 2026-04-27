@@ -30,7 +30,7 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="relative font-sans antialiased">
+    <div className="landing-page relative font-sans antialiased">
       <BlobsBackground />
       <LandingNavbar />
       <main>
