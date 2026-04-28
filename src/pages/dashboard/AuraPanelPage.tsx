@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 /* ── CONSTANTS ── */
 const T = '#2DD4BF',
@@ -31,6 +32,40 @@ const NAV = [
 
 const PANEL_SECTIONS = NAV.map(({ id }) => id);
 
+const DEFAULT_PANEL_USER = {
+  name: 'María Solís',
+  email: 'demo@aura.ai',
+  plan: 'pro',
+  initials: 'MS',
+};
+
+const panelFirstName = (name) => name?.trim().split(/\s+/)[0] || 'María';
+
+const planLabel = (plan) => {
+  if (plan === 'team') return 'TEAM';
+  if (plan === 'pro') return 'PRO';
+  return 'FREE';
+};
+
+const todayMoodKey = () => {
+  const d = new Date();
+  return `aura-mood-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`;
+};
+
+const panelDateLabel = () =>
+  new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(new Date())
+    .replace(/\./g, '')
+    .replace(/,/g, '')
+    .toUpperCase();
+
 function sectionFromPath(pathname) {
   const match = pathname.match(/\/dashboard\/([^/]+)/);
   if (!match) return null;
@@ -39,6 +74,9 @@ function sectionFromPath(pathname) {
 
 /* ── SIDEBAR ── */
 function Sidebar({ active, set }) {
+  const { user } = useAuth();
+  const panelUser = user ?? DEFAULT_PANEL_USER;
+
   return (
     <aside
       style={{
@@ -87,7 +125,6 @@ function Sidebar({ active, set }) {
             key={id}
             onClick={() => set(id)}
             className={`nav-item${active === id ? 'active' : ''}${sos ? 'sos-nav' : ''}`}
-            style={active === id ? { background: M, color: W } : {}}
           >
             <span
               className="icon"
@@ -103,7 +140,6 @@ function Sidebar({ active, set }) {
                   height: 8,
                   borderRadius: '50%',
                   background: CR,
-                  animation: 'pulse 2s ease infinite',
                   flexShrink: 0,
                 }}
               />
@@ -126,20 +162,23 @@ function Sidebar({ active, set }) {
             width: 36,
             height: 36,
             border: BORDE,
-            background: ML,
+            background: M,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 18,
+            fontSize: 11,
+            color: W,
+            fontWeight: 900,
+            letterSpacing: '0.06em',
             flexShrink: 0,
           }}
         >
-          👩
+          {panelUser.initials}
         </div>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700 }}>Laura García</div>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>{panelUser.name}</div>
           <div className="lbl lbl-turquesa" style={{ fontSize: 9 }}>
-            PLAN_PERSONAL_ACTIVO
+            PLAN_{planLabel(panelUser.plan)}_ACTIVO
           </div>
         </div>
       </div>
@@ -296,7 +335,9 @@ function SOSBentoCard({ openBreathing }) {
 
 /* ── HERO BENTO CARD ── */
 function HeroBentoCard() {
-  const [mood, setMood] = useState(null);
+  const { user } = useAuth();
+  const panelUser = user ?? DEFAULT_PANEL_USER;
+  const [mood, setMood] = useState(() => localStorage.getItem(todayMoodKey()));
   const moods = [
     { e: '😰', l: 'MUY_MAL', c: CR },
     { e: '😔', l: 'MAL', c: '#fb923c' },
@@ -306,25 +347,30 @@ function HeroBentoCard() {
   ];
   const h = new Date().getHours();
   const greet = h < 12 ? 'BUENOS_DÍAS_' : h < 18 ? 'BUENAS_TARDES_' : 'BUENAS_NOCHES_';
+  const registerMood = (value) => {
+    setMood(value);
+    localStorage.setItem(todayMoodKey(), value);
+  };
+
   return (
     <div className="bc c8" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div className="lbl" style={{ marginBottom: 6 }}>
-          {h < 12 ? 'BUENOS_DÍAS_' : h < 18 ? 'BUENAS_TARDES_' : 'BUENAS_NOCHES_'}{' '}
-          <span style={{ color: M }}>LAURA</span>
+          {greet}
+          <span style={{ color: M }}>{panelFirstName(panelUser.name).toUpperCase()}</span>
         </div>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
           ¿CÓMO_ESTÁS_HOY?
         </div>
         <div className="lbl" style={{ marginTop: 6 }}>
-          LUN, 27 ABR 2026 · <span style={{ color: T }}>REGISTRA_TU_ESTADO_EMOCIONAL</span>
+          {panelDateLabel()} · <span style={{ color: T }}>REGISTRA_TU_ESTADO_EMOCIONAL</span>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         {moods.map(({ e, l, c }) => (
           <button
             key={l}
-            onClick={() => setMood(l)}
+            onClick={() => registerMood(l)}
             style={{
               flex: 1,
               display: 'flex',
@@ -363,7 +409,7 @@ function HeroBentoCard() {
             LOG_MOOD_REGISTRADO
           </span>
           <span className="mono" style={{ fontSize: 10, color: K }}>
-            ESTADO: {mood} · 27/04/2026 ·{' '}
+            ESTADO: {mood} · {panelDateLabel()} ·{' '}
             {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
@@ -790,9 +836,40 @@ function DashboardView({ setSection, openBreathing }) {
 /* ── SOS VIEW ── */
 function SOSView({ openBreathing }) {
   const contacts = [
-    { name: 'Ana López', rol: 'HERMANA', e: '👩', avail: true },
-    { name: 'Dr. Carlos Ruiz', rol: 'PSICÓLOGO', e: '👨‍⚕️', avail: true },
-    { name: 'Marco Sánchez', rol: 'AMIGO', e: '👨', avail: false },
+    { name: 'Ana López', rol: 'HERMANA', e: '👩', avail: true, phone: '+34600111222' },
+    { name: 'Dr. Carlos Ruiz', rol: 'PSICÓLOGO', e: '👨‍⚕️', avail: true, phone: '+34600666777' },
+    { name: 'Marco Sánchez', rol: 'AMIGO', e: '👨', avail: false, phone: '+34600999888' },
+  ];
+  const emergencyNumbers = [
+    {
+      label: 'EMERGENCIAS',
+      number: '112',
+      detail: 'RIESGO_INMEDIATO · ATENCIÓN_URGENTE',
+      color: CR,
+    },
+    {
+      label: 'LÍNEA_024',
+      number: '024',
+      detail: 'CONDUCTA_SUICIDA · ESPAÑA_24H',
+      color: M,
+    },
+  ];
+  const resources = [
+    {
+      title: 'GROUNDING_5-4-3-2-1',
+      text: 'Nombra 5 cosas que ves, 4 que sientes, 3 que oyes, 2 que hueles y 1 que saboreas.',
+      icon: 'psychology_alt',
+    },
+    {
+      title: 'ANCLAJE_FÍSICO',
+      text: 'Apoya ambos pies en el suelo, presiona las palmas y describe dónde estás en voz baja.',
+      icon: 'self_improvement',
+    },
+    {
+      title: 'MENSAJE_SEGURO',
+      text: 'Escribe a una persona de confianza: "Necesito compañía unos minutos. ¿Puedes llamarme?".',
+      icon: 'sms',
+    },
   ];
   const [sent, setSent] = useState({});
   return (
@@ -824,7 +901,7 @@ function SOSView({ openBreathing }) {
           }}
         >
           <div className="mono" style={{ fontSize: 12, color: '#555', letterSpacing: '0.08em' }}>
-            PRESIONA PARA ACTIVAR RESPIRACIÓN GUIADA 4-7-8
+            PRESIONA PARA ACTIVAR RESPIRACIÓN GUIADA 4-4-6
           </div>
           <div
             style={{
@@ -888,7 +965,7 @@ function SOSView({ openBreathing }) {
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={openBreathing} className="btn btn-coral">
-              RESPIRACIÓN_4-7-8 →
+              RESPIRACIÓN_4-4-6 →
             </button>
             <button className="btn" style={{ background: ML, borderColor: M, color: M }}>
               GROUNDING_5-4-3-2-1 →
@@ -896,18 +973,62 @@ function SOSView({ openBreathing }) {
           </div>
           <div style={{ border: '3px solid #000', padding: '10px 18px', background: W }}>
             <span className="mono" style={{ fontSize: 10, color: '#555' }}>
-              TÉCNICA_VALIDADA: Reducción de cortisol 11% en 2 min · Eficacia grounding: 68% en 5
-              min
+              TÉCNICA_GUIADA: Inhala 4s · Sostén 4s · Exhala 6s · Vuelve al presente
             </span>
           </div>
         </div>
+      </div>
+      <div className="bento">
+        {emergencyNumbers.map(({ label, number, detail, color }) => (
+          <div
+            key={number}
+            className="bc c6"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              background: number === '112' ? CL : ML,
+            }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                border: BORDE,
+                background: color,
+                color: W,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
+                fontSize: 20,
+                flexShrink: 0,
+              }}
+            >
+              {number}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: '-0.02em' }}>{label}</div>
+              <div className="lbl" style={{ fontSize: 9, marginTop: 3 }}>
+                {detail}
+              </div>
+            </div>
+            <a
+              className="btn btn-negro"
+              href={`tel:${number}`}
+              style={{ textDecoration: 'none', fontSize: 10 }}
+            >
+              LLAMAR_{number}
+            </a>
+          </div>
+        ))}
       </div>
       <div>
         <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em', marginBottom: 12 }}>
           CONTACTOS_DE_CONFIANZA
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {contacts.map(({ name, rol, e, avail }) => (
+          {contacts.map(({ name, rol, e, avail, phone }) => (
             <div
               key={name}
               className="bc"
@@ -939,15 +1060,62 @@ function SOSView({ openBreathing }) {
                 <div className="lbl" style={{ fontSize: 9, marginTop: 2 }}>
                   {rol} ·{' '}
                   <span style={{ color: avail ? T : CR }}>{avail ? 'DISPONIBLE' : 'OCUPADO'}</span>
+                  {' · '}
+                  <span>{phone}</span>
                 </div>
               </div>
-              <button
-                onClick={() => setSent((s) => ({ ...s, [name]: true }))}
-                className={`btn ${sent[name] ? 'btn-turquesa' : 'btn-coral'}`}
-                style={{ fontSize: 10 }}
+              <div
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
               >
-                {sent[name] ? '✓ SOS_ENVIADO' : 'ENVIAR_SOS_AHORA'}
-              </button>
+                <a
+                  className="btn btn-negro"
+                  href={`tel:${phone}`}
+                  style={{ fontSize: 10, textDecoration: 'none' }}
+                >
+                  LLAMAR
+                </a>
+                <button
+                  onClick={() => setSent((s) => ({ ...s, [name]: true }))}
+                  className={`btn ${sent[name] ? 'btn-turquesa' : 'btn-coral'}`}
+                  style={{ fontSize: 10 }}
+                >
+                  {sent[name] ? '✓ SOS_ENVIADO' : 'ENVIAR_SOS'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em', marginBottom: 12 }}>
+          RECURSOS_DE_CONTENCIÓN
+        </div>
+        <div className="bento">
+          {resources.map(({ title, text, icon }) => (
+            <div
+              key={title}
+              className="bc c4"
+              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  border: BORDE,
+                  background: TL,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span className="icon" style={{ color: T }}>
+                  {icon}
+                </span>
+              </div>
+              <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: '-0.02em' }}>{title}</div>
+              <div className="lbl" style={{ fontSize: 9, lineHeight: 1.6, color: '#444' }}>
+                {text}
+              </div>
             </div>
           ))}
         </div>
@@ -975,36 +1143,79 @@ function SOSView({ openBreathing }) {
 
 /* ── CHATBOT VIEW ── */
 function ChatbotView() {
-  const [msgs, setMsgs] = useState([
-    { from: 'ai', text: 'Hola Laura 🌸 Estoy aquí contigo. ¿Cómo te sientes en este momento?' },
+  const { user } = useAuth();
+  const panelUser = user ?? DEFAULT_PANEL_USER;
+  const firstName = panelFirstName(panelUser.name);
+  const [msgs, setMsgs] = useState(() => [
+    {
+      id: 'welcome',
+      from: 'ai',
+      text: `Hola ${firstName}. Estoy aquí contigo. ¿Cómo te sientes en este momento?`,
+    },
   ]);
   const [inp, setInp] = useState('');
-  const [typing, setTyping] = useState(false);
+  const [botStatus, setBotStatus] = useState('idle');
   const botRef = useRef();
-  const RESP = [
-    'Entiendo lo que sientes. La ansiedad es difícil, pero estás dando el primer paso al hablarlo. ¿Quieres intentar un ejercicio de respiración?',
-    'Es completamente normal sentirse así. ¿Qué crees que desencadenó este episodio?',
-    'Estoy aquí contigo. Este sentimiento es temporal y pasará. ¿Has probado el grounding 5-4-3-2-1?',
-    'Tus emociones son válidas. ¿Qué necesitas ahora mismo para sentirte un poco mejor?',
-  ];
+  const thinkingRef = useRef();
+  const streamRef = useRef();
+  const isBusy = botStatus !== 'idle';
+  const RESP = {
+    panic:
+      'Estoy contigo. Vamos a bajar la intensidad ahora: mira un punto fijo, apoya los pies en el suelo e inhala 4 segundos, sostén 4 y exhala 6. Si sientes riesgo inmediato, llama al 112 o al 024.',
+    sleep:
+      'Dormir mal agota mucho. Probemos algo sencillo: baja la luz, deja el móvil boca abajo y escribe una sola frase sobre lo que te preocupa. Después hacemos tres ciclos 4-4-6.',
+    good: 'Me alegra leer eso. Guardemos esta referencia: ¿qué ha ayudado hoy, aunque sea pequeño? Nombrarlo puede servirte como recurso cuando el día venga más pesado.',
+    anxious:
+      'Entiendo esa ansiedad. No tienes que resolver todo ahora. Dime una cosa concreta que notes en el cuerpo y la trabajamos paso a paso, sin prisa.',
+    default:
+      'Gracias por contármelo. Tiene sentido que te sientas así. Podemos ordenar lo que pasa en tres partes: qué ocurrió, qué pensaste y qué necesita tu cuerpo ahora mismo.',
+  };
   const CHIPS = ['ME_SIENTO_ANSIOSO', 'NO_PUEDO_DORMIR', 'TENGO_PÁNICO', 'ESTOY_BIEN'];
+  const pickResponse = (text) => {
+    const value = text.toLowerCase();
+    if (/pánico|panico|crisis|sos|miedo|ahogo/.test(value)) return RESP.panic;
+    if (/dormir|sueño|insomnio|noche/.test(value)) return RESP.sleep;
+    if (/bien|tranquil|mejor|genial/.test(value)) return RESP.good;
+    if (/ansios|ansiedad|nervios|agobio/.test(value)) return RESP.anxious;
+    return RESP.default;
+  };
   const send = (text) => {
-    const t = text || inp;
-    if (!t.trim()) return;
-    setMsgs((m) => [...m, { from: 'user', text: t }]);
+    const t = (text || inp).trim();
+    if (!t || isBusy) return;
+    const reply = pickResponse(t);
+    const userId = `user_${Date.now()}`;
+    const aiId = `ai_${Date.now() + 1}`;
+    setMsgs((m) => [...m, { id: userId, from: 'user', text: t }]);
     setInp('');
-    setTyping(true);
-    setTimeout(
-      () => {
-        setTyping(false);
-        setMsgs((m) => [...m, { from: 'ai', text: RESP[Math.floor(Math.random() * RESP.length)] }]);
-      },
-      1400 + Math.random() * 800,
-    );
+    setBotStatus('thinking');
+    window.clearTimeout(thinkingRef.current);
+    window.clearInterval(streamRef.current);
+    thinkingRef.current = window.setTimeout(() => {
+      let cursor = 0;
+      setBotStatus('streaming');
+      setMsgs((m) => [...m, { id: aiId, from: 'ai', text: '' }]);
+      streamRef.current = window.setInterval(() => {
+        cursor += 1;
+        setMsgs((m) =>
+          m.map((msg) => (msg.id === aiId ? { ...msg, text: reply.slice(0, cursor) } : msg)),
+        );
+        if (cursor >= reply.length) {
+          window.clearInterval(streamRef.current);
+          setBotStatus('idle');
+        }
+      }, 24);
+    }, 520);
   };
   useEffect(() => {
     botRef.current && (botRef.current.scrollTop = botRef.current.scrollHeight);
-  }, [msgs, typing]);
+  }, [msgs, botStatus]);
+  useEffect(
+    () => () => {
+      window.clearTimeout(thinkingRef.current);
+      window.clearInterval(streamRef.current);
+    },
+    [],
+  );
   return (
     <div
       style={{
@@ -1066,7 +1277,7 @@ function ChatbotView() {
               }}
             />
             <span className="mono" style={{ fontSize: 9, color: T }}>
-              EN_LÍNEA
+              {isBusy ? 'ESCRIBIENDO' : 'EN_LÍNEA'}
             </span>
           </div>
         </div>
@@ -1083,7 +1294,7 @@ function ChatbotView() {
         >
           {msgs.map((m, i) => (
             <div
-              key={i}
+              key={m.id ?? i}
               style={{
                 display: 'flex',
                 justifyContent: m.from === 'user' ? 'flex-end' : 'flex-start',
@@ -1102,10 +1313,13 @@ function ChatbotView() {
                 }}
               >
                 {m.text}
+                {m.from === 'ai' && botStatus === 'streaming' && i === msgs.length - 1 && (
+                  <span style={{ color: M, fontWeight: 900 }}>▌</span>
+                )}
               </div>
             </div>
           ))}
-          {typing && (
+          {isBusy && (
             <div
               style={{
                 display: 'flex',
@@ -1113,7 +1327,8 @@ function ChatbotView() {
                 padding: '12px 16px',
                 border: BORDE,
                 background: W,
-                width: 60,
+                width: 128,
+                alignItems: 'center',
               }}
             >
               {[0, 1, 2].map((i) => (
@@ -1128,6 +1343,9 @@ function ChatbotView() {
                   }}
                 />
               ))}
+              <span className="mono" style={{ fontSize: 9, color: M, marginLeft: 6 }}>
+                {botStatus === 'thinking' ? 'PENSANDO' : 'STREAMING'}
+              </span>
             </div>
           )}
         </div>
@@ -1137,11 +1355,12 @@ function ChatbotView() {
             onChange={(e) => setInp(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
             placeholder="ESCRIBE_LO_QUE_SIENTES..."
+            disabled={isBusy}
             style={{
               flex: 1,
               padding: '12px 16px',
               border: BORDE,
-              background: '#fafafa',
+              background: isBusy ? '#eee' : '#fafafa',
               fontFamily: 'Space Mono, monospace',
               fontSize: 11,
               color: K,
@@ -1152,7 +1371,8 @@ function ChatbotView() {
           <button
             onClick={() => send()}
             className="btn btn-morado"
-            style={{ padding: '12px 16px' }}
+            disabled={isBusy}
+            style={{ padding: '12px 16px', opacity: isBusy ? 0.65 : 1 }}
           >
             <span className="icon" style={{ fontSize: 18 }}>
               send
@@ -1179,11 +1399,13 @@ function ChatbotView() {
             <button
               key={c}
               onClick={() => send(c)}
+              disabled={isBusy}
               style={{
                 border: '2px solid #000',
                 padding: '8px 12px',
                 background: W,
-                cursor: 'pointer',
+                cursor: isBusy ? 'not-allowed' : 'pointer',
+                opacity: isBusy ? 0.55 : 1,
                 textAlign: 'left',
                 fontFamily: 'Space Mono, monospace',
                 fontSize: 9,
@@ -3259,6 +3481,8 @@ function ContactosView() {
 
 /* ── CONFIG VIEW ── */
 function ConfigView() {
+  const { user } = useAuth();
+  const panelUser = user ?? DEFAULT_PANEL_USER;
   const [open, setOpen] = useState('PERFIL');
   const sections = [
     'PERFIL',
@@ -3269,14 +3493,12 @@ function ConfigView() {
     'ELIMINAR_CUENTA',
   ];
   const content = {
-    PERFIL:
-      'Nombre: Laura García · Email: laura@email.com · Idioma: Español · Zona horaria: Europe/Madrid',
+    PERFIL: `Nombre: ${panelUser.name} · Email: ${panelUser.email} · Idioma: Español · Zona horaria: Europe/Madrid`,
     PRIVACIDAD_GDPR:
       'Cumplimiento GDPR y AI Act. Datos cifrados en reposo y tránsito. Anonimización opcional. Exportación completa disponible.',
     NOTIFICACIONES:
       'Recordatorio diario de mood: 20:00h · Alertas de racha: Activado · Sin notificaciones push nocturnas (22:00–09:00h)',
-    PLAN_SUSCRIPCIÓN:
-      'Plan Personal: 9.99€/mes · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes',
+    PLAN_SUSCRIPCIÓN: `Plan ${planLabel(panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
     EXPORTAR_DATOS:
       'Descarga todos tus datos: historial de mood, entradas de diario, sesiones. Formato: JSON / PDF',
     ELIMINAR_CUENTA:
@@ -3350,8 +3572,8 @@ function ConfigView() {
 function BreathingModal({ onClose }) {
   const phases = [
     { name: 'INHALA', dur: 4 },
-    { name: 'MANTÉN', dur: 7 },
-    { name: 'EXHALA', dur: 8 },
+    { name: 'SOSTÉN', dur: 4 },
+    { name: 'EXHALA', dur: 6 },
   ];
   const [pi, setPi] = useState(0);
   const [count, setCount] = useState(phases[0].dur);
@@ -3402,13 +3624,13 @@ function BreathingModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="lbl lbl-coral" style={{ marginBottom: 8 }}>
-          PROTOCOLO_RESPIRACIÓN_4-7-8
+          PROTOCOLO_RESPIRACIÓN_4-4-6
         </div>
         <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: '-0.03em', marginBottom: 6 }}>
           RESPIRA_CONMIGO
         </div>
         <div className="lbl" style={{ marginBottom: 36 }}>
-          CICLO_{String(cycle).padStart(2, '0')} · REDUCCIÓN_CORTISOL: 11% EN 2 MIN
+          CICLO_{String(cycle).padStart(2, '0')} · INHALA_4 · SOSTÉN_4 · EXHALA_6
         </div>
         <div
           style={{
@@ -3429,7 +3651,7 @@ function BreathingModal({ onClose }) {
               border: '4px solid #000',
               background: `radial-gradient(circle, #fda4af 0%, ${CR} 100%)`,
               transform: isExpand ? 'scale(1)' : 'scale(0.6)',
-              transition: `transform ${pi === 2 ? 8 : pi === 1 ? 7 : 4}s ease-in-out`,
+              transition: `transform ${ph.dur}s ease-in-out`,
               opacity: 0.9,
             }}
           />
@@ -3489,7 +3711,7 @@ function BreathingModal({ onClose }) {
 
 /* ── TWEAKS ── */
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
-  userName: 'Laura García',
+  userName: 'María Solís',
   accentColor: '#A855F7',
   showStreak: true,
   density: 'NORMAL',

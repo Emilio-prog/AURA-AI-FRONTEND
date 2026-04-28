@@ -316,6 +316,8 @@
   transition:
     background 0.1s,
     color 0.1s;
+  transform: none;
+  box-shadow: none;
 }
 
 .nav-item:hover {
@@ -328,8 +330,22 @@
   color: #fff;
 }
 
+.nav-item.active:hover,
+.nav-item.active:active,
+.nav-item.active:focus {
+  background: #a855f7;
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+  outline: none;
+}
+
 .nav-item.sos-nav {
-  border-right: 6px solid #fb7185;
+  border-right: 8px solid #fb7185;
+}
+
+.nav-item.sos-nav.active {
+  border-right-color: #fb7185;
 }
 
 .lbl {
