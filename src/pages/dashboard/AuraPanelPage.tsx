@@ -124,7 +124,9 @@ function Sidebar({ active, set }) {
           <button
             key={id}
             onClick={() => set(id)}
-            className={`nav-item${active === id ? 'active' : ''}${sos ? 'sos-nav' : ''}`}
+            className={['nav-item', active === id ? 'active' : '', sos ? 'sos-nav' : '']
+              .filter(Boolean)
+              .join(' ')}
           >
             <span
               className="icon"

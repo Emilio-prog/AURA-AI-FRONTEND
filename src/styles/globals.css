@@ -320,6 +320,11 @@
   box-shadow: none;
 }
 
+.nav-item:focus,
+.nav-item:focus-visible {
+  outline: none;
+}
+
 .nav-item:hover {
   background: #f5f5f5;
   color: #000;
