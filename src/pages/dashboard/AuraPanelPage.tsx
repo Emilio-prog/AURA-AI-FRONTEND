@@ -31,6 +31,7 @@ const NAV = [
 ];
 
 const PANEL_SECTIONS = NAV.map(({ id }) => id);
+const DIARY_STORAGE_KEY = 'aura.diary.entries';
 
 const DEFAULT_PANEL_USER = {
   name: 'María Solís',
@@ -65,6 +66,81 @@ const panelDateLabel = () =>
     .replace(/\./g, '')
     .replace(/,/g, '')
     .toUpperCase();
+
+const diaryDateLabel = (date) =>
+  new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  })
+    .format(new Date(date))
+    .replace(/\./g, '')
+    .replace(/,/g, '')
+    .toUpperCase();
+
+const MOOD_OPTIONS = [
+  { emoji: '😊', label: 'BIEN', score: 8, color: T },
+  { emoji: '😌', label: 'CALMA', score: 7, color: T },
+  { emoji: '😰', label: 'ANSIEDAD', score: 3, color: CR },
+  { emoji: '😔', label: 'TRISTEZA', score: 4, color: '#fb923c' },
+  { emoji: '😤', label: 'FRUSTRACIÓN', score: 4, color: '#f59e0b' },
+  { emoji: '🥺', label: 'VULNERABLE', score: 5, color: M },
+  { emoji: '😐', label: 'NEUTRAL', score: 6, color: '#94a3b8' },
+];
+
+const readLocalJSON = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeLocalJSON = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // mock phase: ignore blocked storage
+  }
+};
+
+const seedDiaryEntries = () => [
+  {
+    id: 'seed_1',
+    date: new Date(Date.now() - 86400000).toISOString(),
+    mood: '😌',
+    moodLabel: 'CALMA',
+    text: 'Me sentí mucho mejor después de hacer el ejercicio de respiración. El minijuego de burbujas me ayudó a despejar la mente.',
+  },
+  {
+    id: 'seed_2',
+    date: new Date(Date.now() - 86400000 * 2).toISOString(),
+    mood: '😐',
+    moodLabel: 'NEUTRAL',
+    text: 'Día difícil en el trabajo, pero Aura me ayudó a ordenar mis pensamientos. Usé el grounding 5-4-3-2-1.',
+  },
+];
+
+const generateMoodHistory = (days = 90) => {
+  const result = [];
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const wave = Math.sin(i / 4.7) * 1.7 + Math.cos(i / 9.2) * 1.1;
+    const before = Math.min(10, Math.max(1, Math.round(5.4 + wave + ((i * 7) % 5) * 0.28)));
+    const after = Math.min(10, Math.max(1, before + 1 + ((i * 5) % 3)));
+    result.push({
+      id: d.toISOString().slice(0, 10),
+      date: d.toISOString(),
+      before,
+      after,
+      mood: Math.round((before + after) / 2),
+    });
+  }
+  return result;
+};
 
 function sectionFromPath(pathname) {
   const match = pathname.match(/\/dashboard\/([^/]+)/);
@@ -1437,19 +1513,78 @@ function ChatbotView() {
 function MoodTrackerView() {
   const [val, setVal] = useState(6);
   const [after, setAfter] = useState(8);
+  const [range, setRange] = useState(90);
+  const [sessionSaved, setSessionSaved] = useState(false);
+  const [history, setHistory] = useState(() => generateMoodHistory(90));
   const weeks = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-  const heat = [
-    [4, 5, 7, 6, 5, 8, 7],
-    [6, 5, 8, 7, 6, 9, 8],
-    [3, 5, 6, 7, 8, 7, 8],
-    [7, 8, 8, 9, 7, 8, 9],
-  ];
-  const getColor = (v) => (v <= 3 ? CL : v <= 5 ? 'rgba(251,191,36,0.2)' : v <= 7 ? TL : ML);
+  const data = history.slice(-range);
+  const chunks = Array.from({ length: Math.ceil(data.length / 7) }, (_, i) =>
+    data.slice(i * 7, i * 7 + 7),
+  );
+  const weekBars = chunks.slice(-12).map((chunk, i) => {
+    const avgBefore = chunk.reduce((sum, d) => sum + d.before, 0) / chunk.length;
+    const avgAfter = chunk.reduce((sum, d) => sum + d.after, 0) / chunk.length;
+    return {
+      id: `S${i + 1}`,
+      before: Math.round(avgBefore * 10) / 10,
+      after: Math.round(avgAfter * 10) / 10,
+    };
+  });
+  const avgBefore =
+    Math.round((data.reduce((sum, d) => sum + d.before, 0) / data.length) * 10) / 10;
+  const avgAfter = Math.round((data.reduce((sum, d) => sum + d.after, 0) / data.length) * 10) / 10;
+  const improvement = Math.round(((avgAfter - avgBefore) / avgBefore) * 100);
+  const getColor = (v) => (v <= 3 ? CL : v <= 5 ? 'rgba(251,191,36,0.24)' : v <= 7 ? TL : ML);
+  const saveSession = () => {
+    const today = new Date();
+    const id = today.toISOString().slice(0, 10);
+    const next = {
+      id,
+      date: today.toISOString(),
+      before: val,
+      after,
+      mood: Math.round((val + after) / 2),
+    };
+    setHistory((items) => [...items.filter((item) => item.id !== id), next].slice(-90));
+    setSessionSaved(true);
+    setTimeout(() => setSessionSaved(false), 1800);
+  };
+
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp .3s ease' }}
     >
-      <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>MOOD_TRACKER</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
+            MOOD_TRACKER
+          </div>
+          <div className="lbl" style={{ fontSize: 9, marginTop: 4 }}>
+            MOCK_DATASET · {range}_DÍAS · BAR_CHART + HEATMAP
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 0, border: BORDE }}>
+          {[30, 60, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setRange(d)}
+              style={{
+                padding: '8px 13px',
+                background: range === d ? K : W,
+                color: range === d ? W : K,
+                border: 'none',
+                borderRight: d !== 90 ? '2px solid #000' : 'none',
+                fontFamily: 'Space Mono',
+                fontSize: 9,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {d}D
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <div className="bc" style={{ gap: 14, display: 'flex', flexDirection: 'column' }}>
           <div className="lbl" style={{ fontSize: 9 }}>
@@ -1506,9 +1641,109 @@ function MoodTrackerView() {
           </div>
         </div>
       </div>
+      <div className="bc" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button onClick={saveSession} className="btn btn-morado" style={{ fontSize: 10 }}>
+          REGISTRAR_SESIÓN →
+        </button>
+        <div className="lbl" style={{ flex: 1, fontSize: 9, lineHeight: 1.5 }}>
+          Guarda el estado de hoy en la serie mock de 90 días. La vista conserva el histórico local
+          de esta sesión.
+        </div>
+        {sessionSaved && (
+          <span className="chip chip-turquesa" style={{ fontSize: 9 }}>
+            SESIÓN_ACTUALIZADA
+          </span>
+        )}
+      </div>
+      <div className="bc" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em' }}>
+              BAR_CHART_SEMANAL
+            </div>
+            <div className="lbl" style={{ marginTop: 3 }}>
+              PROMEDIOS_ANTES/DESPUÉS · ÚLTIMAS_{weekBars.length}_SEMANAS
+            </div>
+          </div>
+          <span className="chip chip-morado" style={{ fontSize: 9 }}>
+            MEJORA_{improvement >= 0 ? '+' : ''}
+            {improvement}%
+          </span>
+        </div>
+        <div
+          style={{
+            height: 180,
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 10,
+            borderLeft: '3px solid #000',
+            borderBottom: '3px solid #000',
+            padding: '12px 12px 0',
+          }}
+        >
+          {weekBars.map(({ id, before, after }) => (
+            <div
+              key={id}
+              style={{
+                flex: 1,
+                minWidth: 28,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <div style={{ height: 130, display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                <div
+                  title={`Antes: ${before}`}
+                  style={{
+                    width: 10,
+                    height: `${before * 12}px`,
+                    background: '#d4d4d4',
+                    border: '2px solid #000',
+                  }}
+                />
+                <div
+                  title={`Después: ${after}`}
+                  style={{
+                    width: 10,
+                    height: `${after * 12}px`,
+                    background: M,
+                    border: '2px solid #000',
+                  }}
+                />
+              </div>
+              <span className="mono" style={{ fontSize: 8, color: '#555' }}>
+                {id}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[
+            { c: '#d4d4d4', l: 'ANTES' },
+            { c: M, l: 'DESPUÉS' },
+          ].map(({ c, l }) => (
+            <div key={l} className="lbl" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 18, height: 8, border: '2px solid #000', background: c }} />
+              {l}
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="bc">
-        <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em', marginBottom: 14 }}>
-          HEATMAP_MENSUAL
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em' }}>
+              HEATMAP_EMOCIONAL
+            </div>
+            <div className="lbl" style={{ marginTop: 3 }}>
+              CADA_CELDA_REPRESENTA_1_DÍA · TONO_SEGÚN_NIVEL
+            </div>
+          </div>
+          <div className="lbl" style={{ fontSize: 9 }}>
+            PROMEDIO: <span style={{ color: M }}>{avgAfter}/10</span>
+          </div>
         </div>
         <div
           style={{ display: 'grid', gridTemplateColumns: `repeat(7,1fr)`, gap: 4, marginBottom: 8 }}
@@ -1523,7 +1758,7 @@ function MoodTrackerView() {
             </div>
           ))}
         </div>
-        {heat.map((row, ri) => (
+        {chunks.map((row, ri) => (
           <div
             key={ri}
             style={{
@@ -1533,24 +1768,27 @@ function MoodTrackerView() {
               marginBottom: 4,
             }}
           >
-            {row.map((v, ci) => (
+            {row.map((item, ci) => (
               <div
-                key={ci}
+                key={item.id}
                 style={{
                   height: 32,
                   border: '2px solid #000',
-                  background: getColor(v),
+                  background: getColor(item.after),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'default',
                 }}
-                title={`Nivel: ${v}`}
+                title={`${diaryDateLabel(item.date)} · Antes ${item.before} · Después ${item.after}`}
               >
                 <span className="mono" style={{ fontSize: 9, fontWeight: 700 }}>
-                  {v}
+                  {item.after}
                 </span>
               </div>
+            ))}
+            {Array.from({ length: 7 - row.length }).map((_, i) => (
+              <div key={`empty-${ri}-${i}`} style={{ height: 32 }} />
             ))}
           </div>
         ))}
@@ -2983,6 +3221,9 @@ function SonidosView() {
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           AMBIENTES_SONOROS
         </div>
+        <span className="chip chip-negro" style={{ fontSize: 9 }}>
+          MUTED · SIN_ARCHIVOS_AUDIO
+        </span>
         <div style={{ display: 'flex', gap: 0, border: BORDE }}>
           {modos.map((m) => (
             <button
@@ -3069,12 +3310,15 @@ function SonidosView() {
               {ambientes.find((a) => a.id === playing)?.l}
             </div>
             <div className="lbl" style={{ color: '#666', fontSize: 9, marginTop: 2 }}>
-              MODO_{modo} · REPRODUCIENDO
+              MODO_{modo} · UI_FUNCIONAL_MUTED
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
             <span className="icon" style={{ color: '#666', fontSize: 16 }}>
               volume_mute
+            </span>
+            <span className="mono" style={{ fontSize: 9, color: '#777' }}>
+              INTENSIDAD
             </span>
             <div
               style={{
@@ -3122,24 +3366,68 @@ function DiarioView() {
   const [text, setText] = useState('');
   const [mood, setMood] = useState(null);
   const [saved, setSaved] = useState(false);
-  const moods = ['😊', '😌', '😰', '😔', '😤', '🥺', '😐'];
+  const [editingId, setEditingId] = useState(null);
+  const [entries, setEntries] = useState(
+    () => readLocalJSON(DIARY_STORAGE_KEY, null) ?? seedDiaryEntries(),
+  );
   const prompts = [
     '¿QUÉ_TE_PREOCUPA_HOY?',
     'TRES_COSAS_BUENAS_DEL_DÍA',
     '¿CÓMO_MANEJÉ_MIS_EMOCIONES?',
   ];
-  const entries = [
-    {
-      d: 'DOM, 26 ABR',
-      t: 'Me sentí mucho mejor después de hacer el ejercicio de respiración. El minijuego de burbujas me ayudó a despejar la mente.',
-      mood: '😌',
-    },
-    {
-      d: 'SÁB, 25 ABR',
-      t: 'Día difícil en el trabajo pero Aura me ayudó a ordenar mis pensamientos. Usé el grounding 5-4-3-2-1.',
-      mood: '😐',
-    },
-  ];
+  const selectedMood = MOOD_OPTIONS.find((item) => item.emoji === mood);
+  const sortedEntries = [...entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const now = new Date();
+  const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const entriesThisMonth = sortedEntries.filter((entry) => {
+    const d = new Date(entry.date);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  const entryForDay = (day) =>
+    entriesThisMonth.find((entry) => new Date(entry.date).getDate() === day);
+  const moodColor = (emoji) =>
+    MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? '#f5f5f5';
+  const resetForm = () => {
+    setText('');
+    setMood(null);
+    setEditingId(null);
+    setSaved(false);
+  };
+  const saveEntry = () => {
+    if (!text.trim() && !mood) return;
+    const entry = {
+      id: editingId ?? `entry_${Date.now().toString(36)}`,
+      date: editingId
+        ? entries.find((item) => item.id === editingId)?.date || new Date().toISOString()
+        : new Date().toISOString(),
+      mood: mood ?? '😐',
+      moodLabel: selectedMood?.label ?? 'NEUTRAL',
+      text: text.trim(),
+    };
+    setEntries((items) =>
+      editingId ? items.map((item) => (item.id === editingId ? entry : item)) : [entry, ...items],
+    );
+    setSaved(true);
+    setEditingId(null);
+    setText('');
+    setMood(null);
+    setTimeout(() => setSaved(false), 1800);
+  };
+  const editEntry = (entry) => {
+    setEditingId(entry.id);
+    setText(entry.text);
+    setMood(entry.mood);
+    setSaved(false);
+  };
+  const deleteEntry = (id) => {
+    setEntries((items) => items.filter((entry) => entry.id !== id));
+    if (editingId === id) resetForm();
+  };
+
+  useEffect(() => {
+    writeLocalJSON(DIARY_STORAGE_KEY, entries);
+  }, [entries]);
+
   return (
     <div
       style={{
@@ -3156,18 +3444,19 @@ function DiarioView() {
         <div className="bc" style={{ gap: 14, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="lbl" style={{ fontSize: 9 }}>
-              LUN, 27 ABR 2026 · ENTRADA_DE_HOY
+              {panelDateLabel()} · {editingId ? 'EDITANDO_ENTRADA' : 'ENTRADA_DE_HOY'}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {moods.map((m) => (
+              {MOOD_OPTIONS.map(({ emoji, label, color }) => (
                 <button
-                  key={m}
-                  onClick={() => setMood(m)}
+                  key={emoji}
+                  onClick={() => setMood(emoji)}
+                  title={label}
                   style={{
                     width: 34,
                     height: 34,
-                    border: `2px solid ${mood === m ? M : K}`,
-                    background: mood === m ? ML : W,
+                    border: `2px solid ${mood === emoji ? color : K}`,
+                    background: mood === emoji ? `${color}22` : W,
                     cursor: 'pointer',
                     fontSize: 18,
                     display: 'flex',
@@ -3175,7 +3464,7 @@ function DiarioView() {
                     justifyContent: 'center',
                   }}
                 >
-                  {m}
+                  {emoji}
                 </button>
               ))}
             </div>
@@ -3184,7 +3473,7 @@ function DiarioView() {
             {prompts.map((p) => (
               <button
                 key={p}
-                onClick={() => setText(p + '\n')}
+                onClick={() => setText((current) => `${current ? `${current}\n\n` : ''}${p}\n`)}
                 style={{
                   border: '2px solid #000',
                   padding: '5px 10px',
@@ -3223,15 +3512,20 @@ function DiarioView() {
             }}
           />
           {!saved ? (
-            <button
-              onClick={() => {
-                if (text.trim() || mood) setSaved(true);
-              }}
-              className="btn btn-morado"
-              style={{ justifyContent: 'center', fontSize: 11 }}
-            >
-              GUARDAR_ENTRADA →
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={saveEntry}
+                className="btn btn-morado"
+                style={{ justifyContent: 'center', fontSize: 11, flex: 1 }}
+              >
+                {editingId ? 'ACTUALIZAR_ENTRADA →' : 'GUARDAR_ENTRADA →'}
+              </button>
+              {editingId && (
+                <button onClick={resetForm} className="btn" style={{ fontSize: 11 }}>
+                  CANCELAR
+                </button>
+              )}
+            </div>
           ) : (
             <div
               className="mono"
@@ -3244,14 +3538,14 @@ function DiarioView() {
                 color: T,
               }}
             >
-              ✓ ENTRADA_GUARDADA ·{' '}
+              ✓ ENTRADA_GUARDADA_EN_LOCALSTORAGE ·{' '}
               {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
         </div>
-        {entries.map(({ d, t, mood }) => (
+        {sortedEntries.map((entry) => (
           <div
-            key={d}
+            key={entry.id}
             className="bc"
             style={{
               flexDirection: 'row',
@@ -3261,13 +3555,29 @@ function DiarioView() {
               display: 'flex',
             }}
           >
-            <div style={{ fontSize: 24, flexShrink: 0 }}>{mood}</div>
+            <div style={{ fontSize: 24, flexShrink: 0 }}>{entry.mood}</div>
             <div style={{ flex: 1 }}>
               <div className="lbl" style={{ fontSize: 9, marginBottom: 6 }}>
-                {d}
+                {diaryDateLabel(entry.date)} · {entry.moodLabel ?? 'REGISTRO'}
               </div>
               <div style={{ fontSize: 13, color: K, lineHeight: 1.65, fontStyle: 'italic' }}>
-                "{t}"
+                "{entry.text}"
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => editEntry(entry)}
+                  className="btn"
+                  style={{ fontSize: 9, padding: '7px 12px' }}
+                >
+                  EDITAR
+                </button>
+                <button
+                  onClick={() => deleteEntry(entry.id)}
+                  className="btn btn-coral"
+                  style={{ fontSize: 9, padding: '7px 12px' }}
+                >
+                  BORRAR
+                </button>
               </div>
             </div>
           </div>
@@ -3279,56 +3589,31 @@ function DiarioView() {
           style={{ padding: 14, gap: 12, display: 'flex', flexDirection: 'column' }}
         >
           <div className="lbl" style={{ fontSize: 9 }}>
-            CALENDARIO_EMOCIONAL · ABRIL
+            CALENDARIO_EMOCIONAL ·{' '}
+            {new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(now).toUpperCase()}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
-            {Array.from({ length: 30 }, (_, i) => {
-              const moods = [
-                null,
-                T,
-                T,
-                M,
-                null,
-                CR,
-                T,
-                T,
-                M,
-                T,
-                null,
-                T,
-                M,
-                T,
-                CR,
-                T,
-                null,
-                T,
-                T,
-                M,
-                T,
-                T,
-                null,
-                T,
-                T,
-                M,
-                T,
-                CR,
-                null,
-                T,
-              ];
+            {Array.from({ length: monthDays }, (_, i) => {
+              const day = i + 1;
+              const entry = entryForDay(day);
+              const color = entry ? moodColor(entry.mood) : null;
               return (
                 <div
                   key={i}
                   style={{
                     height: 24,
                     border: '2px solid #000',
-                    background: moods[i] || '#f5f5f5',
+                    background: color || '#f5f5f5',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
+                  title={
+                    entry ? `${diaryDateLabel(entry.date)} · ${entry.moodLabel}` : `Día ${day}`
+                  }
                 >
-                  <span className="mono" style={{ fontSize: 7, color: moods[i] ? W : K }}>
-                    {i + 1}
+                  <span className="mono" style={{ fontSize: 7, color: color ? W : K }}>
+                    {day}
                   </span>
                 </div>
               );
@@ -3339,6 +3624,7 @@ function DiarioView() {
               { c: T, l: 'BIEN' },
               { c: M, l: 'MUY_BIEN' },
               { c: CR, l: 'DIFÍCIL' },
+              { c: '#f5f5f5', l: 'SIN_ENTRADA' },
             ].map(({ c, l }) => (
               <div
                 key={l}
@@ -3350,6 +3636,26 @@ function DiarioView() {
               </div>
             ))}
           </div>
+        </div>
+        <div
+          className="bc"
+          style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
+          <div className="lbl" style={{ fontSize: 9 }}>
+            RESUMEN_LOCAL
+          </div>
+          {[
+            { l: 'ENTRADAS', v: sortedEntries.length, c: M },
+            { l: 'ESTE_MES', v: entriesThisMonth.length, c: T },
+            { l: 'ÚLTIMA_EMOCIÓN', v: sortedEntries[0]?.mood ?? '—', c: CR },
+          ].map(({ l, v, c }) => (
+            <div key={l} style={{ border: '2px solid #000', padding: '8px 10px' }}>
+              <div className="lbl" style={{ fontSize: 8 }}>
+                {l}
+              </div>
+              <div style={{ fontWeight: 900, fontSize: 18, color: c, marginTop: 2 }}>{v}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
