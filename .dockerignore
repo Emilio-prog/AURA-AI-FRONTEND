@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.vite
+coverage
+*.log
+*.tsbuildinfo
+AURA AI - LandingPage
+AURA AI-Panel-Interior

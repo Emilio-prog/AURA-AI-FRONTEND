@@ -2,7 +2,10 @@
 // @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import i18n from '@/i18n';
 
 /* ── CONSTANTS ── */
 const T = '#2DD4BF',
@@ -19,19 +22,31 @@ const BORDE = '4px solid #000',
   SOMBRA_SM = '4px 4px 0 0 #000';
 
 const NAV = [
-  { id: 'inicio', icon: 'home', label: 'INICIO_' },
-  { id: 'sos', icon: 'emergency', label: 'BOTÓN_SOS', sos: true },
-  { id: 'chatbot', icon: 'smart_toy', label: 'CHATBOT_IA' },
-  { id: 'mood', icon: 'mood', label: 'MOOD_TRACKER' },
-  { id: 'juegos', icon: 'sports_esports', label: 'MINIJUEGOS' },
-  { id: 'sonidos', icon: 'headphones', label: 'AMBIENTES_SONOROS' },
-  { id: 'diario', icon: 'book_2', label: 'DIARIO' },
-  { id: 'contactos', icon: 'group', label: 'CONTACTOS_CONFIANZA' },
-  { id: 'config', icon: 'settings', label: 'CONFIGURACIÓN' },
+  { id: 'inicio', icon: 'home', label: 'INICIO_', labelKey: 'dashboard.nav.inicio' },
+  { id: 'sos', icon: 'emergency', label: 'BOTÓN_SOS', labelKey: 'dashboard.nav.sos', sos: true },
+  { id: 'chatbot', icon: 'smart_toy', label: 'CHATBOT_IA', labelKey: 'dashboard.nav.chatbot' },
+  { id: 'mood', icon: 'mood', label: 'MOOD_TRACKER', labelKey: 'dashboard.nav.mood' },
+  { id: 'juegos', icon: 'sports_esports', label: 'MINIJUEGOS', labelKey: 'dashboard.nav.juegos' },
+  {
+    id: 'sonidos',
+    icon: 'headphones',
+    label: 'AMBIENTES_SONOROS',
+    labelKey: 'dashboard.nav.sonidos',
+  },
+  { id: 'diario', icon: 'book_2', label: 'DIARIO', labelKey: 'dashboard.nav.diario' },
+  {
+    id: 'contactos',
+    icon: 'group',
+    label: 'CONTACTOS_CONFIANZA',
+    labelKey: 'dashboard.nav.contactos',
+  },
+  { id: 'config', icon: 'settings', label: 'CONFIGURACIÓN', labelKey: 'dashboard.nav.config' },
 ];
 
 const PANEL_SECTIONS = NAV.map(({ id }) => id);
 const DIARY_STORAGE_KEY = 'aura.diary.entries';
+const CONTACTS_STORAGE_KEY = 'aura.contacts';
+const PROFILE_STORAGE_KEY = 'aura.profile';
 
 const DEFAULT_PANEL_USER = {
   name: 'María Solís',
@@ -122,6 +137,45 @@ const seedDiaryEntries = () => [
   },
 ];
 
+const seedContacts = () => [
+  {
+    id: 'contact_ana',
+    name: 'Ana López',
+    role: 'HERMANA',
+    emoji: '👩',
+    phone: '+34 600 123 456',
+    available: true,
+    sosAuto: true,
+  },
+  {
+    id: 'contact_carlos',
+    name: 'Dr. Carlos Ruiz',
+    role: 'PSICÓLOGO',
+    emoji: '👨‍⚕️',
+    phone: '+34 912 345 678',
+    available: true,
+    sosAuto: true,
+  },
+  {
+    id: 'contact_marco',
+    name: 'Marco Sánchez',
+    role: 'AMIGO',
+    emoji: '👨',
+    phone: '+34 655 987 321',
+    available: false,
+    sosAuto: false,
+  },
+];
+
+const emptyContact = {
+  name: '',
+  role: '',
+  emoji: '👤',
+  phone: '',
+  available: true,
+  sosAuto: false,
+};
+
 const generateMoodHistory = (days = 90) => {
   const result = [];
   const today = new Date();
@@ -150,6 +204,7 @@ function sectionFromPath(pathname) {
 
 /* ── SIDEBAR ── */
 function Sidebar({ active, set }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const panelUser = user ?? DEFAULT_PANEL_USER;
 
@@ -196,7 +251,7 @@ function Sidebar({ active, set }) {
         </div>
       </div>
       <nav style={{ flex: 1, overflowY: 'auto' }}>
-        {NAV.map(({ id, icon, label, sos }) => (
+        {NAV.map(({ id, icon, label, labelKey, sos }) => (
           <button
             key={id}
             onClick={() => set(id)}
@@ -210,7 +265,7 @@ function Sidebar({ active, set }) {
             >
               {icon}
             </span>
-            <span style={{ flex: 1 }}>{label}</span>
+            <span style={{ flex: 1 }}>{t(labelKey, { defaultValue: label })}</span>
             {sos && (
               <span
                 style={{
@@ -3664,13 +3719,68 @@ function DiarioView() {
 
 /* ── CONTACTOS VIEW ── */
 function ContactosView() {
-  const [sos, setSos] = useState({});
   const [sent, setSent] = useState({});
-  const contacts = [
-    { name: 'Ana López', rol: 'HERMANA', e: '👩', phone: '+34 600 123 456', avail: true },
-    { name: 'Dr. Carlos Ruiz', rol: 'PSICÓLOGO', e: '👨‍⚕️', phone: '+34 912 345 678', avail: true },
-    { name: 'Marco Sánchez', rol: 'AMIGO', e: '👨', phone: '+34 655 987 321', avail: false },
-  ];
+  const [contacts, setContacts] = useState(
+    () => readLocalJSON(CONTACTS_STORAGE_KEY, null) ?? seedContacts(),
+  );
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyContact);
+  const updateForm = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const startCreate = () => {
+    setEditingId(null);
+    setForm(emptyContact);
+    setFormOpen(true);
+  };
+  const startEdit = (contact) => {
+    setEditingId(contact.id);
+    setForm({
+      name: contact.name,
+      role: contact.role,
+      emoji: contact.emoji,
+      phone: contact.phone,
+      available: contact.available,
+      sosAuto: contact.sosAuto,
+    });
+    setFormOpen(true);
+  };
+  const saveContact = () => {
+    if (!form.name.trim() || !form.phone.trim()) return;
+    const next = {
+      id: editingId ?? `contact_${Date.now().toString(36)}`,
+      name: form.name.trim(),
+      role: form.role.trim() || 'CONFIANZA',
+      emoji: form.emoji || '👤',
+      phone: form.phone.trim(),
+      available: form.available,
+      sosAuto: form.sosAuto,
+    };
+    setContacts((items) =>
+      editingId ? items.map((item) => (item.id === editingId ? next : item)) : [next, ...items],
+    );
+    setFormOpen(false);
+    setEditingId(null);
+    setForm(emptyContact);
+  };
+  const deleteContact = (id) => {
+    setContacts((items) => items.filter((contact) => contact.id !== id));
+    if (editingId === id) {
+      setFormOpen(false);
+      setEditingId(null);
+    }
+  };
+  const toggleContact = (id, field) => {
+    setContacts((items) =>
+      items.map((contact) =>
+        contact.id === id ? { ...contact, [field]: !contact[field] } : contact,
+      ),
+    );
+  };
+
+  useEffect(() => {
+    writeLocalJSON(CONTACTS_STORAGE_KEY, contacts);
+  }, [contacts]);
+
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp .3s ease' }}
@@ -3679,10 +3789,70 @@ function ContactosView() {
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           CONTACTOS_DE_CONFIANZA
         </div>
-        <button className="btn" style={{ borderStyle: 'dashed', fontSize: 10 }}>
+        <button
+          onClick={startCreate}
+          className="btn"
+          style={{ borderStyle: 'dashed', fontSize: 10 }}
+        >
           + AÑADIR_CONTACTO
         </button>
       </div>
+      {formOpen && (
+        <div className="bc" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <input
+            aria-label="Nombre contacto"
+            value={form.name}
+            onChange={(e) => updateForm('name', e.target.value)}
+            placeholder="Nombre"
+            style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+          />
+          <input
+            aria-label="Teléfono contacto"
+            value={form.phone}
+            onChange={(e) => updateForm('phone', e.target.value)}
+            placeholder="+34 600 000 000"
+            style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+          />
+          <input
+            aria-label="Rol contacto"
+            value={form.role}
+            onChange={(e) => updateForm('role', e.target.value)}
+            placeholder="HERMANA / PSICÓLOGO / AMIGO"
+            style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+          />
+          <input
+            aria-label="Avatar contacto"
+            value={form.emoji}
+            onChange={(e) => updateForm('emoji', e.target.value)}
+            placeholder="👤"
+            style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+          />
+          <label className="lbl" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={form.available}
+              onChange={(e) => updateForm('available', e.target.checked)}
+            />
+            DISPONIBLE
+          </label>
+          <label className="lbl" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={form.sosAuto}
+              onChange={(e) => updateForm('sosAuto', e.target.checked)}
+            />
+            SOS_AUTO
+          </label>
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
+            <button onClick={saveContact} className="btn btn-morado" style={{ fontSize: 10 }}>
+              {editingId ? 'ACTUALIZAR_CONTACTO' : 'GUARDAR_CONTACTO'}
+            </button>
+            <button onClick={() => setFormOpen(false)} className="btn" style={{ fontSize: 10 }}>
+              CANCELAR
+            </button>
+          </div>
+        </div>
+      )}
       <div
         className="bc"
         style={{
@@ -3701,9 +3871,9 @@ function ContactosView() {
           contáctame."
         </span>
       </div>
-      {contacts.map(({ name, rol, e, phone, avail }) => (
+      {contacts.map(({ id, name, role, emoji, phone, available, sosAuto }) => (
         <div
-          key={name}
+          key={id}
           className="bc"
           style={{ flexDirection: 'row', gap: 16, alignItems: 'center', display: 'flex' }}
         >
@@ -3720,12 +3890,12 @@ function ContactosView() {
               flexShrink: 0,
             }}
           >
-            {e}
+            {emoji}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>{name}</div>
             <div className="lbl" style={{ fontSize: 9, marginTop: 2 }}>
-              {rol} · {phone}
+              {role} · {phone}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
               <span
@@ -3733,12 +3903,12 @@ function ContactosView() {
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  background: avail ? T : CR,
+                  background: available ? T : CR,
                   border: '1px solid #000',
                 }}
               />
-              <span className="lbl" style={{ fontSize: 8, color: avail ? T : CR }}>
-                {avail ? 'DISPONIBLE' : 'OCUPADO'}
+              <span className="lbl" style={{ fontSize: 8, color: available ? T : CR }}>
+                {available ? 'DISPONIBLE' : 'OCUPADO'}
               </span>
             </div>
           </div>
@@ -3748,12 +3918,12 @@ function ContactosView() {
                 SOS_AUTO
               </span>
               <div
-                onClick={() => setSos((s) => ({ ...s, [name]: !s[name] }))}
+                onClick={() => toggleContact(id, 'sosAuto')}
                 style={{
                   width: 36,
                   height: 20,
                   border: '2px solid #000',
-                  background: sos[name] ? M : '#f0f0f0',
+                  background: sosAuto ? M : '#f0f0f0',
                   cursor: 'pointer',
                   position: 'relative',
                   transition: 'background .2s',
@@ -3763,7 +3933,7 @@ function ContactosView() {
                   style={{
                     position: 'absolute',
                     top: 2,
-                    left: sos[name] ? 16 : 2,
+                    left: sosAuto ? 16 : 2,
                     width: 12,
                     height: 12,
                     background: W,
@@ -3773,13 +3943,36 @@ function ContactosView() {
                 />
               </div>
             </label>
-            <button
-              onClick={() => setSent((s) => ({ ...s, [name]: true }))}
-              className={`btn ${sent[name] ? 'btn-turquesa' : 'btn-coral'}`}
-              style={{ fontSize: 10, padding: '8px 14px' }}
-            >
-              {sent[name] ? '✓ ENVIADO' : 'ENVIAR_SOS'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <a
+                href={`tel:${phone.replace(/\s+/g, '')}`}
+                className="btn btn-negro"
+                style={{ fontSize: 10, padding: '8px 14px', textDecoration: 'none' }}
+              >
+                LLAMAR
+              </a>
+              <button
+                onClick={() => setSent((s) => ({ ...s, [id]: true }))}
+                className={`btn ${sent[id] ? 'btn-turquesa' : 'btn-coral'}`}
+                style={{ fontSize: 10, padding: '8px 14px' }}
+              >
+                {sent[id] ? '✓ ENVIADO' : 'ENVIAR_SOS'}
+              </button>
+              <button
+                onClick={() => startEdit({ id, name, role, emoji, phone, available, sosAuto })}
+                className="btn"
+                style={{ fontSize: 10, padding: '8px 14px' }}
+              >
+                EDITAR
+              </button>
+              <button
+                onClick={() => deleteContact(id)}
+                className="btn btn-coral"
+                style={{ fontSize: 10, padding: '8px 14px' }}
+              >
+                BORRAR
+              </button>
+            </div>
           </div>
         </div>
       ))}
@@ -3789,29 +3982,85 @@ function ContactosView() {
 
 /* ── CONFIG VIEW ── */
 function ConfigView() {
-  const { user } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const panelUser = user ?? DEFAULT_PANEL_USER;
+  const [profile, setProfile] = useState(() =>
+    readLocalJSON(PROFILE_STORAGE_KEY, {
+      name: panelUser.name,
+      email: panelUser.email,
+      plan: panelUser.plan,
+    }),
+  );
+  const [language, setLanguage] = useState(() => i18n.language?.split('-')[0] || 'es');
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [dataMessage, setDataMessage] = useState('');
   const [open, setOpen] = useState('PERFIL');
   const sections = [
     'PERFIL',
+    'APARIENCIA_IDIOMA',
     'PRIVACIDAD_GDPR',
     'NOTIFICACIONES',
     'PLAN_SUSCRIPCIÓN',
     'EXPORTAR_DATOS',
     'ELIMINAR_CUENTA',
+    'SESIÓN',
   ];
   const content = {
-    PERFIL: `Nombre: ${panelUser.name} · Email: ${panelUser.email} · Idioma: Español · Zona horaria: Europe/Madrid`,
+    PERFIL: `Nombre: ${profile.name} · Email: ${profile.email} · Idioma: ${language.toUpperCase()} · Zona horaria: Europe/Madrid`,
+    APARIENCIA_IDIOMA:
+      'Cambia idioma de interfaz y tema visual. Los cambios quedan guardados en localStorage.',
     PRIVACIDAD_GDPR:
       'Cumplimiento GDPR y AI Act. Datos cifrados en reposo y tránsito. Anonimización opcional. Exportación completa disponible.',
     NOTIFICACIONES:
       'Recordatorio diario de mood: 20:00h · Alertas de racha: Activado · Sin notificaciones push nocturnas (22:00–09:00h)',
-    PLAN_SUSCRIPCIÓN: `Plan ${planLabel(panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
+    PLAN_SUSCRIPCIÓN: `Plan ${planLabel(profile.plan ?? panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
     EXPORTAR_DATOS:
       'Descarga todos tus datos: historial de mood, entradas de diario, sesiones. Formato: JSON / PDF',
-    ELIMINAR_CUENTA:
-      'Esta acción es irreversible. Todos tus datos serán eliminados de nuestros servidores en 30 días.',
+    ELIMINAR_CUENTA: 'Borra el diario local de este navegador. No elimina la cuenta mock.',
+    SESIÓN: 'Cierra la sesión mock y limpia el token aura.token.',
   };
+  const saveProfile = () => {
+    const next = {
+      name: profile.name.trim() || panelUser.name,
+      email: profile.email.trim() || panelUser.email,
+      plan: profile.plan ?? panelUser.plan,
+    };
+    writeLocalJSON(PROFILE_STORAGE_KEY, next);
+    updateProfile({ name: next.name, email: next.email });
+    setProfile(next);
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 1600);
+  };
+  const changeLanguage = (next) => {
+    setLanguage(next);
+    i18n.changeLanguage(next);
+    localStorage.setItem('aura.language', next);
+  };
+  const exportDiary = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      profile,
+      diary: readLocalJSON(DIARY_STORAGE_KEY, []),
+      contacts: readLocalJSON(CONTACTS_STORAGE_KEY, []),
+    };
+    const content = JSON.stringify(payload, null, 2);
+    if (typeof URL !== 'undefined' && URL.createObjectURL) {
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aura-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    setDataMessage('EXPORT_COMPLETADO');
+  };
+  const deleteDiary = () => {
+    localStorage.removeItem(DIARY_STORAGE_KEY);
+    setDataMessage('DIARIO_LOCAL_BORRADO');
+  };
+
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp .3s ease' }}
@@ -3855,18 +4104,95 @@ function ConfigView() {
               }}
             >
               {content[s]}
+              {s === 'PERFIL' && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 10,
+                  }}
+                >
+                  <input
+                    aria-label="Nombre perfil"
+                    value={profile.name}
+                    onChange={(e) =>
+                      setProfile((current) => ({ ...current, name: e.target.value }))
+                    }
+                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+                  />
+                  <input
+                    aria-label="Email perfil"
+                    value={profile.email}
+                    onChange={(e) =>
+                      setProfile((current) => ({ ...current, email: e.target.value }))
+                    }
+                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Inter' }}
+                  />
+                  <button onClick={saveProfile} className="btn btn-morado" style={{ fontSize: 10 }}>
+                    GUARDAR_PERFIL
+                  </button>
+                  {profileSaved && <span className="chip chip-turquesa">PERFIL_ACTUALIZADO</span>}
+                </div>
+              )}
+              {s === 'APARIENCIA_IDIOMA' && (
+                <div style={{ marginTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 0, border: BORDE }}>
+                    {['es', 'en'].map((lng) => (
+                      <button
+                        key={lng}
+                        onClick={() => changeLanguage(lng)}
+                        style={{
+                          padding: '8px 14px',
+                          background: language === lng ? M : W,
+                          color: language === lng ? W : K,
+                          border: 'none',
+                          borderRight: lng === 'es' ? '2px solid #000' : 'none',
+                          fontFamily: 'Space Mono',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {lng.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={toggleTheme} className="btn btn-negro" style={{ fontSize: 10 }}>
+                    TEMA_{theme === 'dark' ? 'OSCURO' : 'CLARO'}
+                  </button>
+                </div>
+              )}
               {s === 'ELIMINAR_CUENTA' && (
-                <button className="btn btn-coral" style={{ marginTop: 12, fontSize: 10 }}>
-                  ELIMINAR_CUENTA_PERMANENTEMENTE
+                <button
+                  onClick={deleteDiary}
+                  className="btn btn-coral"
+                  style={{ marginTop: 12, fontSize: 10 }}
+                >
+                  BORRAR_DIARIO_LOCAL
                 </button>
               )}
               {s === 'EXPORTAR_DATOS' && (
                 <button
+                  onClick={exportDiary}
                   className="btn"
                   style={{ marginTop: 12, fontSize: 10, background: T, color: K }}
                 >
                   DESCARGAR_MIS_DATOS →
                 </button>
+              )}
+              {s === 'SESIÓN' && (
+                <button
+                  onClick={logout}
+                  className="btn btn-negro"
+                  style={{ marginTop: 12, fontSize: 10 }}
+                >
+                  CERRAR_SESIÓN
+                </button>
+              )}
+              {dataMessage && (s === 'EXPORTAR_DATOS' || s === 'ELIMINAR_CUENTA') && (
+                <div className="chip chip-turquesa" style={{ marginTop: 12 }}>
+                  {dataMessage}
+                </div>
               )}
             </div>
           )}

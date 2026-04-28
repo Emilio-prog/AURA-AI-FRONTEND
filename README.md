@@ -1,164 +1,129 @@
-# AURA IA — Frontend
+# AURA IA Frontend
 
-Frontend del SaaS **AURA IA**, una plataforma de apoyo emocional para personas que sufren ansiedad, estrés u otros problemas de salud mental.
+Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La Fase 1 funciona standalone con mocks en `localStorage` y queda preparada para conectarse a backend Spring Boot y servicios Python/FastAPI.
 
-> **Estado actual:** Hito 1 (cimientos) completo. La app arranca con una página de bienvenida que valida que el sistema de diseño brutalista está operativo. Los siguientes hitos van añadiendo, sección a sección, la landing pública y el panel interior.
+## Estado
 
----
+| Hito   | Alcance                                          | Estado     |
+| ------ | ------------------------------------------------ | ---------- |
+| Hito 1 | Scaffolding, providers, rutas base y tooling     | Completado |
+| Hito 2 | UI library brutalista y playground               | Completado |
+| Hito 3 | Landing pública completa                         | Completado |
+| Hito 4 | Auth mock, guards y panel interior               | Completado |
+| Hito 5 | Inicio, SOS 4-4-6 y chatbot streaming            | Completado |
+| Hito 6 | Minijuegos, sonidos muted, diario y mood tracker | Completado |
+| Hito 7 | Contactos, configuración, i18n, tests y Docker   | Completado |
 
-## 🧱 Stack
+## Stack
 
-| Capa          | Tecnología                                                   |
-| ------------- | ------------------------------------------------------------ |
-| Build         | Vite 6                                                       |
-| Lenguaje      | TypeScript 5.7 (`strict`)                                    |
-| UI            | React 18                                                     |
-| Estilos       | Tailwind CSS 3.4 (config con tokens brutalistas)             |
-| Routing       | `react-router-dom` v6 (HashRouter)                           |
-| HTTP          | Axios — cliente centralizado en `src/services/httpClient.ts` |
-| Estado        | React Context API                                            |
-| Iconos        | `lucide-react`                                               |
-| Animaciones   | `framer-motion` + CSS keyframes                              |
-| Smooth scroll | `lenis` (solo landing)                                       |
-| i18n          | `react-i18next` (es por defecto)                             |
-| Testing       | Vitest + React Testing Library + jsdom                       |
-| Calidad       | ESLint 9 (flat config) + Prettier + Husky + lint-staged      |
+- React 18 + TypeScript 5.7
+- Vite 6
+- Tailwind CSS 3.4
+- `react-router-dom` v6 con `HashRouter`
+- Axios con interceptor Bearer
+- `react-i18next`
+- Vitest + React Testing Library
+- Docker multi-stage: Node build -> nginx alpine
 
----
+## Credenciales demo
 
-## 🚀 Puesta en marcha
+```txt
+Email: demo@aura.ai
+Password: aura1234
+```
 
-### Requisitos
+La sesión se guarda con fake JWT en `localStorage` bajo `aura.token`.
 
-- **Node.js** ≥ 20 (testeado con Node 24)
-- **npm** ≥ 10 (también funciona con `pnpm` o `yarn`; este repo usa npm por defecto)
-
-### Instalar y arrancar
+## Puesta en marcha
 
 ```bash
-# 1) Clonar y entrar
-git clone <url-del-repo> aura-ai-frontend
-cd aura-ai-frontend
-
-# 2) Variables de entorno
-cp .env.example .env
-
-# 3) Instalar dependencias
 npm install
-
-# 4) Arrancar el servidor de desarrollo
 npm run dev
 ```
 
-La app abrirá automáticamente en [http://localhost:5173](http://localhost:5173).
+App local: `http://localhost:5173/`
 
-### Scripts disponibles
+Panel: `http://localhost:5173/#/dashboard`
 
-| Script                 | Descripción                                               |
-| ---------------------- | --------------------------------------------------------- |
-| `npm run dev`          | Arranca Vite en modo desarrollo con HMR                   |
-| `npm run build`        | Type-check + build de producción a `dist/`                |
-| `npm run preview`      | Sirve el build de producción para verificación local      |
-| `npm run lint`         | Linter sobre `src/**/*.{ts,tsx}` (sin warnings tolerados) |
-| `npm run lint:fix`     | Linter con auto-fix                                       |
-| `npm run format`       | Formatea con Prettier                                     |
-| `npm run format:check` | Verifica formato sin escribir                             |
-| `npm run typecheck`    | TypeScript sin emitir output                              |
-| `npm run test`         | Vitest en modo watch                                      |
-| `npm run test:run`     | Vitest una sola pasada (CI)                               |
+## Scripts
 
----
+| Script              | Uso                   |
+| ------------------- | --------------------- |
+| `npm run dev`       | Servidor Vite         |
+| `npm run typecheck` | TypeScript sin emitir |
+| `npm run lint`      | ESLint sin warnings   |
+| `npm run test:run`  | Vitest en CI          |
+| `npm run build`     | Build producción      |
+| `npm run preview`   | Preview del build     |
 
-## 📁 Estructura
+## Funcionalidad mock
 
-```
-aura-ai-frontend/
-├── public/                 # Estáticos (favicon, robots.txt en el futuro)
-├── src/
-│   ├── assets/             # Imágenes, iconos custom, fuentes
-│   ├── components/
-│   │   ├── ui/             # Piezas atómicas reutilizables (Hito 2)
-│   │   ├── layout/         # Sidebar, Drawer, Topbar (Hito 5)
-│   │   └── features/       # Componentes por dominio (Hitos 5–7)
-│   ├── pages/
-│   │   ├── landing/        # Home, Pricing, About (Hito 3)
-│   │   ├── auth/           # Login, Register, ForgotPassword (Hito 4)
-│   │   ├── dashboard/      # 9 secciones del panel (Hitos 5–7)
-│   │   └── WelcomePage.tsx # Placeholder del Hito 1
-│   ├── hooks/              # Custom hooks
-│   ├── context/            # AuthContext, ThemeContext, AppProviders
-│   ├── services/           # Cliente HTTP + servicios por dominio
-│   ├── utils/              # Helpers (cn, formatters, validadores)
-│   ├── routes/             # AppRouter, PrivateRoute (Hito 4)
-│   ├── data/               # Mocks centralizados
-│   ├── styles/             # globals.css con utilidades brutalistas
-│   ├── test/               # Setup de Vitest
-│   ├── App.tsx
-│   └── main.tsx
-├── index.html
-├── tailwind.config.ts
-├── postcss.config.js
-├── vite.config.ts
-├── tsconfig.json (+ app, node)
-├── eslint.config.js
-├── .env.example
-└── package.json
+- Auth: login/register/logout con usuarios mock.
+- Panel: navegación persistida en `aura-section`.
+- Diario: CRUD en `aura.diary.entries`.
+- Contactos: CRUD en `aura.contacts`.
+- Configuración: perfil mock, idioma `es/en`, tema, exportación JSON, borrado de diario y logout.
+- Sonidos: UI funcional en modo muted, sin archivos de audio.
+- Mood tracker: dataset mock 30/60/90 días con bar chart y heatmap.
+
+## i18n
+
+Configurado en `src/i18n.ts`.
+
+Catálogos:
+
+- `src/i18n/locales/es.json`
+- `src/i18n/locales/en.json`
+
+El idioma se persiste en `localStorage` con la clave `aura.language`.
+
+## Tests
+
+```bash
+npm run test:run
 ```
 
----
+Cobertura funcional incluida:
 
-## 🎨 Sistema de diseño (resumen)
+- Auth flow con credenciales demo.
+- Guards privado/público.
+- Diario con persistencia local.
+- Chatbot con typing/streaming.
+- Contactos CRUD local.
+- Mood tracker 30/60/90.
+- Configuración: exportar datos y logout.
 
-El estilo es **brutalismo neo-suizo**: bordes 3-4px negros, sombras duras `8px 8px 0 0 #000`, tipografías **Inter** (400/700/900) + **Space Mono**, paleta `teal #2DD4BF`, `purple #A855F7`, `coral #FB7185`.
+## Docker
 
-Las utilidades canónicas viven en `src/styles/globals.css` (capa `@layer components`):
+```bash
+docker build -t aura-ai-frontend .
+docker run --rm -p 8080:80 aura-ai-frontend
+```
 
-- `.brutal-card`, `.brutal-card-sm`
-- `.brutal-btn`, `.brutal-btn-{coral,purple,teal,black}`
-- `.brutal-chip-{coral,purple,teal,black}`
-- `.brutal-label`
-- `.brutal-input`
+Abrir `http://localhost:8080/`.
 
-Los tokens (colores, sombras, animaciones) están extendidos en `tailwind.config.ts`.
+## Estructura principal
 
-> Las carpetas `AURA AI - LandingPage/` y `AURA AI-Panel-Interior/` que verás en la raíz del repo son las **referencias visuales originales** (HTML estáticos + screenshots + DESIGN.md). No forman parte del bundle, pero son la fuente de verdad del diseño.
+```txt
+src/
+├── components/ui
+├── context
+├── data
+├── hooks
+├── i18n
+├── pages
+│   ├── auth
+│   ├── dashboard
+│   └── landing
+├── routes
+├── services
+├── styles
+├── test
+└── utils
+```
 
----
+## Notas
 
-## 🔐 Variables de entorno
+Las carpetas `AURA AI - LandingPage/` y `AURA AI-Panel-Interior/` son referencias visuales originales y no forman parte del bundle.
 
-Definidas en `.env` (ver `.env.example`):
-
-| Variable              | Descripción                                                 |
-| --------------------- | ----------------------------------------------------------- |
-| `VITE_API_BASE_URL`   | URL del backend Spring Boot. Vacía en Fase 1 (mocks).       |
-| `VITE_DEV_MODE`       | Habilita banners y pantallas de debug.                      |
-| `VITE_DEFAULT_LOCALE` | Idioma por defecto si el navegador no aporta uno soportado. |
-
----
-
-## 🧭 Roadmap por hitos
-
-- ✅ **Hito 1** — Cimientos (scaffolding + design tokens + tooling)
-- ⏭ **Hito 2** — Sistema de diseño (componentes UI base + playground)
-- ⏭ **Hito 3** — Landing pública (Hero, Pricing, Footer)
-- ⏭ **Hito 4** — Auth simulada + DashboardLayout
-- ⏭ **Hito 5** — Panel: Inicio, Pánico, Chatbot
-- ⏭ **Hito 6** — Panel: Minijuegos, Sonidos, Diario, Mood Tracker
-- ⏭ **Hito 7** — Contactos, Configuración, i18n, tests, Dockerfile
-
----
-
-## 🐳 Deploy (próximos pasos)
-
-El frontend está pensado para desplegarse vía Docker (multi-stage Node build → nginx alpine) en **Dokploy**, **Railway** u otra PaaS junto al backend Spring Boot. El `Dockerfile` se añade en el Hito 7.
-
-`HashRouter` se usa por ahora para evitar configurar reescrituras de rutas en el proxy. Cuando se adopte nginx con su `try_files`, se puede migrar a `BrowserRouter` sin cambios de código de aplicación.
-
----
-
-## 📝 Notas
-
-- La app está preparada para conectarse al backend real **sin refactor**: todo HTTP pasa por `src/services/httpClient.ts`, que respeta `VITE_API_BASE_URL` y añade el bearer token desde `localStorage` (`aura.token`).
-- El diario y los contactos persisten en `localStorage`. Es **información sensible** y no está cifrada — adecuado para una demo, no para producción.
-- Los ambientes sonoros tienen UI funcional pero **sin audio real** en esta fase.
+El almacenamiento local contiene datos sensibles solo para demo. En producción debe sustituirse por backend, cifrado y políticas de privacidad reales.

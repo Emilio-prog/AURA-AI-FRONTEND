@@ -22,6 +22,7 @@ export interface AuthContextValue {
   isHydrating: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (payload: RegisterPayload) => Promise<AuthUser>;
+  updateProfile: (payload: Partial<Pick<AuthUser, 'name' | 'email'>>) => AuthUser | null;
   logout: () => void;
 }
 
@@ -126,6 +127,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback(
+    (payload: Partial<Pick<AuthUser, 'name' | 'email'>>): AuthUser | null => {
+      if (!user) return null;
+      const next: AuthUser = {
+        ...user,
+        ...payload,
+        initials: payload.name ? computeInitials(payload.name) : user.initials,
+      };
+      writeJSON(STORAGE_KEYS.user, next);
+      setUser(next);
+      return next;
+    },
+    [user],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -133,9 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isHydrating,
       login,
       register,
+      updateProfile,
       logout,
     }),
-    [user, isHydrating, login, register, logout],
+    [user, isHydrating, login, register, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
