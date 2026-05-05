@@ -5,6 +5,8 @@ import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLayout } from './AuthLayout';
 
+const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
+
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -24,12 +26,12 @@ export function RegisterPage() {
       setError('Nombre demasiado corto.');
       return;
     }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (!PASSWORD_POLICY.test(password)) {
+      setError('La contrasena debe tener 12 caracteres, mayuscula, minuscula, numero y simbolo.');
       return;
     }
     if (password !== confirm) {
-      setError('Las contraseñas no coinciden.');
+      setError('Las contrasenas no coinciden.');
       return;
     }
 
@@ -48,12 +50,12 @@ export function RegisterPage() {
     <AuthLayout
       badge="ID: REGISTRO_NUEVO"
       title="CREAR_CUENTA"
-      subtitle="// PROVISIÓN_USUARIO_NUEVO"
+      subtitle="// PROVISION_USUARIO_NUEVO"
       footer={
         <p className="font-mono text-xs font-bold uppercase tracking-wider text-ink-muted">
-          ¿Ya tienes cuenta?{' '}
+          Ya tienes cuenta?{' '}
           <Link to="/login" className="text-brutal-purple hover:underline">
-            INICIAR_SESIÓN →
+            INICIAR_SESION
           </Link>
         </p>
       }
@@ -82,26 +84,26 @@ export function RegisterPage() {
         />
 
         <Input
-          label="CONTRASEÑA"
+          label="CONTRASENA"
           type="password"
           autoComplete="new-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           leftIcon={<Lock className="h-4 w-4" />}
-          placeholder="Mín. 6 caracteres"
-          hint="MIN_6_CHARS"
+          placeholder="Min. 12 + Aa1!"
+          hint="MIN_12_Aa1_SYMBOL"
         />
 
         <Input
-          label="CONFIRMAR_CONTRASEÑA"
+          label="CONFIRMAR_CONTRASENA"
           type="password"
           autoComplete="new-password"
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           leftIcon={<Lock className="h-4 w-4" />}
-          placeholder="Repite la contraseña"
+          placeholder="Repite la contrasena"
         />
 
         {error && (
@@ -123,11 +125,6 @@ export function RegisterPage() {
         >
           CREAR_CUENTA
         </Button>
-
-        <p className="border-t-2 border-dashed border-brutal-black pt-4 font-mono text-[9px] font-bold uppercase leading-relaxed tracking-wider text-ink-muted">
-          ⚠ FASE_MOCK: Las cuentas se almacenan únicamente en localStorage de este navegador. No hay
-          persistencia en servidor.
-        </p>
       </form>
     </AuthLayout>
   );

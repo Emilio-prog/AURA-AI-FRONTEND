@@ -1,19 +1,13 @@
 import axios, { type AxiosInstance } from 'axios';
 
-/**
- * Cliente HTTP centralizado. Toda llamada a `aura-ai-backend` (Spring Boot)
- * debe pasar por aquí — nada de baseURL hardcodeado en componentes.
- *
- * Fase 1 (mocks): puede no usarse. Pero el módulo está listo para que las
- * implementaciones reales en `services/*.ts` lo importen sin refactor.
- */
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? '';
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080/api/v1';
 
 export const httpClient: AxiosInstance = axios.create({
   baseURL,
   timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
+    'Accept-Language': 'es',
   },
 });
 
@@ -27,8 +21,5 @@ httpClient.interceptors.request.use((config) => {
 
 httpClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // TODO Hito 4+: redirección a login en 401, normalización de errores, etc.
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );

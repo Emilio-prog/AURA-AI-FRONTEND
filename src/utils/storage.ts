@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
   token: 'aura.token',
+  refreshToken: 'aura.refreshToken',
   user: 'aura.user',
   users: 'aura.users',
   section: 'aura-section',

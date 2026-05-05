@@ -1,9 +1,34 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, vi, type Mock } from 'vitest';
 import App from '@/App';
+import { httpClient } from '@/services/httpClient';
+
+vi.mock('@/services/httpClient', () => ({
+  httpClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}));
+
+const backendUser = {
+  id: 'usr_001',
+  name: 'Maria Solis',
+  email: 'demo@aura.ai',
+  role: 'USER',
+  plan: 'PRO',
+  emailVerified: true,
+  createdAt: '2026-01-15T00:00:00Z',
+};
+
+const httpMock = httpClient as unknown as {
+  get: Mock;
+  post: Mock;
+};
 
 const seedSession = () => {
-  localStorage.setItem('aura.token', 'aura.fake-jwt.test');
+  localStorage.setItem('aura.token', 'access.jwt.test');
+  localStorage.setItem('aura.refreshToken', 'refresh.jwt.test');
   localStorage.setItem(
     'aura.user',
     JSON.stringify({
@@ -17,12 +42,19 @@ const seedSession = () => {
 };
 
 const renderDashboard = (section: string) => {
+  httpMock.get.mockResolvedValueOnce({ data: backendUser });
   seedSession();
   window.location.hash = `#/dashboard/${section}`;
   render(<App />);
 };
 
 describe('panel bienestar y utilidades', () => {
+  beforeEach(() => {
+    httpMock.get.mockReset();
+    httpMock.post.mockReset();
+    httpMock.post.mockResolvedValue({ data: {} });
+  });
+
   it('registra una entrada de diario en localStorage', async () => {
     const user = userEvent.setup();
     renderDashboard('diario');
