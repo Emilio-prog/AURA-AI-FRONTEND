@@ -1,6 +1,6 @@
 # AURA IA Frontend
 
-Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La Fase 1 funciona standalone con mocks en `localStorage` y queda preparada para conectarse a backend Spring Boot y servicios Python/FastAPI.
+Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La autenticacion consume el backend Spring Boot real y el panel queda preparado para servicios Python/FastAPI.
 
 ## Estado
 
@@ -25,14 +25,13 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 - Vitest + React Testing Library
 - Docker multi-stage: Node build -> nginx alpine
 
-## Credenciales demo
+## Backend
 
 ```txt
-Email: demo@aura.ai
-Password: aura1234
+VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1
 ```
 
-La sesión se guarda con fake JWT en `localStorage` bajo `aura.token`.
+La sesion se guarda con JWT real en `localStorage` bajo `aura.token` y `aura.refreshToken`.
 
 ## Puesta en marcha
 
@@ -41,7 +40,7 @@ npm install
 npm run dev
 ```
 
-App local: `http://localhost:5173/`
+App local: `http://localhost:5173/` o `http://127.0.0.1:5173/`
 
 Panel: `http://localhost:5173/#/dashboard`
 
@@ -56,9 +55,15 @@ Panel: `http://localhost:5173/#/dashboard`
 | `npm run build`     | Build producción      |
 | `npm run preview`   | Preview del build     |
 
-## Funcionalidad mock
+## Auth real
 
-- Auth: login/register/logout con usuarios mock.
+- Registro: llama a `POST /auth/register` y muestra `#/verify-email`.
+- Verificacion: `#/verify-email?token=...` llama a `POST /auth/verify-email?token=...`.
+- Login: llama a `POST /auth/login`, guarda `accessToken` y `refreshToken`.
+- Reenvio: login/verificacion permiten llamar a `POST /auth/resend-verification`.
+
+## Funcionalidad local del panel
+
 - Panel: navegación persistida en `aura-section`.
 - Diario: CRUD en `aura.diary.entries`.
 - Contactos: CRUD en `aura.contacts`.
@@ -85,7 +90,9 @@ npm run test:run
 
 Cobertura funcional incluida:
 
-- Auth flow con credenciales demo.
+- Auth flow con backend mockeado en tests.
+- Registro pendiente y pantalla de verificacion.
+- Reenvio de email si login queda bloqueado por cuenta no verificada.
 - Guards privado/público.
 - Diario con persistencia local.
 - Chatbot con typing/streaming.

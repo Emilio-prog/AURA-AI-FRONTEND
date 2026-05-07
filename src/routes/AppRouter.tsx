@@ -4,6 +4,7 @@ import { DevPlayground } from '@/pages/DevPlayground';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
 import { AuraPanelPage } from '@/pages/dashboard/AuraPanelPage';
 import { PrivateRoute } from './PrivateRoute';
 import { PublicRoute } from './PublicRoute';
@@ -19,6 +20,7 @@ export function AppRouter() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
         </Route>
 
         {/* Dashboard: solo accesible CON sesión */}

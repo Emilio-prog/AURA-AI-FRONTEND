@@ -18,12 +18,19 @@ export interface RegisterPayload {
   password: string;
 }
 
+export interface RegisterResult {
+  email: string;
+  message: string;
+  requiresVerification: boolean;
+}
+
 export interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isHydrating: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  register: (payload: RegisterPayload) => Promise<AuthUser>;
+  register: (payload: RegisterPayload) => Promise<RegisterResult>;
+  resendVerification: (email: string) => Promise<string>;
   updateProfile: (payload: Partial<Pick<AuthUser, 'name' | 'email'>>) => AuthUser | null;
   logout: () => void;
 }
@@ -44,6 +51,7 @@ interface AuthResponse {
 interface PendingVerificationResponse {
   email: string;
   message: string;
+  requiresVerification?: boolean;
 }
 
 interface ApiErrorResponse {
@@ -171,30 +179,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async ({ name, email, password }: RegisterPayload): Promise<AuthUser> => {
-      let registration: PendingVerificationResponse | null = null;
-
+    async ({ name, email, password }: RegisterPayload): Promise<RegisterResult> => {
       try {
         const { data } = await httpClient.post<PendingVerificationResponse>('/auth/register', {
           name,
           email,
           password,
         });
-        registration = data;
+        return {
+          email: data.email,
+          message: data.message,
+          requiresVerification: data.requiresVerification ?? true,
+        };
       } catch (error) {
         throw new Error(getApiErrorMessage(error, 'Error al crear cuenta.'));
       }
-
-      try {
-        return await login(email, password);
-      } catch {
-        throw new Error(
-          registration?.message ?? 'Cuenta creada. Revisa tu email para verificarla.',
-        );
-      }
     },
-    [login],
+    [],
   );
+
+  const resendVerification = useCallback(async (email: string): Promise<string> => {
+    try {
+      const { data } = await httpClient.post<{ message: string }>('/auth/resend-verification', {
+        email,
+      });
+      return data.message;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'No se pudo reenviar el email de verificacion.'));
+    }
+  }, []);
 
   const logout = useCallback(() => {
     const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
@@ -228,10 +241,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isHydrating,
       login,
       register,
+      resendVerification,
       updateProfile,
       logout,
     }),
-    [user, isHydrating, login, register, updateProfile, logout],
+    [user, isHydrating, login, register, resendVerification, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

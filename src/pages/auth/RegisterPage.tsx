@@ -37,8 +37,15 @@ export function RegisterPage() {
 
     setLoading(true);
     try {
-      await register({ name, email, password });
-      navigate('/dashboard', { replace: true });
+      const result = await register({ name, email, password });
+      navigate('/verify-email', {
+        replace: true,
+        state: {
+          email: result.email,
+          message: result.message,
+          requiresVerification: result.requiresVerification,
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear cuenta.');
     } finally {

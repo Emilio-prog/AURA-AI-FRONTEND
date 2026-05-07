@@ -106,4 +106,68 @@ describe('auth flow y guards', () => {
     });
     expect(localStorage.getItem('aura.token')).toBe(authResponse.accessToken);
   });
+
+  it('registra cuenta y muestra pantalla de verificacion sin autenticar', async () => {
+    httpMock.post.mockResolvedValueOnce({
+      data: {
+        email: 'nueva@example.com',
+        message: 'Cuenta creada. Revisa tu email para verificarla.',
+        requiresVerification: true,
+      },
+    });
+    const user = userEvent.setup();
+    window.location.hash = '#/register';
+
+    render(<App />);
+
+    await user.type(await screen.findByLabelText('NOMBRE_COMPLETO'), 'Nueva Usuaria');
+    await user.type(screen.getByLabelText('EMAIL_USUARIO'), 'nueva@example.com');
+    await user.type(screen.getByLabelText('CONTRASENA'), 'StrongPassword123!');
+    await user.type(screen.getByLabelText('CONFIRMAR_CONTRASENA'), 'StrongPassword123!');
+    await user.click(screen.getByRole('button', { name: /CREAR_CUENTA/i }));
+
+    await screen.findByText(/Cuenta creada. Revisa tu email para verificarla./i);
+    expect(window.location.hash).toContain('/verify-email');
+    expect(localStorage.getItem('aura.token')).toBeNull();
+    expect(httpMock.post).toHaveBeenCalledWith('/auth/register', {
+      name: 'Nueva Usuaria',
+      email: 'nueva@example.com',
+      password: 'StrongPassword123!',
+    });
+  });
+
+  it('verifica email desde token de la URL', async () => {
+    httpMock.post.mockResolvedValueOnce({
+      data: { message: 'Email verificado correctamente.' },
+    });
+    window.location.hash = '#/verify-email?token=raw-token';
+
+    render(<App />);
+
+    expect(await screen.findByText(/Email verificado correctamente./i)).toBeInTheDocument();
+    expect(screen.getByText(/IR_A_LOGIN/i)).toBeInTheDocument();
+    expect(httpMock.post).toHaveBeenCalledWith('/auth/verify-email?token=raw-token');
+  });
+
+  it('permite reenviar verificacion si el login esta bloqueado por email no verificado', async () => {
+    httpMock.post
+      .mockRejectedValueOnce({
+        response: { data: { message: 'Debes verificar tu email antes de iniciar sesion.' } },
+      })
+      .mockResolvedValueOnce({ data: { message: 'Email de verificacion enviado.' } });
+    const user = userEvent.setup();
+    window.location.hash = '#/login';
+
+    render(<App />);
+
+    await user.type(await screen.findByLabelText('EMAIL_USUARIO'), 'pendiente@example.com');
+    await user.type(screen.getByLabelText(/CONTRASE/), 'StrongPassword123!');
+    await user.click(screen.getByRole('button', { name: /EJECUTAR_LOGIN/i }));
+    await user.click(await screen.findByRole('button', { name: /REENVIAR_VERIFICACION/i }));
+
+    expect(await screen.findByText(/Email de verificacion enviado./i)).toBeInTheDocument();
+    expect(httpMock.post).toHaveBeenCalledWith('/auth/resend-verification', {
+      email: 'pendiente@example.com',
+    });
+  });
 });

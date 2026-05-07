@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, LogIn, RefreshCcw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { DEMO_CREDENTIALS } from '@/data/users';
@@ -11,7 +11,7 @@ interface LocationState {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, resendVerification } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as LocationState | null)?.from ?? '/dashboard';
@@ -19,11 +19,14 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setResendMessage(null);
     setLoading(true);
     try {
       await login(email, password);
@@ -38,6 +41,24 @@ export function LoginPage() {
   const fillDemo = () => {
     setEmail(DEMO_CREDENTIALS.email);
     setPassword(DEMO_CREDENTIALS.password);
+  };
+
+  const canResendVerification =
+    Boolean(email.trim()) && Boolean(error && /verifica|verificar|verify|verified/i.test(error));
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    setResendMessage(null);
+    try {
+      const message = await resendVerification(email.trim());
+      setResendMessage(message);
+    } catch (err) {
+      setResendMessage(
+        err instanceof Error ? err.message : 'No se pudo reenviar el email de verificacion.',
+      );
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -84,6 +105,26 @@ export function LoginPage() {
           >
             ERR_AUTH: {error}
           </div>
+        )}
+
+        {canResendVerification && (
+          <Button
+            type="button"
+            variant="teal"
+            size="md"
+            loading={resending}
+            leftIcon={<RefreshCcw className="h-4 w-4" />}
+            className="w-full justify-center"
+            onClick={handleResendVerification}
+          >
+            REENVIAR_VERIFICACION
+          </Button>
+        )}
+
+        {resendMessage && (
+          <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+            {resendMessage}
+          </p>
         )}
 
         <Button
