@@ -2,15 +2,40 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Send } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import { httpClient } from '@/services/httpClient';
 import { AuthLayout } from './AuthLayout';
+
+const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string; error?: string } } })
+      .response;
+    return response?.data?.message ?? response?.data?.error ?? fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+};
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setLoading(true);
+    try {
+      const { data } = await httpClient.post<{ message: string }>('/auth/forgot-password', {
+        email: email.trim(),
+      });
+      setMessage(data.message);
+      setSubmitted(true);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo procesar la solicitud.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,12 +57,10 @@ export function ForgotPasswordPage() {
           <div className="border-3 border-brutal-teal bg-brutal-teal/10 px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-wider text-brutal-black">
             ✓ SOLICITUD_RECIBIDA
             <br />
-            <span className="text-ink-muted">
-              Si {email} corresponde a una cuenta, recibirás instrucciones en breve.
-            </span>
+            <span className="text-ink-muted">{message}</span>
           </div>
-          <p className="font-mono text-[9px] font-bold uppercase leading-relaxed tracking-wider text-ink-muted">
-            ⚠ FASE_MOCK: Esta vista es decorativa. No se envían correos reales.
+          <p className="font-mono text-[10px] font-bold uppercase leading-relaxed tracking-wider text-ink-muted">
+            // INFO: EL_ENLACE_CADUCA_EN_30_MINUTOS. REVISA_TU_BANDEJA_DE_ENTRADA_Y_SPAM.
           </p>
         </div>
       ) : (
@@ -53,10 +76,19 @@ export function ForgotPasswordPage() {
             placeholder="tu@email.com"
             hint="ENVIAREMOS_LINK_DE_RECUPERACIÓN"
           />
+          {error && (
+            <div
+              role="alert"
+              className="border-3 border-brutal-coral bg-brutal-coral/10 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-brutal-coral"
+            >
+              ERR_RESET: {error}
+            </div>
+          )}
           <Button
             type="submit"
             variant="purple"
             size="lg"
+            loading={loading}
             leftIcon={<Send className="h-4 w-4" />}
             className="w-full justify-center"
           >
