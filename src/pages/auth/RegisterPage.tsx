@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, Check } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLayout } from './AuthLayout';
@@ -15,6 +15,8 @@ export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +34,14 @@ export function RegisterPage() {
     }
     if (password !== confirm) {
       setError('Las contrasenas no coinciden.');
+      return;
+    }
+    if (!ageConfirmed) {
+      setError('Debes confirmar que tienes 18 años o más.');
+      return;
+    }
+    if (!termsAccepted) {
+      setError('Debes aceptar la política de privacidad y los términos de uso.');
       return;
     }
 
@@ -112,6 +122,72 @@ export function RegisterPage() {
           leftIcon={<Lock className="h-4 w-4" />}
           placeholder="Repite la contrasena"
         />
+
+        <div className="flex flex-col gap-3">
+          <label className="flex cursor-pointer items-start gap-3">
+            <div className="relative mt-0.5 flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`flex h-5 w-5 items-center justify-center border-2 transition-colors ${
+                  ageConfirmed
+                    ? 'border-brutal-purple bg-brutal-purple'
+                    : 'border-brutal-black bg-white'
+                }`}
+              >
+                {ageConfirmed && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+              </div>
+            </div>
+            <span className="font-mono text-[11px] font-bold uppercase leading-relaxed tracking-wider text-ink">
+              Confirmo que tengo 18 años o más
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <div className="relative mt-0.5 flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`flex h-5 w-5 items-center justify-center border-2 transition-colors ${
+                  termsAccepted
+                    ? 'border-brutal-purple bg-brutal-purple'
+                    : 'border-brutal-black bg-white'
+                }`}
+              >
+                {termsAccepted && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+              </div>
+            </div>
+            <span className="font-mono text-[11px] font-bold uppercase leading-relaxed tracking-wider text-ink">
+              Entiendo que AURA IA ofrece apoyo emocional y{' '}
+              <span className="text-brutal-coral">no sustituye ayuda psicológica profesional</span>
+              . He leído y acepto la{' '}
+              <Link
+                to="/privacy"
+                onClick={(e) => e.stopPropagation()}
+                className="text-brutal-purple hover:underline"
+              >
+                Política de privacidad
+              </Link>{' '}
+              y los{' '}
+              <Link
+                to="/terms"
+                onClick={(e) => e.stopPropagation()}
+                className="text-brutal-purple hover:underline"
+              >
+                Términos de uso
+              </Link>
+              .
+            </span>
+          </label>
+        </div>
 
         {error && (
           <div
