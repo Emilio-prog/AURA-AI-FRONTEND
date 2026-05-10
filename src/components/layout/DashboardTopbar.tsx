@@ -1,4 +1,5 @@
-import { Menu } from 'lucide-react';
+import { Menu, Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
 
 interface DashboardTopbarProps {
   onOpenMenu: () => void;
@@ -16,6 +17,8 @@ const STATS_TICKER = [
 
 export function DashboardTopbar({ onOpenMenu }: DashboardTopbarProps) {
   const doubled = [...STATS_TICKER, ...STATS_TICKER];
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   return (
     <div className="flex items-stretch border-b-4 border-brutal-black bg-brutal-black text-white">
@@ -43,6 +46,17 @@ export function DashboardTopbar({ onOpenMenu }: DashboardTopbarProps) {
           ))}
         </div>
       </div>
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={isDark ? 'Activar tema claro' : 'Activar tema oscuro'}
+        title={isDark ? 'Tema claro' : 'Tema oscuro'}
+        className="flex h-10 w-10 shrink-0 items-center justify-center border-l-4 border-brutal-black bg-white text-brutal-black transition-colors hover:bg-brutal-teal"
+      >
+        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
     </div>
   );
 }

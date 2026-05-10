@@ -16,6 +16,7 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface RegisterResult {
@@ -179,12 +180,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async ({ name, email, password }: RegisterPayload): Promise<RegisterResult> => {
+    async ({ name, email, password, captchaToken }: RegisterPayload): Promise<RegisterResult> => {
       try {
         const { data } = await httpClient.post<PendingVerificationResponse>('/auth/register', {
           name,
           email,
           password,
+          captchaToken,
         });
         return {
           email: data.email,

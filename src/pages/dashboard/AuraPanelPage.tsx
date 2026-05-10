@@ -7,19 +7,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import i18n from '@/i18n';
 
-/* ── CONSTANTS ── */
+/* ── CONSTANTS ──
+ * Acentos (T/M/CR) son tokens de marca y NO cambian con el tema.
+ * Los neutros (K/W/DK/BORDE/SOMBRA) leen de CSS vars y se invierten en dark.
+ */
 const T = '#2DD4BF',
   M = '#A855F7',
   CR = '#FB7185',
-  K = '#000',
-  W = '#fff',
-  DK = '#0A0A0A';
+  K = 'var(--aura-fg)',
+  W = 'var(--aura-bg)',
+  DK = 'var(--aura-bg-stats)';
 const TL = 'rgba(45,212,191,0.12)',
   ML = 'rgba(168,85,247,0.10)',
   CL = 'rgba(251,113,133,0.11)';
-const BORDE = '4px solid #000',
-  SOMBRA = '8px 8px 0 0 #000',
-  SOMBRA_SM = '4px 4px 0 0 #000';
+const BORDE = '4px solid var(--aura-fg)',
+  SOMBRA = 'var(--aura-shadow)',
+  SOMBRA_SM = 'var(--aura-shadow-sm)';
 
 const NAV = [
   { id: 'inicio', icon: 'home', label: 'INICIO_', labelKey: 'dashboard.nav.inicio' },
@@ -321,6 +324,8 @@ function Sidebar({ active, set }) {
 
 /* ── STATS MARQUEE ── */
 function StatsBar() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
   const items = [
     'SESIONES_HOY: 3',
     'RACHA: DÍA_07_CONSECUTIVO',
@@ -344,7 +349,7 @@ function StatsBar() {
         flexShrink: 0,
       }}
     >
-      <div className="marquee-track">
+      <div className="marquee-track" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         {doubled.map((t, i) => (
           <span
             key={i}
@@ -361,6 +366,28 @@ function StatsBar() {
           </span>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={isDark ? 'Activar tema claro' : 'Activar tema oscuro'}
+        title={isDark ? 'Tema claro' : 'Tema oscuro'}
+        style={{
+          flexShrink: 0,
+          width: 38,
+          height: 38,
+          background: W,
+          color: K,
+          border: 'none',
+          borderLeft: '4px solid #000',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+        }}
+      >
+        <span className="icon">{isDark ? 'light_mode' : 'dark_mode'}</span>
+      </button>
     </div>
   );
 }
@@ -578,7 +605,7 @@ function MoodChartCard() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
-            { c: '#ccc', l: 'ANTES' },
+            { c: 'var(--aura-border-subtle)', l: 'ANTES' },
             { c: M, l: 'DESPUÉS' },
           ].map(({ c, l }) => (
             <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="lbl">
@@ -648,7 +675,7 @@ function MoodChartCard() {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
         {[
-          { l: 'PROM_ANTES', v: '5.9', c: '#ccc' },
+          { l: 'PROM_ANTES', v: '5.9', c: 'var(--aura-border-subtle)' },
           { l: 'PROM_DESPUÉS', v: '7.9', c: M },
           { l: 'MEJORA_TOTAL', v: '+34%', c: T },
         ].map(({ l, v, c }) => (
@@ -744,7 +771,7 @@ function SoundPlayerCard() {
           style={{
             flex: 1,
             height: 5,
-            background: '#e5e5e5',
+            background: 'var(--aura-border-subtle)',
             border: '2px solid #000',
             cursor: 'pointer',
             position: 'relative',
@@ -920,7 +947,7 @@ function QuoteCard() {
         gap: 16,
       }}
     >
-      <div className="lbl" style={{ color: '#666', fontSize: 9 }}>
+      <div className="lbl" style={{ color: 'var(--aura-fg-soft)', fontSize: 9 }}>
         FRASE_DEL_DÍA
       </div>
       <div
@@ -934,7 +961,7 @@ function QuoteCard() {
       >
         "LA ANSIEDAD ES LA EMOCIÓN DEL FUTURO IMAGINADO. VUELVE AL PRESENTE."
       </div>
-      <div className="mono" style={{ fontSize: 9, color: '#555' }}>
+      <div className="mono" style={{ fontSize: 9, color: 'var(--aura-fg-muted)' }}>
         — ADAPTADO_DE_CBT · FUENTE_CLÍNICA_VALIDADA
       </div>
     </div>
@@ -1033,7 +1060,7 @@ function SOSView({ openBreathing }) {
             gap: 24,
           }}
         >
-          <div className="mono" style={{ fontSize: 12, color: '#555', letterSpacing: '0.08em' }}>
+          <div className="mono" style={{ fontSize: 12, color: 'var(--aura-fg-muted)', letterSpacing: '0.08em' }}>
             PRESIONA PARA ACTIVAR RESPIRACIÓN GUIADA 4-4-6
           </div>
           <div
@@ -1105,7 +1132,7 @@ function SOSView({ openBreathing }) {
             </button>
           </div>
           <div style={{ border: '3px solid #000', padding: '10px 18px', background: W }}>
-            <span className="mono" style={{ fontSize: 10, color: '#555' }}>
+            <span className="mono" style={{ fontSize: 10, color: 'var(--aura-fg-muted)' }}>
               TÉCNICA_GUIADA: Inhala 4s · Sostén 4s · Exhala 6s · Vuelve al presente
             </span>
           </div>
@@ -1246,7 +1273,7 @@ function SOSView({ openBreathing }) {
                 </span>
               </div>
               <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: '-0.02em' }}>{title}</div>
-              <div className="lbl" style={{ fontSize: 9, lineHeight: 1.6, color: '#444' }}>
+              <div className="lbl" style={{ fontSize: 9, lineHeight: 1.6, color: 'var(--aura-fg-muted)' }}>
                 {text}
               </div>
             </div>
@@ -1493,7 +1520,7 @@ function ChatbotView() {
               flex: 1,
               padding: '12px 16px',
               border: BORDE,
-              background: isBusy ? '#eee' : '#fafafa',
+              background: isBusy ? '#eee' : 'var(--aura-bg-soft)',
               fontFamily: 'Space Mono, monospace',
               fontSize: 11,
               color: K,
@@ -1554,7 +1581,7 @@ function ChatbotView() {
           ))}
         </div>
         <div style={{ border: BORDE, background: DK, padding: 14, boxShadow: SOMBRA_SM }}>
-          <div className="mono" style={{ fontSize: 9, color: '#666', lineHeight: 1.6 }}>
+          <div className="mono" style={{ fontSize: 9, color: 'var(--aura-fg-soft)', lineHeight: 1.6 }}>
             AURA_AI_NO_SUSTITUYE ATENCIÓN_PROFESIONAL. EN_CRISIS_LLAMA_AL{' '}
             <span style={{ color: CR }}>024</span>.
           </div>
@@ -1754,7 +1781,7 @@ function MoodTrackerView() {
                   style={{
                     width: 10,
                     height: `${before * 12}px`,
-                    background: '#d4d4d4',
+                    background: 'var(--aura-border-subtle)',
                     border: '2px solid #000',
                   }}
                 />
@@ -1768,7 +1795,7 @@ function MoodTrackerView() {
                   }}
                 />
               </div>
-              <span className="mono" style={{ fontSize: 8, color: '#555' }}>
+              <span className="mono" style={{ fontSize: 8, color: 'var(--aura-fg-muted)' }}>
                 {id}
               </span>
             </div>
@@ -1776,7 +1803,7 @@ function MoodTrackerView() {
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[
-            { c: '#d4d4d4', l: 'ANTES' },
+            { c: 'var(--aura-border-subtle)', l: 'ANTES' },
             { c: M, l: 'DESPUÉS' },
           ].map(({ c, l }) => (
             <div key={l} className="lbl" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1807,7 +1834,7 @@ function MoodTrackerView() {
             <div
               key={d}
               className="mono"
-              style={{ fontSize: 9, textAlign: 'center', color: '#555' }}
+              style={{ fontSize: 9, textAlign: 'center', color: 'var(--aura-fg-muted)' }}
             >
               {d}
             </div>
@@ -1918,7 +1945,7 @@ function BubbleGame() {
         height: 200,
         border: BORDE,
         overflow: 'hidden',
-        background: '#fafafa',
+        background: 'var(--aura-bg-soft)',
         cursor: 'default',
         userSelect: 'none',
       }}
@@ -2217,7 +2244,7 @@ function MinijuegosView() {
       hero: 'arena',
       chips: [
         { l: 'SIN_GAME_OVER', c: T, bg: TL },
-        { l: 'DURACIÓN_SUGERIDA: 5_MIN', c: '#555', bg: '#f5f5f5' },
+        { l: 'DURACIÓN_SUGERIDA: 5_MIN', c: 'var(--aura-fg-muted)', bg: 'var(--aura-bg-muted)' },
       ],
       title: 'PINTURA_CON_ARENA',
       desc: 'Flujos cromáticos interactivos para enraizar tu atención en el momento presente.',
@@ -2230,7 +2257,7 @@ function MinijuegosView() {
       hero: 'cromatica',
       chips: [
         { l: 'SIN_GAME_OVER', c: M, bg: ML },
-        { l: 'DURACIÓN_SUGERIDA: 10_MIN', c: '#555', bg: '#f5f5f5' },
+        { l: 'DURACIÓN_SUGERIDA: 10_MIN', c: 'var(--aura-fg-muted)', bg: 'var(--aura-bg-muted)' },
       ],
       title: 'ORDENACIÓN_CROMÁTICA',
       desc: 'Organiza gradientes suaves para estructurar tus pensamientos caóticos.',
@@ -2243,7 +2270,7 @@ function MinijuegosView() {
       hero: 'burbujas',
       chips: [
         { l: 'SIN_GAME_OVER', c: CR, bg: CL },
-        { l: 'FLUJO_INFINITO', c: '#555', bg: '#f5f5f5' },
+        { l: 'FLUJO_INFINITO', c: 'var(--aura-fg-muted)', bg: 'var(--aura-bg-muted)' },
       ],
       title: 'EXPLOTAR_BURBUJAS',
       desc: 'Estímulo táctil de baja carga cognitiva. Sin consecuencias. Solo desahogo.',
@@ -2256,7 +2283,7 @@ function MinijuegosView() {
       hero: 'memoria',
       chips: [
         { l: 'BASADO_EN_EVIDENCIA', c: M, bg: ML },
-        { l: 'DURACIÓN_SUGERIDA: 8_MIN', c: '#555', bg: '#f5f5f5' },
+        { l: 'DURACIÓN_SUGERIDA: 8_MIN', c: 'var(--aura-fg-muted)', bg: 'var(--aura-bg-muted)' },
       ],
       title: 'MEMORIA_VISUAL',
       desc: 'Vacuna cognitiva para pensamientos intrusivos. Redirige el foco con suavidad.',
@@ -2284,7 +2311,7 @@ function MinijuegosView() {
           REFUGIO_LÚDICO<span style={{ color: M }}>.</span>
         </div>
         <div
-          style={{ fontSize: 14, color: '#555', marginTop: 10, maxWidth: 520, lineHeight: 1.75 }}
+          style={{ fontSize: 14, color: 'var(--aura-fg-muted)', marginTop: 10, maxWidth: 520, lineHeight: 1.75 }}
         >
           Ejercicios interactivos diseñados para reducir la carga cognitiva y promover la calma
           activa. Sin puntuaciones. Sin presión.
@@ -2368,7 +2395,7 @@ function MinijuegosView() {
                 {title}
               </div>
               {/* Desc */}
-              <div style={{ fontSize: 13, color: '#444', lineHeight: 1.75, flex: 1 }}>{desc}</div>
+              <div style={{ fontSize: 13, color: 'var(--aura-fg-muted)', lineHeight: 1.75, flex: 1 }}>{desc}</div>
               {/* CTA */}
               <button
                 onClick={() => setActive(active === id ? null : id)}
@@ -2376,7 +2403,7 @@ function MinijuegosView() {
                   border: BORDE,
                   boxShadow: SOMBRA_SM,
                   padding: '13px 20px',
-                  background: active === id ? '#f5f5f5' : btnBg,
+                  background: active === id ? 'var(--aura-bg-muted)' : btnBg,
                   color: active === id ? K : btnColor,
                   fontFamily: 'Space Mono,monospace',
                   fontSize: 11,
@@ -2475,14 +2502,14 @@ function GamePanel({ id, onClose }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: '#fafafa',
+          background: 'var(--aura-bg-soft)',
         }}
       >
         <div>
           <div style={{ fontWeight: 900, fontSize: 15, letterSpacing: '-0.02em' }}>
             {titles[id]}
           </div>
-          <div className="lbl" style={{ fontSize: 9, color: '#666', marginTop: 3 }}>
+          <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-soft)', marginTop: 3 }}>
             {subs[id]}
           </div>
         </div>
@@ -2665,7 +2692,7 @@ function GameArena() {
       <div
         style={{
           border: BORDE,
-          background: '#fefefe',
+          background: 'var(--aura-bg)',
           cursor: 'crosshair',
           userSelect: 'none',
           position: 'relative',
@@ -2696,7 +2723,7 @@ function GameArena() {
           LIENZO_INFINITO · SIN_ERRORES
         </div>
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: '#888', textAlign: 'center' }}>
+      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
         Dibuja libremente. No hay manera de hacerlo mal.
       </div>
     </div>
@@ -2766,7 +2793,7 @@ function GameCromatica() {
           ARRASTRA_Y_ORDENA_POR_MATIZ · DE_ROJO_A_PÚRPURA
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span className="mono" style={{ fontSize: 10, color: '#555' }}>
+          <span className="mono" style={{ fontSize: 10, color: 'var(--aura-fg-muted)' }}>
             MOVIMIENTOS: {moves}
           </span>
           <button
@@ -2880,7 +2907,7 @@ function GameCromatica() {
           }}
         />
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: '#888', textAlign: 'center' }}>
+      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
         No hay puntuación. Solo la satisfacción de ver el arco iris ordenarse.
       </div>
     </div>
@@ -3042,7 +3069,7 @@ function GameBurbujas() {
           SIN_GAME_OVER · INFINITO
         </div>
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: '#888', textAlign: 'center' }}>
+      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
         Las burbujas siempre vuelven. No hay manera de perder.
       </div>
     </div>
@@ -3245,7 +3272,7 @@ function GameMemoria() {
           </div>
         ))}
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: '#888', textAlign: 'center' }}>
+      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
         Sin timer. Sin presión. El cerebro encuentra los pares cuando está en calma.
       </div>
     </div>
@@ -3364,12 +3391,12 @@ function SonidosView() {
             <div className="mono" style={{ fontSize: 11, color: T, fontWeight: 700 }}>
               {ambientes.find((a) => a.id === playing)?.l}
             </div>
-            <div className="lbl" style={{ color: '#666', fontSize: 9, marginTop: 2 }}>
+            <div className="lbl" style={{ color: 'var(--aura-fg-soft)', fontSize: 9, marginTop: 2 }}>
               MODO_{modo} · UI_FUNCIONAL_MUTED
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-            <span className="icon" style={{ color: '#666', fontSize: 16 }}>
+            <span className="icon" style={{ color: 'var(--aura-fg-soft)', fontSize: 16 }}>
               volume_mute
             </span>
             <span className="mono" style={{ fontSize: 9, color: '#777' }}>
@@ -3379,7 +3406,7 @@ function SonidosView() {
               style={{
                 flex: 1,
                 height: 4,
-                background: '#333',
+                background: 'var(--aura-stats-divider)',
                 cursor: 'pointer',
                 position: 'relative',
               }}
@@ -3441,7 +3468,7 @@ function DiarioView() {
   const entryForDay = (day) =>
     entriesThisMonth.find((entry) => new Date(entry.date).getDate() === day);
   const moodColor = (emoji) =>
-    MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? '#f5f5f5';
+    MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? 'var(--aura-bg-muted)';
   const resetForm = () => {
     setText('');
     setMood(null);
@@ -3557,7 +3584,7 @@ function DiarioView() {
               height: 180,
               padding: 16,
               border: BORDE,
-              background: '#fafafa',
+              background: 'var(--aura-bg-soft)',
               fontFamily: 'Inter',
               fontSize: 14,
               color: K,
@@ -3658,7 +3685,7 @@ function DiarioView() {
                   style={{
                     height: 24,
                     border: '2px solid #000',
-                    background: color || '#f5f5f5',
+                    background: color || 'var(--aura-bg-muted)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -3679,7 +3706,7 @@ function DiarioView() {
               { c: T, l: 'BIEN' },
               { c: M, l: 'MUY_BIEN' },
               { c: CR, l: 'DIFÍCIL' },
-              { c: '#f5f5f5', l: 'SIN_ENTRADA' },
+              { c: 'var(--aura-bg-muted)', l: 'SIN_ENTRADA' },
             ].map(({ c, l }) => (
               <div
                 key={l}
@@ -4096,7 +4123,7 @@ function ConfigView() {
             <div
               style={{
                 padding: '14px 18px',
-                background: '#fafafa',
+                background: 'var(--aura-bg-soft)',
                 borderTop: '2px solid #000',
                 fontSize: 13,
                 color: K,

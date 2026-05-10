@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus, Check } from 'lucide-react';
-import { Button, Input } from '@/components/ui';
+import { Button, Input, TurnstileWidget } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLayout } from './AuthLayout';
+
+const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
@@ -17,8 +19,12 @@ export function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handleCaptchaVerify = useCallback((token: string) => setCaptchaToken(token), []);
+  const handleCaptchaExpire = useCallback(() => setCaptchaToken(null), []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,10 +50,14 @@ export function RegisterPage() {
       setError('Debes aceptar la política de privacidad y los términos de uso.');
       return;
     }
+    if (turnstileEnabled && !captchaToken) {
+      setError('Completa la verificación anti-bot antes de continuar.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const result = await register({ name, email, password });
+      const result = await register({ name, email, password, captchaToken: captchaToken ?? undefined });
       navigate('/verify-email', {
         replace: true,
         state: {
@@ -188,6 +198,10 @@ export function RegisterPage() {
             </span>
           </label>
         </div>
+
+        {turnstileEnabled && (
+          <TurnstileWidget onVerify={handleCaptchaVerify} onExpire={handleCaptchaExpire} />
+        )}
 
         {error && (
           <div

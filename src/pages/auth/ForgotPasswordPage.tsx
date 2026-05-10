@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Send } from 'lucide-react';
-import { Button, Input } from '@/components/ui';
+import { Button, Input, TurnstileWidget } from '@/components/ui';
 import { httpClient } from '@/services/httpClient';
 import { AuthLayout } from './AuthLayout';
+
+const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 const getApiErrorMessage = (error: unknown, fallback: string): string => {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -20,14 +22,23 @@ export function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  const handleCaptchaVerify = useCallback((token: string) => setCaptchaToken(token), []);
+  const handleCaptchaExpire = useCallback(() => setCaptchaToken(null), []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    if (turnstileEnabled && !captchaToken) {
+      setError('Completa la verificación anti-bot antes de continuar.');
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await httpClient.post<{ message: string }>('/auth/forgot-password', {
         email: email.trim(),
+        captchaToken: captchaToken ?? undefined,
       });
       setMessage(data.message);
       setSubmitted(true);
@@ -76,6 +87,9 @@ export function ForgotPasswordPage() {
             placeholder="tu@email.com"
             hint="ENVIAREMOS_LINK_DE_RECUPERACIÓN"
           />
+          {turnstileEnabled && (
+            <TurnstileWidget onVerify={handleCaptchaVerify} onExpire={handleCaptchaExpire} />
+          )}
           {error && (
             <div
               role="alert"

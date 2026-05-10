@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
-import { BlobsBackground } from '@/components/ui';
+import { BlobsBackground, CrisisFab } from '@/components/ui';
 import { LandingNavbar } from './components/LandingNavbar';
 import { HeroSection } from './components/HeroSection';
 import { StatsMarquee } from './components/StatsMarquee';
@@ -41,6 +41,7 @@ export function LandingPage() {
         <PricingSection />
       </main>
       <FooterSection />
+      <CrisisFab />
     </div>
   );
 }

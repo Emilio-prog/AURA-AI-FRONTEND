@@ -7,6 +7,9 @@ import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
 import { AuraPanelPage } from '@/pages/dashboard/AuraPanelPage';
+import { PrivacyPage } from '@/pages/legal/PrivacyPage';
+import { TermsPage } from '@/pages/legal/TermsPage';
+import { EmergencyPage } from '@/pages/emergency/EmergencyPage';
 import { PrivateRoute } from './PrivateRoute';
 import { PublicRoute } from './PublicRoute';
 
@@ -15,6 +18,11 @@ export function AppRouter() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+
+        {/* Legal y emergencia: accesibles siempre (con o sin sesión) */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/emergencia" element={<EmergencyPage />} />
 
         {/* Auth: solo accesibles si NO hay sesión */}
         <Route element={<PublicRoute />}>

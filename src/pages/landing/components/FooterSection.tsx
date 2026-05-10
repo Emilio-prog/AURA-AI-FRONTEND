@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom';
+
 const footerLinks = [
-  { label: 'Privacidad_Data', href: '#' },
-  { label: 'Términos_Legales', href: '#' },
-  { label: 'Contacto_Soporte', href: '#' },
+  { label: 'Privacidad_Data', to: '/privacy' },
+  { label: 'Términos_Legales', to: '/terms' },
+  { label: 'Contacto_Soporte', to: '/terms#12' },
 ];
 
 export function FooterSection() {
@@ -14,10 +16,10 @@ export function FooterSection() {
         </div>
 
         <div className="flex flex-col gap-4 font-bold uppercase">
-          {footerLinks.map(({ label, href }) => (
-            <a key={label} className="hover:text-brutal-teal" href={href}>
+          {footerLinks.map(({ label, to }) => (
+            <Link key={label} className="hover:text-brutal-teal" to={to}>
               {label}
-            </a>
+            </Link>
           ))}
         </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { BlobsBackground } from '@/components/ui';
+import { BlobsBackground, CrisisFab } from '@/components/ui';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTopbar } from './DashboardTopbar';
 
@@ -65,8 +65,27 @@ export function DashboardLayout() {
         <DashboardTopbar onOpenMenu={() => setDrawerOpen(true)} />
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
+          <footer className="mt-12 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t-2 border-brutal-black/10 pt-6 font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted dark:border-white/10 dark:text-zinc-400">
+            <Link to="/privacy" className="hover:text-brutal-purple">
+              PRIVACIDAD
+            </Link>
+            <span aria-hidden>·</span>
+            <Link to="/terms" className="hover:text-brutal-purple">
+              TÉRMINOS
+            </Link>
+            <span aria-hidden>·</span>
+            <Link to="/emergencia" className="hover:text-brutal-coral">
+              EMERGENCIA_24H
+            </Link>
+            <span aria-hidden className="hidden sm:inline">
+              ·
+            </span>
+            <span className="hidden sm:inline">© 2026 AURA AI</span>
+          </footer>
         </main>
       </div>
+
+      <CrisisFab />
     </div>
   );
 }

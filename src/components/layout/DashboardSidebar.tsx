@@ -42,7 +42,7 @@ export function DashboardSidebar({ onNavigate }: DashboardSidebarProps) {
   };
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r-4 border-brutal-black bg-white">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r-4 border-brutal-black bg-white dark:bg-zinc-900 dark:text-white">
       {/* Brand */}
       <div className="flex items-center gap-3 border-b-4 border-brutal-black px-5 py-5">
         <div className="h-9 w-9 shrink-0 rounded-full border-4 border-brutal-black bg-gradient-to-br from-brutal-purple to-brutal-teal" />
