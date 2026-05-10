@@ -19,6 +19,7 @@ const backendUser = {
   plan: 'PRO',
   emailVerified: true,
   createdAt: '2026-01-15T00:00:00Z',
+  onboardedAt: '2026-05-10T12:00:00Z',
 };
 
 const httpMock = httpClient as unknown as {
@@ -37,6 +38,7 @@ const seedSession = () => {
       email: 'demo@aura.ai',
       plan: 'pro',
       initials: 'MS',
+      onboardedAt: backendUser.onboardedAt,
     }),
   );
 };

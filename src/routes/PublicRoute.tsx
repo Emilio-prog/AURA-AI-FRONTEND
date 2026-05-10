@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 export function PublicRoute() {
-  const { isAuthenticated, isHydrating } = useAuth();
+  const { user, isAuthenticated, isHydrating } = useAuth();
 
   if (isHydrating) {
     return (
@@ -13,7 +13,7 @@ export function PublicRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={user?.onboardedAt === null ? '/onboarding' : '/dashboard'} replace />;
   }
 
   return <Outlet />;

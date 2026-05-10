@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 export function PrivateRoute() {
-  const { isAuthenticated, isHydrating } = useAuth();
+  const { user, isAuthenticated, isHydrating } = useAuth();
   const location = useLocation();
 
   if (isHydrating) {
@@ -15,6 +15,14 @@ export function PrivateRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (location.pathname.startsWith('/dashboard') && user?.onboardedAt === null) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (location.pathname === '/onboarding' && user?.onboardedAt !== null) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

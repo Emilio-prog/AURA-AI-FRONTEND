@@ -6,6 +6,7 @@ import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
+import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
 import { AuraPanelPage } from '@/pages/dashboard/AuraPanelPage';
 import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { TermsPage } from '@/pages/legal/TermsPage';
@@ -35,6 +36,7 @@ export function AppRouter() {
 
         {/* Dashboard: solo accesible CON sesión */}
         <Route element={<PrivateRoute />}>
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/dashboard/*" element={<AuraPanelPage />} />
         </Route>
 

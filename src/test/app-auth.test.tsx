@@ -20,6 +20,7 @@ const backendUser = {
   plan: 'PRO',
   emailVerified: true,
   createdAt: '2026-01-15T00:00:00Z',
+  onboardedAt: '2026-05-10T12:00:00Z',
 };
 
 const authResponse = {
@@ -46,6 +47,7 @@ const seedSession = () => {
       email: backendUser.email,
       plan: 'pro',
       initials: 'MS',
+      onboardedAt: backendUser.onboardedAt,
     }),
   );
 };
@@ -92,6 +94,82 @@ describe('auth flow y guards', () => {
     expect(httpMock.get).toHaveBeenCalledWith('/auth/me');
   });
 
+  it('redirige dashboard a onboarding si la sesion no esta onboarded', async () => {
+    httpMock.get.mockResolvedValueOnce({ data: { ...backendUser, onboardedAt: null } });
+    seedSession();
+    window.location.hash = '#/dashboard';
+
+    render(<App />);
+
+    expect((await screen.findAllByText(/BIENVENIDO_A_TU_REFUGIO/i)).length).toBeGreaterThan(0);
+    expect(window.location.hash).toContain('/onboarding');
+  });
+
+  it('completa onboarding sin contacto y vuelve al dashboard', async () => {
+    const pendingUser = { ...backendUser, onboardedAt: null };
+    const completedUser = { ...backendUser, name: 'Emilio', onboardedAt: '2026-05-10T13:00:00Z' };
+    httpMock.get.mockResolvedValueOnce({ data: pendingUser });
+    httpMock.post.mockResolvedValueOnce({ data: completedUser });
+    seedSession();
+    window.location.hash = '#/onboarding';
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /COMENZAR_VIAJE/i }));
+    await user.clear(await screen.findByLabelText('NOMBRE_PREFERIDO'));
+    await user.type(screen.getByLabelText('NOMBRE_PREFERIDO'), 'Emilio');
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    for (let i = 0; i < 4; i += 1) {
+      await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    }
+    await user.click(await screen.findByRole('button', { name: /ELIMINAR_CONTACTO/i }));
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    await user.click(screen.getByRole('button', { name: /ENTRAR_A_MI_REFUGIO/i }));
+
+    await waitFor(() => expect(window.location.hash).toContain('/dashboard'));
+    expect(httpMock.post).toHaveBeenCalledWith('/users/me/onboarding', expect.objectContaining({
+      preferredName: 'Emilio',
+      language: 'es',
+      trustedContact: undefined,
+    }));
+  });
+
+  it('completa onboarding con contacto SOS opcional', async () => {
+    const pendingUser = { ...backendUser, onboardedAt: null };
+    const completedUser = { ...backendUser, onboardedAt: '2026-05-10T13:00:00Z' };
+    httpMock.get.mockResolvedValueOnce({ data: pendingUser });
+    httpMock.post.mockResolvedValueOnce({ data: completedUser });
+    seedSession();
+    window.location.hash = '#/onboarding';
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /COMENZAR_VIAJE/i }));
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    for (let i = 0; i < 4; i += 1) {
+      await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    }
+    await user.clear(await screen.findByLabelText('CONTACTO_NOMBRE'));
+    await user.type(screen.getByLabelText('CONTACTO_NOMBRE'), 'Ana');
+    await user.clear(screen.getByLabelText('CONTACTO_TELEFONO'));
+    await user.type(screen.getByLabelText('CONTACTO_TELEFONO'), '+34 600 000 000');
+    await user.selectOptions(screen.getByLabelText('RELACION'), 'AMISTAD');
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
+    await user.click(screen.getByRole('button', { name: /ENTRAR_A_MI_REFUGIO/i }));
+
+    await waitFor(() => expect(httpMock.post).toHaveBeenCalledWith('/users/me/onboarding', expect.objectContaining({
+      trustedContact: {
+        name: 'Ana',
+        phone: '+34 600 000 000',
+        relationship: 'AMISTAD',
+      },
+    })));
+  });
+
   it('rota refresh token si el access token persistido expiro', async () => {
     httpMock.get.mockRejectedValueOnce({ response: { status: 401 } });
     httpMock.post.mockResolvedValueOnce({ data: authResponse });
@@ -124,6 +202,9 @@ describe('auth flow y guards', () => {
     await user.type(screen.getByLabelText('EMAIL_USUARIO'), 'nueva@example.com');
     await user.type(screen.getByLabelText('CONTRASENA'), 'StrongPassword123!');
     await user.type(screen.getByLabelText('CONFIRMAR_CONTRASENA'), 'StrongPassword123!');
+    for (const checkbox of screen.getAllByRole('checkbox')) {
+      await user.click(checkbox);
+    }
     await user.click(screen.getByRole('button', { name: /CREAR_CUENTA/i }));
 
     await screen.findByText(/Cuenta creada. Revisa tu email para verificarla./i);

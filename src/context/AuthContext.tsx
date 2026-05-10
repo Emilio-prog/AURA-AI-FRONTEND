@@ -10,6 +10,37 @@ export interface AuthUser {
   email: string;
   plan: UserPlan;
   initials: string;
+  onboardedAt: string | null;
+}
+
+export interface CompleteOnboardingPayload {
+  preferredName: string;
+  language: 'es';
+  timezone: string;
+  privacyAccepted: boolean;
+  termsAccepted: boolean;
+  supportOnlyAccepted: boolean;
+  ageConfirmed: boolean;
+  goals: string[];
+  anxietyTriggers: string[];
+  currentMood: {
+    label: string;
+    intensity: number;
+  };
+  toolPreferences: string[];
+  notifications: {
+    enabled: boolean;
+    dailyReminderTime: string;
+    moodReminderEnabled?: boolean;
+    quickMeditationEnabled?: boolean;
+    streakEnabled?: boolean;
+    weeklyCheckinEnabled?: boolean;
+  };
+  trustedContact?: {
+    name: string;
+    phone: string;
+    relationship?: string;
+  };
 }
 
 export interface RegisterPayload {
@@ -32,6 +63,7 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (payload: RegisterPayload) => Promise<RegisterResult>;
   resendVerification: (email: string) => Promise<string>;
+  completeOnboarding: (payload: CompleteOnboardingPayload) => Promise<AuthUser>;
   updateProfile: (payload: Partial<Pick<AuthUser, 'name' | 'email'>>) => AuthUser | null;
   logout: () => void;
 }
@@ -41,6 +73,7 @@ interface BackendUser {
   name: string;
   email: string;
   plan: string;
+  onboardedAt?: string | null;
 }
 
 interface AuthResponse {
@@ -83,6 +116,7 @@ const toAuthUser = (user: BackendUser): AuthUser => ({
   email: user.email,
   plan: normalizePlan(user.plan),
   initials: computeInitials(user.name),
+  onboardedAt: user.onboardedAt ?? null,
 });
 
 const getApiErrorMessage = (error: unknown, fallback: string): string => {
@@ -211,6 +245,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const completeOnboarding = useCallback(
+    async (payload: CompleteOnboardingPayload): Promise<AuthUser> => {
+      try {
+        const { data } = await httpClient.post<BackendUser>('/users/me/onboarding', payload);
+        const authUser = toAuthUser(data);
+        writeJSON(STORAGE_KEYS.user, authUser);
+        setUser(authUser);
+        return authUser;
+      } catch (error) {
+        throw new Error(getApiErrorMessage(error, 'No se pudo completar el onboarding.'));
+      }
+    },
+    [],
+  );
+
   const logout = useCallback(() => {
     const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
     clearSession();
@@ -244,10 +293,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       resendVerification,
+      completeOnboarding,
       updateProfile,
       logout,
     }),
-    [user, isHydrating, login, register, resendVerification, updateProfile, logout],
+    [user, isHydrating, login, register, resendVerification, completeOnboarding, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

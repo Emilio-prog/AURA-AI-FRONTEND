@@ -131,6 +131,62 @@ html.dark {
   .brutal-input {
     @apply focus-visible:outline-3 block w-full border-3 border-brutal-black bg-white px-4 py-2.5 font-sans text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-0 focus-visible:outline-offset-2 focus-visible:outline-brutal-purple dark:bg-zinc-800 dark:text-white dark:placeholder:text-zinc-500;
   }
+
+  .aura-onboarding-title {
+    @apply max-w-full font-headline text-[clamp(2.4rem,5.6vw,4.9rem)] font-black uppercase leading-[0.95] text-[#1b1b1b];
+    overflow-wrap: anywhere;
+  }
+
+  .aura-input {
+    @apply w-full border-4 border-black bg-white p-4 font-mono text-base font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0_#000] outline-none focus:border-[#2DD4BF] focus:ring-0;
+  }
+
+  .aura-screen {
+    @apply mx-auto w-full max-w-[1180px];
+  }
+
+  .aura-screen-copy {
+    @apply text-base leading-7 md:text-lg md:leading-8;
+  }
+
+  .aura-brutal-card {
+    @apply border-4 border-black bg-white shadow-[6px_6px_0_#000];
+  }
+}
+
+.aura-brutal-range {
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  border: 4px solid #000;
+  background: linear-gradient(
+    90deg,
+    #fb7185 0%,
+    #ffa5ae 20%,
+    #ffdc8a 40%,
+    #ddeba4 60%,
+    #9ee5c7 80%,
+    #2dd4bf 100%
+  );
+  box-shadow: 6px 6px 0 #000;
+}
+
+.aura-brutal-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  background: #a855f7;
+  cursor: pointer;
+}
+
+.aura-brutal-range::-moz-range-thumb {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 0;
+  background: #a855f7;
+  cursor: pointer;
 }
 
 @keyframes landing-scroll-ticker {
