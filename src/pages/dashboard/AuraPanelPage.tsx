@@ -6,6 +6,15 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { BillingView } from './BillingView';
+import { getAchievements, recordAchievementEvent } from '@/services/achievements';
+import {
+  createDiaryEntry,
+  deleteDiaryEntry,
+  listDiaryEntries,
+  updateDiaryEntry,
+} from '@/services/diary';
+import { createMoodLog, listMoodLogs } from '@/services/mood';
+import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -38,6 +47,7 @@ const NAV = [
     labelKey: 'dashboard.nav.sonidos',
   },
   { id: 'diario', icon: 'book_2', label: 'DIARIO', labelKey: 'dashboard.nav.diario' },
+  { id: 'logros', icon: 'military_tech', label: 'LOGROS', labelKey: 'dashboard.nav.logros' },
   { id: 'billing', icon: 'credit_card', label: 'FACTURACION', labelKey: 'dashboard.nav.billing' },
   {
     id: 'contactos',
@@ -87,16 +97,30 @@ const panelDateLabel = () =>
     .replace(/,/g, '')
     .toUpperCase();
 
-const diaryDateLabel = (date) =>
-  new Intl.DateTimeFormat('es-ES', {
+const parsePanelDate = (value) => {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const safePanelIso = (value, fallback = new Date().toISOString()) =>
+  (parsePanelDate(value) ?? parsePanelDate(fallback) ?? new Date()).toISOString();
+
+const panelDateMs = (value) => parsePanelDate(value)?.getTime() ?? 0;
+
+const diaryDateLabel = (date) => {
+  const parsed = parsePanelDate(date);
+  if (!parsed) return 'SIN_FECHA';
+  return new Intl.DateTimeFormat('es-ES', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
   })
-    .format(new Date(date))
+    .format(parsed)
     .replace(/\./g, '')
     .replace(/,/g, '')
     .toUpperCase();
+};
 
 const MOOD_OPTIONS = [
   { emoji: '😊', label: 'BIEN', score: 8, color: T },
@@ -179,6 +203,70 @@ const emptyContact = {
   phone: '',
   available: true,
   sosAuto: false,
+};
+
+const backendErrorMessage = (error) =>
+  error?.response?.data?.message || error?.message || 'No se pudo completar la operacion.';
+
+const currentDayKey = () => new Date().toISOString().slice(0, 10);
+
+const fireAchievementEvent = (type, metadata = {}) =>
+  recordAchievementEvent(type, `${type}:${currentDayKey()}`, metadata).catch(() => null);
+
+const moodByLabel = (label) =>
+  MOOD_OPTIONS.find((item) => item.label === label) ?? MOOD_OPTIONS.find((item) => item.label === 'NEUTRAL');
+
+const backendDiaryToPanel = (entry, fallbackDate = new Date().toISOString()) => {
+  const moodScore = entry?.moodScore ?? entry?.mood_score ?? null;
+  const moodLabel = entry?.moodLabel ?? entry?.mood_label ?? null;
+  const moodOption =
+    MOOD_OPTIONS.find((item) => item.score === moodScore) || moodByLabel(moodLabel);
+  return {
+    id: entry?.id ?? `diary_${Date.now()}`,
+    date: safePanelIso(
+      entry?.createdAt ?? entry?.created_at ?? entry?.date ?? entry?.updatedAt ?? entry?.updated_at,
+      fallbackDate,
+    ),
+    mood: moodOption?.emoji ?? '😐',
+    moodLabel: moodLabel ?? moodOption?.label ?? 'NEUTRAL',
+    text: entry?.content ?? entry?.text ?? '',
+    title: entry?.title ?? null,
+    moodScore,
+  };
+};
+
+const backendMoodToPanel = (log) => ({
+  id: log.id,
+  date: log.loggedAt,
+  before: log.beforeLevel,
+  after: log.afterLevel,
+  mood: Math.round((log.beforeLevel + log.afterLevel) / 2),
+});
+
+const backendContactToPanel = (contact) => ({
+  id: contact.id,
+  name: contact.name,
+  role: contact.relationship || 'CONFIANZA',
+  emoji: '👤',
+  phone: contact.phone,
+  priority: contact.priority,
+  available: contact.available,
+  sosAuto: contact.sosEnabled,
+});
+
+const panelContactToRequest = (contact, priority = 1) => ({
+  name: contact.name.trim(),
+  phone: contact.phone.trim(),
+  relationship: contact.role?.trim() || 'CONFIANZA',
+  priority,
+  available: Boolean(contact.available),
+  sosEnabled: Boolean(contact.sosAuto),
+});
+
+const emptyAchievements = {
+  total: 8,
+  unlocked: 0,
+  achievements: [],
 };
 
 const generateMoodHistory = (days = 90) => {
@@ -970,6 +1058,170 @@ function QuoteCard() {
   );
 }
 
+function useAchievementsData() {
+  const [data, setData] = useState(emptyAchievements);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setData(await getAchievements());
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { data, loading, error, refresh };
+}
+
+function AchievementsSummaryCard({ setSection }) {
+  const { data, loading, error } = useAchievementsData();
+  const percent = data.total ? Math.round((data.unlocked / data.total) * 100) : 0;
+  const next = data.achievements.find((achievement) => !achievement.unlocked);
+
+  return (
+    <div
+      className="c12"
+      style={{
+        border: BORDE,
+        boxShadow: SOMBRA,
+        background: W,
+        padding: 22,
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        gap: 18,
+        alignItems: 'center',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="lbl lbl-morado" style={{ fontSize: 9 }}>
+          SISTEMA_LOGROS · SERVER_SIDE
+        </div>
+        <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: '-0.03em' }}>
+          {loading ? 'SINCRONIZANDO_LOGROS...' : `${data.unlocked}/${data.total} LOGROS_DESBLOQUEADOS`}
+        </div>
+        <div style={{ border: '3px solid #000', height: 18, background: 'var(--aura-bg-muted)' }}>
+          <div
+            style={{
+              width: `${percent}%`,
+              height: '100%',
+              background: M,
+              transition: 'width .2s ease',
+            }}
+          />
+        </div>
+        {error ? (
+          <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 10, fontSize: 10 }}>
+            {error}
+          </div>
+        ) : (
+          <div className="lbl" style={{ fontSize: 9 }}>
+            SIGUIENTE: {next ? `${next.title.toUpperCase()} · ${next.progressLabel}` : 'CATALOGO_COMPLETADO'}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={() => setSection('logros')}
+        className="btn btn-morado"
+        style={{ fontSize: 10, whiteSpace: 'nowrap' }}
+      >
+        VER_LOGROS
+      </button>
+    </div>
+  );
+}
+
+function AchievementsView() {
+  const { data, loading, error, refresh } = useAchievementsData();
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, animation: 'fadeUp .3s ease' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: '-0.04em' }}>
+            LOGROS_AURA
+          </div>
+          <div className="lbl" style={{ marginTop: 4, fontSize: 9 }}>
+            DESBLOQUEOS_MOTIVACIONALES · {data.unlocked}/{data.total}
+          </div>
+        </div>
+        <button onClick={refresh} className="btn" style={{ fontSize: 10 }}>
+          RECALCULAR
+        </button>
+      </div>
+
+      {error && (
+        <div className="mono" style={{ border: `4px solid ${K}`, boxShadow: SOMBRA_SM, background: CL, padding: 14, fontSize: 11 }}>
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="bc" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+          {Array.from({ length: 8 }, (_, index) => (
+            <div key={index} style={{ border: '3px solid #000', height: 120, background: 'var(--aura-bg-muted)' }} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 14 }}>
+          {data.achievements.map((achievement) => (
+            <div
+              key={achievement.code}
+              className="bc"
+              style={{
+                padding: 18,
+                opacity: achievement.unlocked ? 1 : 0.68,
+                background: achievement.unlocked ? `${achievement.accent}22` : W,
+                boxShadow: achievement.unlocked ? SOMBRA_SM : 'none',
+                gap: 12,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span className="chip" style={{ borderColor: K, background: achievement.accent, color: achievement.unlocked ? W : K }}>
+                  {achievement.category.toUpperCase()}
+                </span>
+                <span className="icon" style={{ color: achievement.unlocked ? achievement.accent : 'var(--aura-fg-muted)' }}>
+                  {achievement.unlocked ? 'workspace_premium' : 'lock'}
+                </span>
+              </div>
+              <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.1 }}>
+                {achievement.title.toUpperCase()}
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--aura-fg-muted)' }}>
+                {achievement.description}
+              </div>
+              <div style={{ border: '2px solid #000', height: 12, background: 'var(--aura-bg-muted)' }}>
+                <div
+                  style={{
+                    width: `${Math.min(100, Math.round((achievement.progress / achievement.target) * 100))}%`,
+                    height: '100%',
+                    background: achievement.accent,
+                  }}
+                />
+              </div>
+              <div className="lbl" style={{ fontSize: 9 }}>
+                {achievement.unlocked
+                  ? `DESBLOQUEADO · ${diaryDateLabel(achievement.unlockedAt)}`
+                  : `PROGRESO · ${achievement.progressLabel}`}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── DASHBOARD VIEW ── */
 function DashboardView({ setSection, openBreathing }) {
   return (
@@ -986,6 +1238,9 @@ function DashboardView({ setSection, openBreathing }) {
       </div>
       <div className="bento">
         <QuickAccess setSection={setSection} openBreathing={openBreathing} />
+      </div>
+      <div className="bento">
+        <AchievementsSummaryCard setSection={setSection} />
       </div>
       <div className="bento">
         <StreakCard />
@@ -1599,7 +1854,9 @@ function MoodTrackerView() {
   const [after, setAfter] = useState(8);
   const [range, setRange] = useState(90);
   const [sessionSaved, setSessionSaved] = useState(false);
-  const [history, setHistory] = useState(() => generateMoodHistory(90));
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const weeks = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   const data = history.slice(-range);
   const chunks = Array.from({ length: Math.ceil(data.length / 7) }, (_, i) =>
@@ -1614,24 +1871,46 @@ function MoodTrackerView() {
       after: Math.round(avgAfter * 10) / 10,
     };
   });
-  const avgBefore =
-    Math.round((data.reduce((sum, d) => sum + d.before, 0) / data.length) * 10) / 10;
-  const avgAfter = Math.round((data.reduce((sum, d) => sum + d.after, 0) / data.length) * 10) / 10;
-  const improvement = Math.round(((avgAfter - avgBefore) / avgBefore) * 100);
+  const avgBefore = data.length
+    ? Math.round((data.reduce((sum, d) => sum + d.before, 0) / data.length) * 10) / 10
+    : 0;
+  const avgAfter = data.length
+    ? Math.round((data.reduce((sum, d) => sum + d.after, 0) / data.length) * 10) / 10
+    : 0;
+  const improvement = avgBefore ? Math.round(((avgAfter - avgBefore) / avgBefore) * 100) : 0;
   const getColor = (v) => (v <= 3 ? CL : v <= 5 ? 'rgba(251,191,36,0.24)' : v <= 7 ? TL : ML);
-  const saveSession = () => {
-    const today = new Date();
-    const id = today.toISOString().slice(0, 10);
-    const next = {
-      id,
-      date: today.toISOString(),
-      before: val,
-      after,
-      mood: Math.round((val + after) / 2),
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    listMoodLogs(120)
+      .then((page) => {
+        if (!active) return;
+        setHistory((page.content ?? []).map(backendMoodToPanel).sort((a, b) => new Date(a.date) - new Date(b.date)));
+      })
+      .catch((err) => active && setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
     };
-    setHistory((items) => [...items.filter((item) => item.id !== id), next].slice(-90));
-    setSessionSaved(true);
-    setTimeout(() => setSessionSaved(false), 1800);
+  }, []);
+  const saveSession = async () => {
+    const today = new Date();
+    setError('');
+    try {
+      const savedLog = await createMoodLog({
+        beforeLevel: val,
+        afterLevel: after,
+        note: null,
+        loggedAt: today.toISOString(),
+      });
+      const next = backendMoodToPanel(savedLog);
+      setHistory((items) => [...items, next].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-120));
+      setSessionSaved(true);
+      setTimeout(() => setSessionSaved(false), 1800);
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
   };
 
   return (
@@ -1644,7 +1923,7 @@ function MoodTrackerView() {
             MOOD_TRACKER
           </div>
           <div className="lbl" style={{ fontSize: 9, marginTop: 4 }}>
-            MOCK_DATASET · {range}_DÍAS · BAR_CHART + HEATMAP
+            BACKEND_DATASET · {range}_DÍAS · BAR_CHART + HEATMAP
           </div>
         </div>
         <div style={{ display: 'flex', gap: 0, border: BORDE }}>
@@ -1730,15 +2009,20 @@ function MoodTrackerView() {
           REGISTRAR_SESIÓN →
         </button>
         <div className="lbl" style={{ flex: 1, fontSize: 9, lineHeight: 1.5 }}>
-          Guarda el estado de hoy en la serie mock de 90 días. La vista conserva el histórico local
-          de esta sesión.
+          Guarda el estado de hoy en el backend. Los logros se recalculan desde datos persistidos.
         </div>
+        {loading && <span className="chip chip-negro" style={{ fontSize: 9 }}>CARGANDO</span>}
         {sessionSaved && (
           <span className="chip chip-turquesa" style={{ fontSize: 9 }}>
             SESIÓN_ACTUALIZADA
           </span>
         )}
       </div>
+      {error && (
+        <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+          {error}
+        </div>
+      )}
       <div className="bc" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -2400,7 +2684,11 @@ function MinijuegosView() {
               <div style={{ fontSize: 13, color: 'var(--aura-fg-muted)', lineHeight: 1.75, flex: 1 }}>{desc}</div>
               {/* CTA */}
               <button
-                onClick={() => setActive(active === id ? null : id)}
+                onClick={() => {
+                  const opening = active !== id;
+                  setActive(opening ? id : null);
+                  if (opening) fireAchievementEvent('MINIGAME_OPENED', { game: id });
+                }}
                 style={{
                   border: BORDE,
                   boxShadow: SOMBRA_SM,
@@ -3335,7 +3623,13 @@ function SonidosView() {
         {ambientes.map(({ id, icon, l, dur }) => (
           <button
             key={id}
-            onClick={() => setPlaying((p) => (p === id ? null : id))}
+            onClick={() =>
+              setPlaying((p) => {
+                const next = p === id ? null : id;
+                if (next) fireAchievementEvent('SOUNDSCAPE_PLAYED', { soundscape: id, mode: modo });
+                return next;
+              })
+            }
             style={{
               border: `3px solid ${playing === id ? T : K}`,
               padding: '18px 14px',
@@ -3451,24 +3745,25 @@ function DiarioView() {
   const [mood, setMood] = useState(null);
   const [saved, setSaved] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [entries, setEntries] = useState(
-    () => readLocalJSON(DIARY_STORAGE_KEY, null) ?? seedDiaryEntries(),
-  );
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const prompts = [
     '¿QUÉ_TE_PREOCUPA_HOY?',
     'TRES_COSAS_BUENAS_DEL_DÍA',
     '¿CÓMO_MANEJÉ_MIS_EMOCIONES?',
   ];
   const selectedMood = MOOD_OPTIONS.find((item) => item.emoji === mood);
-  const sortedEntries = [...entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sortedEntries = [...entries].sort((a, b) => panelDateMs(b.date) - panelDateMs(a.date));
   const now = new Date();
   const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const entriesThisMonth = sortedEntries.filter((entry) => {
-    const d = new Date(entry.date);
+    const d = parsePanelDate(entry.date);
+    if (!d) return false;
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
   const entryForDay = (day) =>
-    entriesThisMonth.find((entry) => new Date(entry.date).getDate() === day);
+    entriesThisMonth.find((entry) => parsePanelDate(entry.date)?.getDate() === day);
   const moodColor = (emoji) =>
     MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? 'var(--aura-bg-muted)';
   const resetForm = () => {
@@ -3477,25 +3772,58 @@ function DiarioView() {
     setEditingId(null);
     setSaved(false);
   };
-  const saveEntry = () => {
+  const loadEntries = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const page = await listDiaryEntries(120);
+      setEntries((page.content ?? []).map(backendDiaryToPanel));
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    loadEntries();
+  }, [loadEntries]);
+  const saveEntry = async () => {
     if (!text.trim() && !mood) return;
-    const entry = {
-      id: editingId ?? `entry_${Date.now().toString(36)}`,
-      date: editingId
-        ? entries.find((item) => item.id === editingId)?.date || new Date().toISOString()
-        : new Date().toISOString(),
-      mood: mood ?? '😐',
+    const payload = {
+      title: null,
+      content: text.trim() || selectedMood?.label || 'Registro emocional',
+      moodScore: selectedMood?.score ?? null,
       moodLabel: selectedMood?.label ?? 'NEUTRAL',
-      text: text.trim(),
     };
-    setEntries((items) =>
-      editingId ? items.map((item) => (item.id === editingId ? entry : item)) : [entry, ...items],
-    );
-    setSaved(true);
-    setEditingId(null);
-    setText('');
-    setMood(null);
-    setTimeout(() => setSaved(false), 1800);
+    setError('');
+    try {
+      const savedEntry = editingId
+        ? await updateDiaryEntry(editingId, payload)
+        : await createDiaryEntry(payload);
+      const responseEntry = savedEntry ?? {};
+      const entry = backendDiaryToPanel(
+        {
+          id: responseEntry.id ?? editingId,
+          title: responseEntry.title ?? payload.title,
+          content: responseEntry.content ?? payload.content,
+          moodScore: responseEntry.moodScore ?? payload.moodScore,
+          moodLabel: responseEntry.moodLabel ?? payload.moodLabel,
+          createdAt: responseEntry.createdAt ?? responseEntry.created_at ?? responseEntry.date,
+          updatedAt: responseEntry.updatedAt ?? responseEntry.updated_at,
+        },
+        new Date().toISOString(),
+      );
+      setEntries((items) =>
+        editingId ? items.map((item) => (item.id === editingId ? entry : item)) : [entry, ...items],
+      );
+      setSaved(true);
+      setEditingId(null);
+      setText('');
+      setMood(null);
+      setTimeout(() => setSaved(false), 1800);
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
   };
   const editEntry = (entry) => {
     setEditingId(entry.id);
@@ -3503,14 +3831,16 @@ function DiarioView() {
     setMood(entry.mood);
     setSaved(false);
   };
-  const deleteEntry = (id) => {
-    setEntries((items) => items.filter((entry) => entry.id !== id));
-    if (editingId === id) resetForm();
+  const deleteEntry = async (id) => {
+    setError('');
+    try {
+      await deleteDiaryEntry(id);
+      setEntries((items) => items.filter((entry) => entry.id !== id));
+      if (editingId === id) resetForm();
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
   };
-
-  useEffect(() => {
-    writeLocalJSON(DIARY_STORAGE_KEY, entries);
-  }, [entries]);
 
   return (
     <div
@@ -3525,6 +3855,11 @@ function DiarioView() {
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           DIARIO_EMOCIONAL
         </div>
+        {error && (
+          <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+            {error}
+          </div>
+        )}
         <div className="bc" style={{ gap: 14, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="lbl" style={{ fontSize: 9 }}>
@@ -3622,11 +3957,16 @@ function DiarioView() {
                 color: T,
               }}
             >
-              ✓ ENTRADA_GUARDADA_EN_LOCALSTORAGE ·{' '}
+              ✓ ENTRADA_GUARDADA_EN_BACKEND ·{' '}
               {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
         </div>
+        {loading && (
+          <div className="bc" style={{ padding: 16, background: 'var(--aura-bg-muted)' }}>
+            <div className="lbl" style={{ fontSize: 9 }}>CARGANDO_DIARIO_BACKEND</div>
+          </div>
+        )}
         {sortedEntries.map((entry) => (
           <div
             key={entry.id}
@@ -3726,7 +4066,7 @@ function DiarioView() {
           style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
         >
           <div className="lbl" style={{ fontSize: 9 }}>
-            RESUMEN_LOCAL
+            RESUMEN_BACKEND
           </div>
           {[
             { l: 'ENTRADAS', v: sortedEntries.length, c: M },
@@ -3749,9 +4089,9 @@ function DiarioView() {
 /* ── CONTACTOS VIEW ── */
 function ContactosView() {
   const [sent, setSent] = useState({});
-  const [contacts, setContacts] = useState(
-    () => readLocalJSON(CONTACTS_STORAGE_KEY, null) ?? seedContacts(),
-  );
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyContact);
@@ -3773,7 +4113,22 @@ function ContactosView() {
     });
     setFormOpen(true);
   };
-  const saveContact = () => {
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await listContacts();
+      setContacts((data ?? []).map(backendContactToPanel));
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+  const saveContact = async () => {
     if (!form.name.trim() || !form.phone.trim()) return;
     const next = {
       id: editingId ?? `contact_${Date.now().toString(36)}`,
@@ -3781,34 +4136,55 @@ function ContactosView() {
       role: form.role.trim() || 'CONFIANZA',
       emoji: form.emoji || '👤',
       phone: form.phone.trim(),
+      priority: contacts.find((item) => item.id === editingId)?.priority ?? contacts.length + 1,
       available: form.available,
       sosAuto: form.sosAuto,
     };
-    setContacts((items) =>
-      editingId ? items.map((item) => (item.id === editingId ? next : item)) : [next, ...items],
-    );
-    setFormOpen(false);
-    setEditingId(null);
-    setForm(emptyContact);
-  };
-  const deleteContact = (id) => {
-    setContacts((items) => items.filter((contact) => contact.id !== id));
-    if (editingId === id) {
+    setError('');
+    try {
+      const savedContact = editingId
+        ? await updateContact(editingId, panelContactToRequest(next, next.priority))
+        : await createContact(panelContactToRequest(next, next.priority));
+      const panelContact = backendContactToPanel(savedContact);
+      setContacts((items) =>
+        editingId
+          ? items.map((item) => (item.id === editingId ? panelContact : item))
+          : [panelContact, ...items],
+      );
       setFormOpen(false);
       setEditingId(null);
+      setForm(emptyContact);
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
     }
   };
-  const toggleContact = (id, field) => {
-    setContacts((items) =>
-      items.map((contact) =>
-        contact.id === id ? { ...contact, [field]: !contact[field] } : contact,
-      ),
-    );
+  const deleteContact = async (id) => {
+    setError('');
+    try {
+      await deleteContactApi(id);
+      setContacts((items) => items.filter((contact) => contact.id !== id));
+      if (editingId === id) {
+        setFormOpen(false);
+        setEditingId(null);
+      }
+    } catch (err) {
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
   };
-
-  useEffect(() => {
-    writeLocalJSON(CONTACTS_STORAGE_KEY, contacts);
-  }, [contacts]);
+  const toggleContact = async (id, field) => {
+    const current = contacts.find((contact) => contact.id === id);
+    if (!current) return;
+    const next = { ...current, [field]: !current[field] };
+    setContacts((items) => items.map((contact) => (contact.id === id ? next : contact)));
+    setError('');
+    try {
+      const savedContact = await updateContact(id, panelContactToRequest(next, next.priority));
+      setContacts((items) => items.map((contact) => (contact.id === id ? backendContactToPanel(savedContact) : contact)));
+    } catch (err) {
+      setContacts((items) => items.map((contact) => (contact.id === id ? current : contact)));
+      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
+  };
 
   return (
     <div
@@ -3826,6 +4202,16 @@ function ContactosView() {
           + AÑADIR_CONTACTO
         </button>
       </div>
+      {error && (
+        <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+          {error}
+        </div>
+      )}
+      {loading && (
+        <div className="bc" style={{ padding: 16, background: 'var(--aura-bg-muted)' }}>
+          <div className="lbl" style={{ fontSize: 9 }}>CARGANDO_CONTACTOS_BACKEND</div>
+        </div>
+      )}
       {formOpen && (
         <div className="bc" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <input
@@ -4241,6 +4627,7 @@ function BreathingModal({ onClose }) {
   const [pi, setPi] = useState(0);
   const [count, setCount] = useState(phases[0].dur);
   const [cycle, setCycle] = useState(1);
+  const achievementSentRef = useRef(false);
   const ph = phases[pi];
   useEffect(() => {
     setCount(ph.dur);
@@ -4260,6 +4647,12 @@ function BreathingModal({ onClose }) {
     );
     return () => clearInterval(iv);
   }, [pi]);
+  useEffect(() => {
+    if (cycle > 1 && !achievementSentRef.current) {
+      achievementSentRef.current = true;
+      fireAchievementEvent('BREATHING_COMPLETED', { protocol: '4-4-6' });
+    }
+  }, [cycle]);
   const isExpand = pi === 0 || pi === 1;
   return (
     <div
@@ -4497,6 +4890,8 @@ function SectionView({ id, setSection, openBreathing }) {
       return <SonidosView />;
     case 'diario':
       return <DiarioView />;
+    case 'logros':
+      return <AchievementsView />;
     case 'billing':
       return <BillingView />;
     case 'contactos':

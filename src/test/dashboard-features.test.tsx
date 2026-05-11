@@ -8,6 +8,8 @@ vi.mock('@/services/httpClient', () => ({
   httpClient: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -25,6 +27,138 @@ const backendUser = {
 const httpMock = httpClient as unknown as {
   get: Mock;
   post: Mock;
+  put: Mock;
+  delete: Mock;
+};
+
+const achievementsResponse = {
+  total: 8,
+  unlocked: 2,
+  achievements: [
+    {
+      code: 'REFUGIO_ACTIVADO',
+      title: 'Refugio activado',
+      description: 'Completa el onboarding inicial.',
+      category: 'Inicio',
+      accent: '#2DD4BF',
+      progress: 1,
+      target: 1,
+      unlocked: true,
+      unlockedAt: '2026-05-10T12:00:00Z',
+      progressLabel: '1/1',
+    },
+    {
+      code: 'PRIMERA_ENTRADA_DIARIO',
+      title: 'Primera entrada de diario',
+      description: 'Guarda tu primera nota en el diario.',
+      category: 'Diario',
+      accent: '#FB7185',
+      progress: 1,
+      target: 1,
+      unlocked: true,
+      unlockedAt: '2026-05-11T12:00:00Z',
+      progressLabel: '1/1',
+    },
+    {
+      code: 'EXPLORADOR_CALMA',
+      title: 'Explorador de calma',
+      description: 'Completa respiracion, sonido y minijuego.',
+      category: 'Calma',
+      accent: '#A855F7',
+      progress: 0,
+      target: 3,
+      unlocked: false,
+      unlockedAt: null,
+      progressLabel: '0/3',
+    },
+  ],
+};
+
+const page = (content: unknown[]) => ({
+  content,
+  page: 0,
+  size: 100,
+  totalElements: content.length,
+  totalPages: 1,
+  sort: 'UNSORTED',
+});
+
+const billingStatus = {
+  plan: 'PERSONAL',
+  status: 'active',
+  currentPeriodEnd: '2026-06-11T00:00:00Z',
+  cancelAtPeriodEnd: false,
+  customerPortalAvailable: true,
+  testMode: true,
+  billingConfigured: true,
+};
+
+const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
+  const diary = overrides.diary ?? [];
+  const mood = overrides.mood ?? [];
+  const contacts = overrides.contacts ?? [];
+  const billing = overrides.billing ?? billingStatus;
+
+  httpMock.get.mockImplementation((url: string) => {
+    if (url === '/auth/me') return Promise.resolve({ data: backendUser });
+    if (url === '/achievements') return Promise.resolve({ data: achievementsResponse });
+    if (url === '/diary') return Promise.resolve({ data: page(diary as unknown[]) });
+    if (url === '/mood') return Promise.resolve({ data: page(mood as unknown[]) });
+    if (url === '/contacts') return Promise.resolve({ data: contacts });
+    if (url === '/billing/me') return Promise.resolve({ data: billing });
+    return Promise.resolve({ data: {} });
+  });
+
+  httpMock.post.mockImplementation((url: string, payload: Record<string, unknown>) => {
+    if (url === '/diary') {
+      return Promise.resolve({
+        data: {
+          id: 'diary_001',
+          title: payload.title ?? null,
+          content: payload.content,
+          moodScore: payload.moodScore ?? null,
+          moodLabel: payload.moodLabel ?? null,
+          createdAt: null,
+          updatedAt: null,
+        },
+      });
+    }
+    if (url === '/mood') {
+      return Promise.resolve({
+        data: {
+          id: 'mood_001',
+          beforeLevel: payload.beforeLevel,
+          afterLevel: payload.afterLevel,
+          note: payload.note ?? null,
+          loggedAt: payload.loggedAt,
+          createdAt: '2026-05-11T10:00:00Z',
+          updatedAt: null,
+        },
+      });
+    }
+    if (url === '/contacts') {
+      return Promise.resolve({
+        data: {
+          id: 'contact_001',
+          name: payload.name,
+          phone: payload.phone,
+          relationship: payload.relationship,
+          priority: payload.priority,
+          available: payload.available,
+          sosEnabled: payload.sosEnabled,
+          createdAt: '2026-05-11T10:00:00Z',
+          updatedAt: null,
+        },
+      });
+    }
+    if (url === '/achievements/events') return Promise.resolve({ data: achievementsResponse });
+    if (url === '/billing/checkout/sync') return Promise.resolve({ data: overrides.syncBilling ?? billing });
+    return Promise.resolve({ data: {} });
+  });
+  httpMock.put.mockImplementation((_url: string, payload: Record<string, unknown>) =>
+    Promise.resolve({ data: { id: 'updated_001', ...payload, createdAt: '2026-05-11T10:00:00Z', updatedAt: null } }),
+  );
+  httpMock.delete.mockResolvedValue({ data: { message: 'OK' } });
 };
 
 const seedSession = () => {
@@ -44,7 +178,7 @@ const seedSession = () => {
 };
 
 const renderDashboard = (section: string) => {
-  httpMock.get.mockResolvedValueOnce({ data: backendUser });
+  mockDashboardApis();
   seedSession();
   window.location.hash = `#/dashboard/${section}`;
   render(<App />);
@@ -54,10 +188,12 @@ describe('panel bienestar y utilidades', () => {
   beforeEach(() => {
     httpMock.get.mockReset();
     httpMock.post.mockReset();
+    httpMock.put.mockReset();
+    httpMock.delete.mockReset();
     httpMock.post.mockResolvedValue({ data: {} });
   });
 
-  it('registra una entrada de diario en localStorage', async () => {
+  it('registra una entrada de diario en backend', async () => {
     const user = userEvent.setup();
     renderDashboard('diario');
 
@@ -70,8 +206,12 @@ describe('panel bienestar y utilidades', () => {
     await user.click(screen.getByRole('button', { name: /GUARDAR_ENTRADA/i }));
 
     await waitFor(() => {
-      expect(localStorage.getItem('aura.diary.entries')).toContain('Entrada test del diario');
+      expect(httpMock.post).toHaveBeenCalledWith('/diary', expect.objectContaining({
+        content: 'Entrada test del diario para Hito 7.',
+        moodLabel: 'CALMA',
+      }));
     });
+    expect(await screen.findByText(/Entrada test del diario/)).toBeInTheDocument();
   });
 
   it('streaming del chatbot responde a un mensaje de ansiedad', async () => {
@@ -87,7 +227,7 @@ describe('panel bienestar y utilidades', () => {
     ).toBeInTheDocument();
   });
 
-  it('crea contactos de confianza con persistencia local', async () => {
+  it('crea contactos de confianza con persistencia backend', async () => {
     const user = userEvent.setup();
     renderDashboard('contactos');
 
@@ -99,7 +239,11 @@ describe('panel bienestar y utilidades', () => {
     await user.click(screen.getByRole('button', { name: /GUARDAR_CONTACTO/i }));
 
     expect(await screen.findByText('Lucía Test')).toBeInTheDocument();
-    expect(localStorage.getItem('aura.contacts')).toContain('Lucía Test');
+    expect(httpMock.post).toHaveBeenCalledWith('/contacts', expect.objectContaining({
+      name: 'Lucía Test',
+      phone: '+34 600 000 001',
+      relationship: 'AMIGA',
+    }));
   });
 
   it('mood tracker muestra bar chart y heatmap 30-90 días', async () => {
@@ -110,7 +254,58 @@ describe('panel bienestar y utilidades', () => {
     expect(screen.getByText('BAR_CHART_SEMANAL')).toBeInTheDocument();
     expect(screen.getByText('HEATMAP_EMOCIONAL')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '30D' }));
-    expect(screen.getByText(/30_DÍAS/)).toBeInTheDocument();
+    expect(screen.getByText(/30_D/)).toBeInTheDocument();
+  });
+
+  it('home muestra resumen de logros server-side', async () => {
+    renderDashboard('inicio');
+
+    expect(await screen.findByText(/LOGROS_DESBLOQUEADOS/)).toBeInTheDocument();
+    expect(httpMock.get).toHaveBeenCalledWith('/achievements');
+  });
+
+  it('ruta logros lista bloqueados y desbloqueados', async () => {
+    renderDashboard('logros');
+
+    expect(await screen.findByText('LOGROS_AURA')).toBeInTheDocument();
+    expect(await screen.findByText('REFUGIO ACTIVADO')).toBeInTheDocument();
+    expect(await screen.findByText('EXPLORADOR DE CALMA')).toBeInTheDocument();
+  });
+
+  it('guardar mood llama al backend', async () => {
+    const user = userEvent.setup();
+    renderDashboard('mood');
+
+    await screen.findAllByText('MOOD_TRACKER');
+    await user.click(screen.getByRole('button', { name: /REGISTRAR_SESIÓN/i }));
+
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/mood', expect.objectContaining({
+        beforeLevel: 6,
+        afterLevel: 8,
+      }));
+    });
+  });
+
+  it('sonidos y minijuegos envian eventos de logros', async () => {
+    const user = userEvent.setup();
+    renderDashboard('sonidos');
+
+    await user.click(await screen.findByRole('button', { name: /LLUVIA_SUAVE/i }));
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/achievements/events', expect.objectContaining({
+        type: 'SOUNDSCAPE_PLAYED',
+      }));
+    });
+
+    window.location.hash = '#/dashboard/juegos';
+    await screen.findByText(/REFUGIO_L/);
+    await user.click(await screen.findByRole('button', { name: /COMENZAR_VIAJE/i }));
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/achievements/events', expect.objectContaining({
+        type: 'MINIGAME_OPENED',
+      }));
+    });
   });
 
   it('configuración permite exportar/borrar diario y cerrar sesión', async () => {
@@ -130,19 +325,7 @@ describe('panel bienestar y utilidades', () => {
     await waitFor(() => expect(localStorage.getItem('aura.token')).toBeNull());
   });
   it('facturacion muestra el estado de Stripe del usuario', async () => {
-    httpMock.get
-      .mockResolvedValueOnce({ data: backendUser })
-      .mockResolvedValueOnce({
-        data: {
-          plan: 'PERSONAL',
-          status: 'active',
-          currentPeriodEnd: '2026-06-11T00:00:00Z',
-          cancelAtPeriodEnd: false,
-          customerPortalAvailable: true,
-          testMode: true,
-          billingConfigured: true,
-        },
-      });
+    mockDashboardApis({ billing: billingStatus });
     seedSession();
     window.location.hash = '#/dashboard/billing';
 
@@ -155,9 +338,8 @@ describe('panel bienestar y utilidades', () => {
   });
 
   it('facturacion sincroniza checkout al volver de Stripe', async () => {
-    httpMock.get.mockResolvedValueOnce({ data: backendUser });
-    httpMock.post.mockResolvedValueOnce({
-      data: {
+    mockDashboardApis({
+      syncBilling: {
         plan: 'PREMIUM',
         status: 'active',
         currentPeriodEnd: '2026-06-11T00:00:00Z',
