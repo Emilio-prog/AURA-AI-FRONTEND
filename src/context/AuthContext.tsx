@@ -2,7 +2,7 @@ import { createContext, useCallback, useEffect, useMemo, useState, type ReactNod
 import { httpClient } from '@/services/httpClient';
 import { writeJSON, remove, STORAGE_KEYS } from '@/utils/storage';
 
-export type UserPlan = 'free' | 'pro' | 'team';
+export type UserPlan = 'free' | 'personal' | 'premium';
 
 export interface AuthUser {
   id: string;
@@ -104,8 +104,11 @@ const computeInitials = (name: string): string => {
 
 const normalizePlan = (plan: string): UserPlan => {
   const normalized = plan.toLowerCase();
-  if (normalized === 'pro' || normalized === 'team') {
-    return normalized;
+  if (normalized === 'personal' || normalized === 'pro') {
+    return 'personal';
+  }
+  if (normalized === 'premium' || normalized === 'team') {
+    return 'premium';
   }
   return 'free';
 };

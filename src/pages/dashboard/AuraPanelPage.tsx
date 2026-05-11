@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { BillingView } from './BillingView';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -37,6 +38,7 @@ const NAV = [
     labelKey: 'dashboard.nav.sonidos',
   },
   { id: 'diario', icon: 'book_2', label: 'DIARIO', labelKey: 'dashboard.nav.diario' },
+  { id: 'billing', icon: 'credit_card', label: 'FACTURACION', labelKey: 'dashboard.nav.billing' },
   {
     id: 'contactos',
     icon: 'group',
@@ -54,15 +56,15 @@ const PROFILE_STORAGE_KEY = 'aura.profile';
 const DEFAULT_PANEL_USER = {
   name: 'María Solís',
   email: 'demo@aura.ai',
-  plan: 'pro',
+  plan: 'personal',
   initials: 'MS',
 };
 
 const panelFirstName = (name) => name?.trim().split(/\s+/)[0] || 'María';
 
 const planLabel = (plan) => {
-  if (plan === 'team') return 'TEAM';
-  if (plan === 'pro') return 'PRO';
+  if (plan === 'premium' || plan === 'team') return 'PREMIUM';
+  if (plan === 'personal' || plan === 'pro') return 'PERSONAL';
   return 'FREE';
 };
 
@@ -4495,6 +4497,8 @@ function SectionView({ id, setSection, openBreathing }) {
       return <SonidosView />;
     case 'diario':
       return <DiarioView />;
+    case 'billing':
+      return <BillingView />;
     case 'contactos':
       return <ContactosView />;
     case 'config':

@@ -1,7 +1,13 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { createCheckoutSession, type BillingPlan } from '@/services/billing';
+
 const plans = [
   {
     name: 'Gratis',
     price: '0€',
+    planKey: 'FREE' as BillingPlan,
     id: 'ID: ACCESO_BÁSICO_LIMITADO',
     features: ['Botón SOS Básico', 'Diario simple', '3 Ambientes sonoros'],
     cta: 'ACTIVAR_LICENCIA',
@@ -12,7 +18,8 @@ const plans = [
   },
   {
     name: 'Personal',
-    price: '6€',
+    price: '6,99€',
+    planKey: 'PERSONAL' as BillingPlan,
     id: 'ID: EQUILIBRIO_OPTIMIZADO',
     features: [
       'Todo lo de Gratis',
@@ -31,6 +38,7 @@ const plans = [
   {
     name: 'Premium',
     price: '12€',
+    planKey: 'PREMIUM' as BillingPlan,
     id: 'ID: CUIDADO_PROFUNDO_MAX',
     features: [
       'Todo lo de Personal',
@@ -47,7 +55,48 @@ const plans = [
   },
 ];
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string; error?: string } } }).response;
+    return response?.data?.message ?? response?.data?.error ?? fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+};
+
 export function PricingSection() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const [pendingPlan, setPendingPlan] = useState<BillingPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePlanClick = async (plan: (typeof plans)[number]) => {
+    setError(null);
+
+    if (plan.planKey === 'FREE') {
+      navigate(isAuthenticated ? '/dashboard' : '/register');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      navigate(`/register?plan=${plan.planKey.toLowerCase()}`);
+      return;
+    }
+
+    if (user?.onboardedAt === null) {
+      navigate('/onboarding');
+      return;
+    }
+
+    const paidPlan = plan.planKey as Exclude<BillingPlan, 'FREE'>;
+    setPendingPlan(plan.planKey);
+    try {
+      window.location.href = await createCheckoutSession(paidPlan);
+    } catch (err) {
+      setError(`ERR_BILLING: ${getErrorMessage(err, 'No se pudo iniciar Stripe Checkout.')}`);
+      setPendingPlan(null);
+    }
+  };
+
   return (
     <section className="relative z-10 max-w-full overflow-x-hidden px-6 py-24" id="precios">
       <div
@@ -63,6 +112,15 @@ export function PricingSection() {
           </h2>
           <p className="font-mono font-bold uppercase">SELECCIONE NIVEL DE ACCESO REQUERIDO</p>
         </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="mx-auto mb-8 max-w-3xl border-4 border-brutal-black bg-brutal-coral p-4 font-mono text-sm font-black uppercase text-white shadow-brutal-sm"
+          >
+            {error}
+          </div>
+        )}
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-0 font-mono md:grid-cols-3">
           {plans.map((plan) => (
@@ -100,9 +158,12 @@ export function PricingSection() {
               </ul>
 
               <button
+                type="button"
+                onClick={() => handlePlanClick(plan)}
+                disabled={pendingPlan === plan.planKey}
                 className={`mt-12 w-full border-4 border-brutal-black px-6 py-3 font-bold uppercase tracking-tighter shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none ${plan.buttonClassName}`}
               >
-                {plan.cta}
+                {pendingPlan === plan.planKey ? 'ABRIENDO_STRIPE...' : plan.cta}
               </button>
             </div>
           ))}

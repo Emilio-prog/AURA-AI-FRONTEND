@@ -6,6 +6,7 @@ import {
   Gamepad2,
   Headphones,
   BookOpen,
+  CreditCard,
   Users,
   Settings,
   type LucideIcon,
@@ -27,6 +28,7 @@ export const DASHBOARD_NAV: DashboardNavEntry[] = [
   { id: 'juegos', path: '/dashboard/juegos', label: 'MINIJUEGOS', icon: Gamepad2 },
   { id: 'sonidos', path: '/dashboard/sonidos', label: 'AMBIENTES_SONOROS', icon: Headphones },
   { id: 'diario', path: '/dashboard/diario', label: 'DIARIO', icon: BookOpen },
+  { id: 'billing', path: '/dashboard/billing', label: 'FACTURACION', icon: CreditCard },
   { id: 'contactos', path: '/dashboard/contactos', label: 'CONTACTOS_CONFIANZA', icon: Users },
   { id: 'config', path: '/dashboard/config', label: 'CONFIGURACIÓN', icon: Settings },
 ];

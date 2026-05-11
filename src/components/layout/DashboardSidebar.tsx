@@ -11,10 +11,12 @@ interface DashboardSidebarProps {
 
 const planLabel = (plan: string): string => {
   switch (plan) {
+    case 'personal':
     case 'pro':
-      return 'PLAN_PRO_ACTIVO';
+      return 'PLAN_PERSONAL_ACTIVO';
+    case 'premium':
     case 'team':
-      return 'PLAN_EQUIPO_ACTIVO';
+      return 'PLAN_PREMIUM_ACTIVO';
     default:
       return 'PLAN_GRATIS';
   }

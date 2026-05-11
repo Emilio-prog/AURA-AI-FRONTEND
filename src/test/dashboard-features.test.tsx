@@ -16,7 +16,7 @@ const backendUser = {
   name: 'Maria Solis',
   email: 'demo@aura.ai',
   role: 'USER',
-  plan: 'PRO',
+  plan: 'PERSONAL',
   emailVerified: true,
   createdAt: '2026-01-15T00:00:00Z',
   onboardedAt: '2026-05-10T12:00:00Z',
@@ -36,7 +36,7 @@ const seedSession = () => {
       id: 'usr_001',
       name: 'María Solís',
       email: 'demo@aura.ai',
-      plan: 'pro',
+      plan: 'personal',
       initials: 'MS',
       onboardedAt: backendUser.onboardedAt,
     }),
@@ -128,5 +128,55 @@ describe('panel bienestar y utilidades', () => {
     await user.click(screen.getByRole('button', { name: /SESIÓN/i }));
     await user.click(screen.getByRole('button', { name: /CERRAR_SESIÓN/i }));
     await waitFor(() => expect(localStorage.getItem('aura.token')).toBeNull());
+  });
+  it('facturacion muestra el estado de Stripe del usuario', async () => {
+    httpMock.get
+      .mockResolvedValueOnce({ data: backendUser })
+      .mockResolvedValueOnce({
+        data: {
+          plan: 'PERSONAL',
+          status: 'active',
+          currentPeriodEnd: '2026-06-11T00:00:00Z',
+          cancelAtPeriodEnd: false,
+          customerPortalAvailable: true,
+          testMode: true,
+          billingConfigured: true,
+        },
+      });
+    seedSession();
+    window.location.hash = '#/dashboard/billing';
+
+    render(<App />);
+
+    expect(await screen.findByText('FACTURACION_AURA')).toBeInTheDocument();
+    expect(await screen.findByText('ESTADO_SUSCRIPCION')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /GESTIONAR_SUSCRIPCION/i })).toBeEnabled();
+    expect(httpMock.get).toHaveBeenCalledWith('/billing/me');
+  });
+
+  it('facturacion sincroniza checkout al volver de Stripe', async () => {
+    httpMock.get.mockResolvedValueOnce({ data: backendUser });
+    httpMock.post.mockResolvedValueOnce({
+      data: {
+        plan: 'PREMIUM',
+        status: 'active',
+        currentPeriodEnd: '2026-06-11T00:00:00Z',
+        cancelAtPeriodEnd: false,
+        customerPortalAvailable: true,
+        testMode: true,
+        billingConfigured: true,
+      },
+    });
+    seedSession();
+    window.location.hash = '#/dashboard/billing?checkout=success&session_id=cs_test_123';
+
+    render(<App />);
+
+    expect(await screen.findByText('CHECKOUT_COMPLETADO: Stripe esta sincronizando tu suscripcion.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/billing/checkout/sync', { sessionId: 'cs_test_123' });
+    });
+    expect(await screen.findByText('ACTIVO')).toBeInTheDocument();
+    expect(screen.getAllByText('PREMIUM').length).toBeGreaterThan(0);
   });
 });
