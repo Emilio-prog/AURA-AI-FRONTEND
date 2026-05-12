@@ -1,51 +1,70 @@
+import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LandingPage } from '@/pages/landing/LandingPage';
-import { DevPlayground } from '@/pages/DevPlayground';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
-import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
-import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
-import { AuraPanelPage } from '@/pages/dashboard/AuraPanelPage';
-import { PrivacyPage } from '@/pages/legal/PrivacyPage';
-import { TermsPage } from '@/pages/legal/TermsPage';
-import { EmergencyPage } from '@/pages/emergency/EmergencyPage';
 import { PrivateRoute } from './PrivateRoute';
 import { PublicRoute } from './PublicRoute';
 
+const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((module) => ({ default: module.LandingPage })));
+const DevPlayground = lazy(() => import('@/pages/DevPlayground').then((module) => ({ default: module.DevPlayground })));
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })));
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/auth/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/auth/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })),
+);
+const VerifyEmailPage = lazy(() =>
+  import('@/pages/auth/VerifyEmailPage').then((module) => ({ default: module.VerifyEmailPage })),
+);
+const OnboardingPage = lazy(() =>
+  import('@/pages/onboarding/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
+);
+const AuraPanelPage = lazy(() =>
+  import('@/pages/dashboard/AuraPanelPage').then((module) => ({ default: module.AuraPanelPage })),
+);
+const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage').then((module) => ({ default: module.PrivacyPage })));
+const TermsPage = lazy(() => import('@/pages/legal/TermsPage').then((module) => ({ default: module.TermsPage })));
+const EmergencyPage = lazy(() =>
+  import('@/pages/emergency/EmergencyPage').then((module) => ({ default: module.EmergencyPage })),
+);
+
+function RouteFallback() {
+  return (
+    <main className="min-h-screen bg-[#F7F4EF] p-6 font-mono text-sm font-black uppercase text-black">
+      CARGANDO_AURA...
+    </main>
+  );
+}
+
 export function AppRouter() {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
+    <HashRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
 
-        {/* Legal y emergencia: accesibles siempre (con o sin sesión) */}
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/emergencia" element={<EmergencyPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/emergencia" element={<EmergencyPage />} />
 
-        {/* Auth: solo accesibles si NO hay sesión */}
-        <Route element={<PublicRoute />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-        </Route>
+          <Route element={<PublicRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+          </Route>
 
-        {/* Dashboard: solo accesible CON sesión */}
-        <Route element={<PrivateRoute />}>
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/dashboard/*" element={<AuraPanelPage />} />
-        </Route>
+          <Route element={<PrivateRoute />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/dashboard/*" element={<AuraPanelPage />} />
+          </Route>
 
-        {/* Playground del sistema de diseño — solo en desarrollo */}
-        {import.meta.env.DEV && <Route path="/playground" element={<DevPlayground />} />}
+          {import.meta.env.DEV && <Route path="/playground" element={<DevPlayground />} />}
 
-        {/* Fallback → landing */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </HashRouter>
   );
 }
