@@ -16,6 +16,14 @@ import {
 import { createMoodLog, listMoodLogs } from '@/services/mood';
 import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
 import { createChatSession, sendChatMessage } from '@/services/chatbot';
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushConfig,
+  getPushPermissionState,
+  isPushSupported,
+  sendPushTest,
+} from '@/services/pushNotifications';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -221,6 +229,120 @@ const emptyContact = {
 
 const backendErrorMessage = (error) =>
   error?.response?.data?.message || error?.message || 'No se pudo completar la operacion.';
+
+function usePushNotificationState() {
+  const [supported, setSupported] = useState(false);
+  const [permission, setPermission] = useState('unsupported');
+  const [enabled, setEnabled] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    const browserSupported = isPushSupported();
+    setSupported(browserSupported);
+    setPermission(getPushPermissionState());
+    if (!browserSupported) {
+      setEnabled(false);
+      setSubscribed(false);
+      setLoading(false);
+      return;
+    }
+    try {
+      const config = await getPushConfig();
+      setEnabled(Boolean(config.enabled && config.publicKey));
+      setSubscribed(Boolean(config.subscribed));
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return undefined;
+    }
+    const onPushMessage = (event: MessageEvent) => {
+      if (event.data?.source === 'aura-push') {
+        setMessage(`PUSH_RECIBIDO: ${event.data.body || 'Notificación recibida.'}`);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onPushMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onPushMessage);
+  }, []);
+
+  const activate = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await enablePushNotifications();
+      setMessage('PUSH_ACTIVADO');
+      await refresh();
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setPermission(getPushPermissionState());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deactivate = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await disablePushNotifications();
+      setMessage('PUSH_DESACTIVADO');
+      await refresh();
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      try {
+        await sendPushTest();
+      } catch {
+        await enablePushNotifications();
+        await refresh();
+        await sendPushTest();
+      }
+      setMessage('PUSH_TEST_ENVIADO');
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return {
+    supported,
+    permission,
+    enabled,
+    subscribed,
+    loading,
+    busy,
+    message,
+    error,
+    activate,
+    deactivate,
+    test,
+  };
+}
 
 const currentDayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -1248,12 +1370,112 @@ function AchievementsView() {
   );
 }
 
+function PushOptInBanner() {
+  const push = usePushNotificationState();
+  if (push.loading || !push.supported || !push.enabled || push.permission === 'granted') {
+    return null;
+  }
+  return (
+    <div className="bento">
+      <div
+        className="bc c12"
+        style={{
+          background: ML,
+          border: BORDE,
+          boxShadow: SOMBRA_SM,
+          padding: 18,
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          gap: 14,
+          alignItems: 'center',
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: 'Space Mono', fontWeight: 800, fontSize: 11 }}>
+            RECORDATORIOS_PUSH
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+            Activa avisos privados para mood, diario y logros. Nunca mostramos contenido sensible.
+          </div>
+          {push.error && (
+            <div className="chip chip-coral" style={{ marginTop: 10 }}>
+              {push.error}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={push.activate}
+          disabled={push.busy}
+          className="btn btn-morado"
+          style={{ fontSize: 10, whiteSpace: 'nowrap' }}
+        >
+          {push.busy ? 'ACTIVANDO...' : 'ACTIVAR_PUSH'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PushNotificationSettings() {
+  const push = usePushNotificationState();
+  if (push.loading) {
+    return <div className="chip">CARGANDO_PUSH...</div>;
+  }
+  if (!push.supported) {
+    return <div className="chip chip-coral">ERR_PUSH: navegador no compatible</div>;
+  }
+  if (!push.enabled) {
+    return <div className="chip chip-coral">ERR_PUSH: servicio no configurado</div>;
+  }
+  return (
+    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <span className={push.permission === 'granted' ? 'chip chip-turquesa' : 'chip'}>
+          PERMISO_{String(push.permission).toUpperCase()}
+        </span>
+        <span className={push.subscribed ? 'chip chip-turquesa' : 'chip chip-coral'}>
+          {push.subscribed ? 'SUSCRIPCIÓN_ACTIVA' : 'SIN_SUSCRIPCIÓN'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          onClick={push.activate}
+          disabled={push.busy}
+          className="btn btn-morado"
+          style={{ fontSize: 10 }}
+        >
+          {push.subscribed ? 'RENOVAR_PUSH' : 'ACTIVAR_PUSH'}
+        </button>
+        <button
+          onClick={push.test}
+          disabled={push.busy}
+          className="btn"
+          style={{ fontSize: 10, background: T, color: K }}
+        >
+          PROBAR_PUSH
+        </button>
+        <button
+          onClick={push.deactivate}
+          disabled={push.busy || !push.subscribed}
+          className="btn btn-coral"
+          style={{ fontSize: 10 }}
+        >
+          DESACTIVAR_PUSH
+        </button>
+      </div>
+      {push.message && <div className="chip chip-turquesa">{push.message}</div>}
+      {push.error && <div className="chip chip-coral">{push.error}</div>}
+    </div>
+  );
+}
+
 /* ── DASHBOARD VIEW ── */
 function DashboardView({ setSection, openBreathing }) {
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'fadeUp .3s ease' }}
     >
+      <PushOptInBanner />
       <div className="bento">
         <HeroBentoCard />
         <SOSBentoCard openBreathing={openBreathing} />
@@ -4682,7 +4904,7 @@ function ConfigView() {
     PRIVACIDAD_GDPR:
       'Cumplimiento GDPR y AI Act. Datos cifrados en reposo y tránsito. Anonimización opcional. Exportación completa disponible.',
     NOTIFICACIONES:
-      'Recordatorio diario de mood: 20:00h · Alertas de racha: Activado · Sin notificaciones push nocturnas (22:00–09:00h)',
+      'Recordatorios privados de mood, diario y logros. El texto del diario y el estado emocional no aparecen en la notificación.',
     PLAN_SUSCRIPCIÓN: `Plan ${planLabel(profile.plan ?? panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
     EXPORTAR_DATOS:
       'Descarga todos tus datos: historial de mood, entradas de diario, sesiones. Formato: JSON / PDF',
@@ -4831,6 +5053,7 @@ function ConfigView() {
                   </button>
                 </div>
               )}
+              {s === 'NOTIFICACIONES' && <PushNotificationSettings />}
               {s === 'ELIMINAR_CUENTA' && (
                 <button
                   onClick={deleteDiary}
