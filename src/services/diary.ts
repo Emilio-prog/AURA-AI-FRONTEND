@@ -14,6 +14,7 @@ export interface DiaryEntry {
   content: string;
   moodScore: number | null;
   moodLabel: string | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string | null;
 }
@@ -23,11 +24,28 @@ export interface DiaryEntryRequest {
   content: string;
   moodScore?: number | null;
   moodLabel?: string | null;
+  tags?: string[];
 }
 
-export async function listDiaryEntries(size = 100) {
+export interface DiaryEntryListFilters {
+  size?: number;
+  q?: string;
+  tags?: string[];
+}
+
+export async function listDiaryEntries(filters: DiaryEntryListFilters | number = {}) {
+  const normalized = typeof filters === 'number' ? { size: filters } : filters;
+  const params: Record<string, string | number> = {
+    size: normalized.size ?? 100,
+  };
+  if (normalized.q?.trim()) {
+    params.q = normalized.q.trim();
+  }
+  if (normalized.tags?.length) {
+    params.tags = normalized.tags.join(',');
+  }
   const { data } = await httpClient.get<PageResponse<DiaryEntry>>('/diary', {
-    params: { size },
+    params,
   });
   return data;
 }

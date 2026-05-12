@@ -133,6 +133,19 @@ const MOOD_OPTIONS = [
   { emoji: '😐', label: 'NEUTRAL', score: 6, color: '#94a3b8' },
 ];
 
+const DIARY_TAG_SUGGESTIONS = [
+  'ansiedad',
+  'sueño',
+  'trabajo',
+  'familia',
+  'social',
+  'gratitud',
+  'crisis',
+  'rutina',
+  'calma',
+  'reflexión',
+];
+
 const readLocalJSON = (key, fallback) => {
   try {
     const raw = localStorage.getItem(key);
@@ -233,6 +246,7 @@ const backendDiaryToPanel = (entry, fallbackDate = new Date().toISOString()) => 
     text: entry?.content ?? entry?.text ?? '',
     title: entry?.title ?? null,
     moodScore,
+    tags: Array.isArray(entry?.tags) ? entry.tags : [],
   };
 };
 
@@ -3779,6 +3793,11 @@ function SonidosView() {
 function DiarioView() {
   const [text, setText] = useState('');
   const [mood, setMood] = useState(null);
+  const [entryTags, setEntryTags] = useState([]);
+  const [tagDraft, setTagDraft] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeFilterTags, setActiveFilterTags] = useState([]);
   const [saved, setSaved] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -3802,24 +3821,55 @@ function DiarioView() {
     entriesThisMonth.find((entry) => parsePanelDate(entry.date)?.getDate() === day);
   const moodColor = (emoji) =>
     MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? 'var(--aura-bg-muted)';
+  const normalizePanelTag = (value) =>
+    value
+      .trim()
+      .replace(/^#+/, '')
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+  const addEntryTag = (value) => {
+    const tag = normalizePanelTag(value);
+    if (!tag || tag.length < 2 || tag.length > 32) return;
+    setEntryTags((items) => (items.includes(tag) || items.length >= 12 ? items : [...items, tag]));
+    setTagDraft('');
+  };
+  const removeEntryTag = (tag) => setEntryTags((items) => items.filter((item) => item !== tag));
+  const toggleEntryTag = (tag) =>
+    setEntryTags((items) =>
+      items.includes(tag) ? items.filter((item) => item !== tag) : items.length >= 12 ? items : [...items, tag],
+    );
+  const toggleFilterTag = (tag) =>
+    setActiveFilterTags((items) =>
+      items.includes(tag) ? items.filter((item) => item !== tag) : [...items, tag],
+    );
   const resetForm = () => {
     setText('');
     setMood(null);
+    setEntryTags([]);
+    setTagDraft('');
     setEditingId(null);
     setSaved(false);
   };
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchText]);
   const loadEntries = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const page = await listDiaryEntries(120);
+      const page = await listDiaryEntries({
+        size: 120,
+        q: debouncedSearch,
+        tags: activeFilterTags,
+      });
       setEntries((page.content ?? []).map(backendDiaryToPanel));
     } catch (err) {
-      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+      setError(`ERR_DIARY: ${backendErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, activeFilterTags]);
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
@@ -3830,6 +3880,7 @@ function DiarioView() {
       content: text.trim() || selectedMood?.label || 'Registro emocional',
       moodScore: selectedMood?.score ?? null,
       moodLabel: selectedMood?.label ?? 'NEUTRAL',
+      tags: entryTags,
     };
     setError('');
     try {
@@ -3844,6 +3895,7 @@ function DiarioView() {
           content: responseEntry.content ?? payload.content,
           moodScore: responseEntry.moodScore ?? payload.moodScore,
           moodLabel: responseEntry.moodLabel ?? payload.moodLabel,
+          tags: responseEntry.tags ?? payload.tags,
           createdAt: responseEntry.createdAt ?? responseEntry.created_at ?? responseEntry.date,
           updatedAt: responseEntry.updatedAt ?? responseEntry.updated_at,
         },
@@ -3856,15 +3908,19 @@ function DiarioView() {
       setEditingId(null);
       setText('');
       setMood(null);
+      setEntryTags([]);
+      setTagDraft('');
       setTimeout(() => setSaved(false), 1800);
     } catch (err) {
-      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+      setError(`ERR_DIARY: ${backendErrorMessage(err)}`);
     }
   };
   const editEntry = (entry) => {
     setEditingId(entry.id);
     setText(entry.text);
     setMood(entry.mood);
+    setEntryTags(entry.tags ?? []);
+    setTagDraft('');
     setSaved(false);
   };
   const deleteEntry = async (id) => {
@@ -3874,7 +3930,7 @@ function DiarioView() {
       setEntries((items) => items.filter((entry) => entry.id !== id));
       if (editingId === id) resetForm();
     } catch (err) {
-      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+      setError(`ERR_DIARY: ${backendErrorMessage(err)}`);
     }
   };
 
@@ -3890,6 +3946,64 @@ function DiarioView() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           DIARIO_EMOCIONAL
+        </div>
+        <div className="bc" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="lbl" style={{ fontSize: 9 }}>
+            BUSCAR_Y_FILTRAR_DIARIO
+          </div>
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="BUSCAR_EN_DIARIO..."
+            style={{
+              width: '100%',
+              border: BORDE,
+              background: 'var(--aura-bg-soft)',
+              color: K,
+              padding: '12px 14px',
+              fontFamily: 'Space Mono',
+              fontSize: 11,
+              fontWeight: 800,
+              outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {DIARY_TAG_SUGGESTIONS.map((tag) => {
+              const active = activeFilterTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleFilterTag(tag)}
+                  style={{
+                    border: '2px solid #000',
+                    padding: '6px 10px',
+                    background: active ? T : W,
+                    color: active ? '#000' : K,
+                    fontFamily: 'Space Mono',
+                    fontSize: 9,
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  #{tag}
+                </button>
+              );
+            })}
+            {(searchText || activeFilterTags.length > 0) && (
+              <button
+                onClick={() => {
+                  setSearchText('');
+                  setDebouncedSearch('');
+                  setActiveFilterTags([]);
+                }}
+                className="btn"
+                style={{ fontSize: 9, padding: '6px 10px' }}
+              >
+                LIMPIAR_FILTROS
+              </button>
+            )}
+          </div>
         </div>
         {error && (
           <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
@@ -3966,6 +4080,89 @@ function DiarioView() {
               lineHeight: 1.7,
             }}
           />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="lbl" style={{ fontSize: 9 }}>
+              TAGS_PRIVADOS
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {DIARY_TAG_SUGGESTIONS.map((tag) => {
+                const active = entryTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleEntryTag(tag)}
+                    style={{
+                      border: '2px solid #000',
+                      padding: '6px 10px',
+                      background: active ? M : W,
+                      color: active ? '#fff' : K,
+                      fontFamily: 'Space Mono',
+                      fontSize: 9,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    #{tag}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addEntryTag(tagDraft);
+                  }
+                }}
+                placeholder="AÑADIR_TAG_PROPIO"
+                style={{
+                  flex: '1 1 180px',
+                  border: '3px solid #000',
+                  background: W,
+                  color: K,
+                  padding: '9px 10px',
+                  fontFamily: 'Space Mono',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => addEntryTag(tagDraft)}
+                className="btn"
+                style={{ fontSize: 9, padding: '8px 12px' }}
+              >
+                AÑADIR_TAG
+              </button>
+            </div>
+            {entryTags.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {entryTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => removeEntryTag(tag)}
+                    title={`Quitar ${tag}`}
+                    style={{
+                      border: '2px solid #000',
+                      background: ML,
+                      color: K,
+                      padding: '5px 8px',
+                      fontFamily: 'Space Mono',
+                      fontSize: 9,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    #{tag} ×
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {!saved ? (
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -4023,6 +4220,27 @@ function DiarioView() {
               <div style={{ fontSize: 13, color: K, lineHeight: 1.65, fontStyle: 'italic' }}>
                 "{entry.text}"
               </div>
+              {entry.tags?.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                  {entry.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="mono"
+                      style={{
+                        border: '2px solid #000',
+                        background: TL,
+                        padding: '4px 7px',
+                        fontSize: 8,
+                        fontWeight: 900,
+                        color: K,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <button
                   onClick={() => editEntry(entry)}

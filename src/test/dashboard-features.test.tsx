@@ -149,6 +149,7 @@ const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
           content: payload.content,
           moodScore: payload.moodScore ?? null,
           moodLabel: payload.moodLabel ?? null,
+          tags: payload.tags ?? [],
           createdAt: null,
           updatedAt: null,
         },
@@ -234,15 +235,38 @@ describe('panel bienestar y utilidades', () => {
       screen.getByPlaceholderText(/Escribe libremente/i),
       'Entrada test del diario para Hito 7.',
     );
+    await user.type(screen.getByPlaceholderText('AÑADIR_TAG_PROPIO'), 'Calma profunda{enter}');
     await user.click(screen.getByRole('button', { name: /GUARDAR_ENTRADA/i }));
 
     await waitFor(() => {
       expect(httpMock.post).toHaveBeenCalledWith('/diary', expect.objectContaining({
         content: 'Entrada test del diario para Hito 7.',
         moodLabel: 'CALMA',
+        tags: ['calma-profunda'],
       }));
     });
     expect(await screen.findByText(/Entrada test del diario/)).toBeInTheDocument();
+    expect(await screen.findByText('#calma-profunda')).toBeInTheDocument();
+  });
+
+  it('busca y filtra diario por texto y tags en backend', async () => {
+    const user = userEvent.setup();
+    renderDashboard('diario');
+
+    await screen.findByText('DIARIO_EMOCIONAL');
+    await user.type(screen.getByPlaceholderText('BUSCAR_EN_DIARIO...'), 'respirar');
+    await waitFor(() => {
+      expect(httpMock.get).toHaveBeenCalledWith('/diary', {
+        params: expect.objectContaining({ q: 'respirar', size: 120 }),
+      });
+    });
+
+    await user.click(screen.getAllByRole('button', { name: '#ansiedad' })[0]);
+    await waitFor(() => {
+      expect(httpMock.get).toHaveBeenCalledWith('/diary', {
+        params: expect.objectContaining({ q: 'respirar', tags: 'ansiedad', size: 120 }),
+      });
+    });
   });
 
   it('streaming del chatbot responde a un mensaje de ansiedad', async () => {
