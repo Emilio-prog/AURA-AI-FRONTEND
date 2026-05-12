@@ -93,6 +93,14 @@ const billingStatus = {
   billingConfigured: true,
 };
 
+const chatSession = (messages: unknown[] = []) => ({
+  id: 'chat_001',
+  title: 'Nueva sesion',
+  messages,
+  startedAt: '2026-05-11T10:00:00Z',
+  updatedAt: null,
+});
+
 const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
   const diary = overrides.diary ?? [];
   const mood = overrides.mood ?? [];
@@ -109,7 +117,30 @@ const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
     return Promise.resolve({ data: {} });
   });
 
-  httpMock.post.mockImplementation((url: string, payload: Record<string, unknown>) => {
+  httpMock.post.mockImplementation((url: string, payload: Record<string, unknown> = {}) => {
+    if (url === '/chatbot/sessions') {
+      return Promise.resolve({ data: overrides.chatSession ?? chatSession() });
+    }
+    if (url === '/chatbot/sessions/chat_001/messages') {
+      if (overrides.chatMessageError) return Promise.reject(overrides.chatMessageError);
+      const content = String(payload.message ?? '');
+      const isCrisis = /pánico|panico|crisis|sos/i.test(content);
+      return Promise.resolve({
+        data: chatSession([
+          { role: 'user', content, timestamp: '2026-05-11T10:00:01Z' },
+          {
+            role: 'assistant',
+            content: isCrisis
+              ? 'Si hay riesgo inmediato, llama al 112. Si estas en Espana, llama al 024. Estoy contigo.'
+              : 'Entiendo esa ansiedad. No tienes que resolver todo ahora.',
+            timestamp: '2026-05-11T10:00:02Z',
+            sentiment: isCrisis ? 'crisis' : 'supportive',
+            riskLevel: isCrisis ? 'high' : 'medium',
+            emotions: isCrisis ? ['distress'] : ['anxiety'],
+          },
+        ]),
+      });
+    }
     if (url === '/diary') {
       return Promise.resolve({
         data: {
@@ -219,12 +250,47 @@ describe('panel bienestar y utilidades', () => {
     renderDashboard('chatbot');
 
     const input = await screen.findByPlaceholderText('ESCRIBE_LO_QUE_SIENTES...');
+    await waitFor(() => expect(input).toBeEnabled());
     await user.type(input, 'tengo ansiedad{enter}');
 
+    expect(httpMock.post).toHaveBeenCalledWith('/chatbot/sessions');
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith(
+        '/chatbot/sessions/chat_001/messages',
+        { message: 'tengo ansiedad' },
+        { timeout: 45_000 },
+      );
+    });
     expect(await screen.findByText(/PENSANDO|STREAMING/)).toBeInTheDocument();
     expect(
       await screen.findByText(/Entiendo esa ansiedad/i, {}, { timeout: 6000 }),
     ).toBeInTheDocument();
+  });
+
+  it('chatbot muestra ERR_CHATBOT si falla el backend', async () => {
+    const user = userEvent.setup();
+    mockDashboardApis({ chatMessageError: new Error('Network Error') });
+    seedSession();
+    window.location.hash = '#/dashboard/chatbot';
+    render(<App />);
+
+    const input = await screen.findByPlaceholderText('ESCRIBE_LO_QUE_SIENTES...');
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'hola{enter}');
+
+    expect(await screen.findByText(/ERR_CHATBOT: Network Error/i)).toBeInTheDocument();
+  });
+
+  it('chatbot muestra aviso de crisis con 112 y 024', async () => {
+    const user = userEvent.setup();
+    renderDashboard('chatbot');
+
+    const input = await screen.findByPlaceholderText('ESCRIBE_LO_QUE_SIENTES...');
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'tengo pánico{enter}');
+
+    expect(await screen.findByText(/112/i, {}, { timeout: 6000 })).toBeInTheDocument();
+    expect(await screen.findByText(/024/i)).toBeInTheDocument();
   });
 
   it('crea contactos de confianza con persistencia backend', async () => {

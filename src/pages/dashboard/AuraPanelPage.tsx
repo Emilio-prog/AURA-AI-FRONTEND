@@ -15,6 +15,7 @@ import {
 } from '@/services/diary';
 import { createMoodLog, listMoodLogs } from '@/services/mood';
 import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
+import { createChatSession, sendChatMessage } from '@/services/chatbot';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -262,6 +263,17 @@ const panelContactToRequest = (contact, priority = 1) => ({
   available: Boolean(contact.available),
   sosEnabled: Boolean(contact.sosAuto),
 });
+
+const backendChatToPanel = (message, index) => ({
+  id: `${message?.role ?? 'message'}_${message?.timestamp ?? index}`,
+  from: message?.role === 'user' ? 'user' : 'ai',
+  text: String(message?.content ?? ''),
+  riskLevel: message?.riskLevel ?? 'low',
+  sentiment: message?.sentiment ?? null,
+});
+
+const panelMessagesFromChatSession = (session) =>
+  (session?.messages ?? []).map(backendChatToPanel).filter((message) => message.text.trim());
 
 const emptyAchievements = {
   total: 8,
@@ -1563,69 +1575,88 @@ function ChatbotView() {
   const { user } = useAuth();
   const panelUser = user ?? DEFAULT_PANEL_USER;
   const firstName = panelFirstName(panelUser.name);
-  const [msgs, setMsgs] = useState(() => [
-    {
-      id: 'welcome',
-      from: 'ai',
-      text: `Hola ${firstName}. Estoy aquí contigo. ¿Cómo te sientes en este momento?`,
-    },
-  ]);
+  const welcomeMessage = {
+    id: 'welcome',
+    from: 'ai',
+    text: `Hola ${firstName}. Estoy aquí contigo. ¿Cómo te sientes en este momento?`,
+    riskLevel: 'low',
+  };
+  const [sessionId, setSessionId] = useState(null);
+  const [msgs, setMsgs] = useState([]);
   const [inp, setInp] = useState('');
   const [botStatus, setBotStatus] = useState('idle');
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [error, setError] = useState('');
   const botRef = useRef();
   const thinkingRef = useRef();
   const streamRef = useRef();
-  const isBusy = botStatus !== 'idle';
-  const RESP = {
-    panic:
-      'Estoy contigo. Vamos a bajar la intensidad ahora: mira un punto fijo, apoya los pies en el suelo e inhala 4 segundos, sostén 4 y exhala 6. Si sientes riesgo inmediato, llama al 112 o al 024.',
-    sleep:
-      'Dormir mal agota mucho. Probemos algo sencillo: baja la luz, deja el móvil boca abajo y escribe una sola frase sobre lo que te preocupa. Después hacemos tres ciclos 4-4-6.',
-    good: 'Me alegra leer eso. Guardemos esta referencia: ¿qué ha ayudado hoy, aunque sea pequeño? Nombrarlo puede servirte como recurso cuando el día venga más pesado.',
-    anxious:
-      'Entiendo esa ansiedad. No tienes que resolver todo ahora. Dime una cosa concreta que notes en el cuerpo y la trabajamos paso a paso, sin prisa.',
-    default:
-      'Gracias por contármelo. Tiene sentido que te sientas así. Podemos ordenar lo que pasa en tres partes: qué ocurrió, qué pensaste y qué necesita tu cuerpo ahora mismo.',
-  };
+  const isBusy = botStatus !== 'idle' || loadingSession;
   const CHIPS = ['ME_SIENTO_ANSIOSO', 'NO_PUEDO_DORMIR', 'TENGO_PÁNICO', 'ESTOY_BIEN'];
-  const pickResponse = (text) => {
-    const value = text.toLowerCase();
-    if (/pánico|panico|crisis|sos|miedo|ahogo/.test(value)) return RESP.panic;
-    if (/dormir|sueño|insomnio|noche/.test(value)) return RESP.sleep;
-    if (/bien|tranquil|mejor|genial/.test(value)) return RESP.good;
-    if (/ansios|ansiedad|nervios|agobio/.test(value)) return RESP.anxious;
-    return RESP.default;
+  const visibleMessages = msgs.length ? msgs : [welcomeMessage];
+  const streamAssistantReply = (baseMessages, assistantMessage) => {
+    const aiId = assistantMessage.id ?? `ai_${Date.now()}`;
+    const reply = assistantMessage.text ?? '';
+    let cursor = 0;
+    setBotStatus('streaming');
+    setMsgs([...baseMessages, { ...assistantMessage, id: aiId, from: 'ai', text: '' }]);
+    streamRef.current = window.setInterval(() => {
+      cursor += 1;
+      setMsgs((current) =>
+        current.map((msg) => (msg.id === aiId ? { ...msg, text: reply.slice(0, cursor) } : msg)),
+      );
+      if (cursor >= reply.length) {
+        window.clearInterval(streamRef.current);
+        setBotStatus('idle');
+      }
+    }, 24);
   };
-  const send = (text) => {
+  const send = async (text) => {
     const t = (text || inp).trim();
-    if (!t || isBusy) return;
-    const reply = pickResponse(t);
+    if (!t || isBusy || !sessionId) return;
     const userId = `user_${Date.now()}`;
-    const aiId = `ai_${Date.now() + 1}`;
-    setMsgs((m) => [...m, { id: userId, from: 'user', text: t }]);
+    const optimisticMessages = [...msgs, { id: userId, from: 'user', text: t, riskLevel: 'low' }];
+    setMsgs(optimisticMessages);
     setInp('');
+    setError('');
     setBotStatus('thinking');
     window.clearTimeout(thinkingRef.current);
     window.clearInterval(streamRef.current);
-    thinkingRef.current = window.setTimeout(() => {
-      let cursor = 0;
-      setBotStatus('streaming');
-      setMsgs((m) => [...m, { id: aiId, from: 'ai', text: '' }]);
-      streamRef.current = window.setInterval(() => {
-        cursor += 1;
-        setMsgs((m) =>
-          m.map((msg) => (msg.id === aiId ? { ...msg, text: reply.slice(0, cursor) } : msg)),
-        );
-        if (cursor >= reply.length) {
-          window.clearInterval(streamRef.current);
-          setBotStatus('idle');
-        }
-      }, 24);
-    }, 520);
+    try {
+      const session = await sendChatMessage(sessionId, t);
+      const backendMessages = panelMessagesFromChatSession(session);
+      const assistantIndex = backendMessages.map((message) => message.from).lastIndexOf('ai');
+      if (assistantIndex >= 0) {
+        thinkingRef.current = window.setTimeout(() => {
+          streamAssistantReply(backendMessages.slice(0, assistantIndex), backendMessages[assistantIndex]);
+        }, 220);
+      } else {
+        setMsgs(backendMessages.length ? backendMessages : optimisticMessages);
+        setBotStatus('idle');
+      }
+    } catch (err) {
+      setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+      setBotStatus('idle');
+    }
   };
   useEffect(() => {
+    let active = true;
+    setLoadingSession(true);
+    setError('');
+    createChatSession()
+      .then((session) => {
+        if (!active) return;
+        setSessionId(session.id);
+        setMsgs(panelMessagesFromChatSession(session));
+      })
+      .catch((err) => active && setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`))
+      .finally(() => active && setLoadingSession(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
     botRef.current && (botRef.current.scrollTop = botRef.current.scrollHeight);
-  }, [msgs, botStatus]);
+  }, [visibleMessages, botStatus]);
   useEffect(
     () => () => {
       window.clearTimeout(thinkingRef.current);
@@ -1694,10 +1725,15 @@ function ChatbotView() {
               }}
             />
             <span className="mono" style={{ fontSize: 9, color: T }}>
-              {isBusy ? 'ESCRIBIENDO' : 'EN_LÍNEA'}
+              {loadingSession ? 'CONECTANDO' : botStatus !== 'idle' ? 'ESCRIBIENDO' : 'EN_LÍNEA'}
             </span>
           </div>
         </div>
+        {error && (
+          <div className="mono" style={{ borderBottom: BORDE, background: CL, color: K, padding: '10px 16px', fontSize: 10 }}>
+            {error}
+          </div>
+        )}
         <div
           ref={botRef}
           style={{
@@ -1709,7 +1745,7 @@ function ChatbotView() {
             gap: 12,
           }}
         >
-          {msgs.map((m, i) => (
+          {visibleMessages.map((m, i) => (
             <div
               key={m.id ?? i}
               style={{
@@ -1722,7 +1758,7 @@ function ChatbotView() {
                   maxWidth: '75%',
                   padding: '12px 16px',
                   border: BORDE,
-                  background: m.from === 'user' ? M : W,
+                  background: m.from === 'user' ? M : m.riskLevel === 'high' ? CL : W,
                   color: m.from === 'user' ? W : K,
                   fontSize: 14,
                   lineHeight: 1.6,
@@ -1736,7 +1772,7 @@ function ChatbotView() {
               </div>
             </div>
           ))}
-          {isBusy && (
+          {botStatus !== 'idle' && (
             <div
               style={{
                 display: 'flex',
@@ -1772,12 +1808,12 @@ function ChatbotView() {
             onChange={(e) => setInp(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
             placeholder="ESCRIBE_LO_QUE_SIENTES..."
-            disabled={isBusy}
+            disabled={isBusy || !sessionId}
             style={{
               flex: 1,
               padding: '12px 16px',
               border: BORDE,
-              background: isBusy ? '#eee' : 'var(--aura-bg-soft)',
+              background: isBusy || !sessionId ? '#eee' : 'var(--aura-bg-soft)',
               fontFamily: 'Space Mono, monospace',
               fontSize: 11,
               color: K,
@@ -1788,8 +1824,8 @@ function ChatbotView() {
           <button
             onClick={() => send()}
             className="btn btn-morado"
-            disabled={isBusy}
-            style={{ padding: '12px 16px', opacity: isBusy ? 0.65 : 1 }}
+            disabled={isBusy || !sessionId}
+            style={{ padding: '12px 16px', opacity: isBusy || !sessionId ? 0.65 : 1 }}
           >
             <span className="icon" style={{ fontSize: 18 }}>
               send
@@ -1816,13 +1852,13 @@ function ChatbotView() {
             <button
               key={c}
               onClick={() => send(c)}
-              disabled={isBusy}
+              disabled={isBusy || !sessionId}
               style={{
                 border: '2px solid #000',
                 padding: '8px 12px',
                 background: W,
-                cursor: isBusy ? 'not-allowed' : 'pointer',
-                opacity: isBusy ? 0.55 : 1,
+                cursor: isBusy || !sessionId ? 'not-allowed' : 'pointer',
+                opacity: isBusy || !sessionId ? 0.55 : 1,
                 textAlign: 'left',
                 fontFamily: 'Space Mono, monospace',
                 fontSize: 9,
