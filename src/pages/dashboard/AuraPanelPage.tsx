@@ -265,6 +265,19 @@ function usePushNotificationState() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return undefined;
+    }
+    const onPushMessage = (event: MessageEvent) => {
+      if (event.data?.source === 'aura-push') {
+        setMessage(`PUSH_RECIBIDO: ${event.data.body || 'Notificación recibida.'}`);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onPushMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onPushMessage);
+  }, []);
+
   const activate = async () => {
     setBusy(true);
     setError('');
@@ -301,7 +314,13 @@ function usePushNotificationState() {
     setError('');
     setMessage('');
     try {
-      await sendPushTest();
+      try {
+        await sendPushTest();
+      } catch {
+        await enablePushNotifications();
+        await refresh();
+        await sendPushTest();
+      }
       setMessage('PUSH_TEST_ENVIADO');
     } catch (err) {
       setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
@@ -1429,7 +1448,7 @@ function PushNotificationSettings() {
         </button>
         <button
           onClick={push.test}
-          disabled={push.busy || !push.subscribed}
+          disabled={push.busy}
           className="btn"
           style={{ fontSize: 10, background: T, color: K }}
         >

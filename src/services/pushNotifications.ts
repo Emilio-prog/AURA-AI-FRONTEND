@@ -6,6 +6,10 @@ export interface PushConfig {
   subscribed: boolean;
 }
 
+interface PushTestResponse {
+  sent: boolean;
+}
+
 export type PushPermissionState = NotificationPermission | 'unsupported';
 
 export const isPushSupported = (): boolean =>
@@ -42,12 +46,21 @@ export const enablePushNotifications = async (): Promise<void> => {
   }
 
   const registration = await navigator.serviceWorker.register('/aura-push-sw.js');
-  const existing = await registration.pushManager.getSubscription();
+  await registration.update().catch(() => undefined);
+  await navigator.serviceWorker.ready;
+  const applicationServerKey = urlBase64ToUint8Array(config.publicKey);
+  let existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    const oldEndpoint = existing.endpoint;
+    await existing.unsubscribe();
+    await httpClient.post('/push/subscriptions/disable', { endpoint: oldEndpoint }).catch(() => undefined);
+    existing = null;
+  }
   const subscription =
     existing ??
     (await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(config.publicKey),
+      applicationServerKey,
     }));
 
   const json = subscription.toJSON();
@@ -66,8 +79,7 @@ export const enablePushNotifications = async (): Promise<void> => {
 export const disablePushNotifications = async (): Promise<void> => {
   let endpoint: string | undefined;
   if (isPushSupported()) {
-    const registration = await navigator.serviceWorker.getRegistration('/aura-push-sw.js');
-    const subscription = await registration?.pushManager.getSubscription();
+    const subscription = await findBrowserPushSubscription();
     endpoint = subscription?.endpoint;
     await subscription?.unsubscribe();
   }
@@ -75,7 +87,10 @@ export const disablePushNotifications = async (): Promise<void> => {
 };
 
 export const sendPushTest = async (): Promise<void> => {
-  await httpClient.post('/push/test');
+  const { data } = await httpClient.post<PushTestResponse>('/push/test');
+  if (!data.sent) {
+    throw new Error('No se pudo entregar la notificación. Pulsa RENOVAR_PUSH y vuelve a probar.');
+  }
 };
 
 const urlBase64ToUint8Array = (value: string): ArrayBuffer => {
@@ -87,4 +102,15 @@ const urlBase64ToUint8Array = (value: string): ArrayBuffer => {
     output[index] = raw.charCodeAt(index);
   }
   return output.buffer.slice(0);
+};
+
+const findBrowserPushSubscription = async (): Promise<PushSubscription | null> => {
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  for (const registration of registrations) {
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      return subscription;
+    }
+  }
+  return null;
 };
