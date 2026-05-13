@@ -32,10 +32,14 @@ export interface CompleteOnboardingPayload {
   notifications: {
     enabled: boolean;
     dailyReminderTime: string;
+    timezone?: string;
     moodReminderEnabled?: boolean;
     quickMeditationEnabled?: boolean;
+    quickMeditationPeriods?: string[];
     streakEnabled?: boolean;
     weeklyCheckinEnabled?: boolean;
+    weeklyCheckinDay?: string;
+    weeklyCheckinTime?: string;
   };
   trustedContact?: {
     name: string;

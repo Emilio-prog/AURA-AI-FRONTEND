@@ -133,20 +133,20 @@ html.dark {
   }
 
   .aura-onboarding-title {
-    @apply max-w-full font-headline text-[clamp(2.4rem,5.6vw,4.9rem)] font-black uppercase leading-[0.95] text-[#1b1b1b];
+    @apply max-w-full font-headline text-[clamp(1.85rem,3.9vw,3.8rem)] font-black uppercase leading-[0.95] text-[#1b1b1b];
     overflow-wrap: anywhere;
   }
 
   .aura-input {
-    @apply w-full border-4 border-black bg-white p-4 font-mono text-base font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0_#000] outline-none focus:border-[#2DD4BF] focus:ring-0;
+    @apply w-full border-4 border-black bg-white p-3 font-mono text-sm font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0_#000] outline-none focus:border-[#2DD4BF] focus:ring-0;
   }
 
   .aura-screen {
-    @apply mx-auto w-full max-w-[1180px];
+    @apply mx-auto w-full max-w-[1040px];
   }
 
   .aura-screen-copy {
-    @apply text-base leading-7 md:text-lg md:leading-8;
+    @apply text-[13px] leading-5 md:text-[15px] md:leading-6;
   }
 
   .aura-brutal-card {
@@ -157,7 +157,7 @@ html.dark {
 .aura-brutal-range {
   appearance: none;
   width: 100%;
-  height: 24px;
+  height: 20px;
   border: 4px solid #000;
   background: linear-gradient(
     90deg,
@@ -168,25 +168,93 @@ html.dark {
     #9ee5c7 80%,
     #2dd4bf 100%
   );
-  box-shadow: 6px 6px 0 #000;
+  box-shadow: 5px 5px 0 #000;
 }
 
 .aura-brutal-range::-webkit-slider-thumb {
   appearance: none;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   border: 0;
   background: #a855f7;
   cursor: pointer;
 }
 
 .aura-brutal-range::-moz-range-thumb {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: 0;
   background: #a855f7;
   cursor: pointer;
+}
+
+.aura-eq-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(120px, 12vw, 164px);
+  aspect-ratio: 1;
+  border: 5px solid #000;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8127cf 0%, #4b7bd8 48%, #2dd4bf 100%);
+  box-shadow: 7px 7px 0 #000;
+  overflow: hidden;
+}
+
+.aura-eq-orb__glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: inherit;
+  background: radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.38), transparent 56%);
+  mix-blend-mode: screen;
+}
+
+.aura-eq-orb__bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, 0.45vw, 7px);
+  height: 58%;
+  width: 72%;
+}
+
+.aura-eq-orb__bars span {
+  width: clamp(5px, 0.6vw, 9px);
+  height: 30%;
+  border: 2px solid #000;
+  background: #fff;
+  box-shadow: 2px 2px 0 #000;
+  animation: aura-eq-bar 1.05s ease-in-out infinite;
+}
+
+.aura-eq-orb__bars span:nth-child(2n) {
+  animation-duration: 0.82s;
+  background: #2dd4bf;
+}
+
+.aura-eq-orb__bars span:nth-child(3n) {
+  animation-duration: 1.22s;
+  background: #fb7185;
+}
+
+.aura-eq-orb__bars span:nth-child(4n) {
+  background: #fde68a;
+}
+
+@keyframes aura-eq-bar {
+  0%,
+  100% {
+    height: 22%;
+  }
+  35% {
+    height: 86%;
+  }
+  65% {
+    height: 48%;
+  }
 }
 
 @keyframes landing-scroll-ticker {
@@ -606,5 +674,70 @@ html.dark .bc {
   50% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes auraBreathingFloat {
+  0%,
+  100% {
+    transform: translateY(3px);
+  }
+  48% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes auraSosBreath {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  46% {
+    transform: scale(1.1);
+  }
+  72% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes auraSosViewSnap {
+  0% {
+    transform: translateY(14px) scale(0.985);
+    filter: saturate(0.8);
+  }
+  58% {
+    transform: translateY(-3px) scale(1.006);
+    filter: saturate(1.2);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
+@keyframes auraSosScan {
+  0% {
+    transform: translateX(0) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(560%) skewX(-12deg);
+  }
+}
+
+@keyframes auraSosButtonAlarm {
+  0% {
+    transform: scale(0.92);
+  }
+  28% {
+    transform: scale(1.16);
+  }
+  52% {
+    transform: scale(1.04);
+  }
+  76% {
+    transform: scale(1.11);
+  }
+  100% {
+    transform: scale(1);
   }
 }

@@ -18,9 +18,23 @@ export interface MoodLogRequest {
   loggedAt?: string;
 }
 
-export async function listMoodLogs(size = 100) {
+export interface MoodLogFilters {
+  size?: number;
+  from?: string;
+  to?: string;
+}
+
+export async function listMoodLogs(filters: number | MoodLogFilters = 100) {
+  const params =
+    typeof filters === 'number'
+      ? { size: filters }
+      : {
+          size: filters.size ?? 100,
+          from: filters.from,
+          to: filters.to,
+        };
   const { data } = await httpClient.get<PageResponse<MoodLog>>('/mood', {
-    params: { size },
+    params,
   });
   return data;
 }

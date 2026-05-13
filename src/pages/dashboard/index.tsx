@@ -16,7 +16,7 @@ export const SOSPage = () => (
 export const ChatbotPage = () => (
   <SectionPlaceholder
     icon={Bot}
-    title="CHATBOT_IA"
+    title="AURA IA"
     hito="HITO_5"
     description="Asistente empático con respuestas en streaming. Disponible 24/7 sin filtros, sin juicios."
   />
