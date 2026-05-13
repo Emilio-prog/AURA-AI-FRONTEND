@@ -29,7 +29,7 @@ export function DashboardHome() {
 
   const quickAccess = [
     { label: 'BOTÓN_SOS', path: '/dashboard/sos', icon: Siren, accent: 'bg-brutal-coral' },
-    { label: 'CHATBOT_IA', path: '/dashboard/chatbot', icon: Bot, accent: 'bg-brutal-purple' },
+    { label: 'AURA IA', path: '/dashboard/chatbot', icon: Bot, accent: 'bg-brutal-purple' },
     { label: 'MOOD_HOY', path: '/dashboard/mood', icon: Smile, accent: 'bg-brutal-teal' },
     { label: 'DIARIO', path: '/dashboard/diario', icon: BookOpen, accent: 'bg-brutal-black' },
   ];

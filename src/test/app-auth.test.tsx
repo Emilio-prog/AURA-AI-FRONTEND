@@ -126,7 +126,6 @@ describe('auth flow y guards', () => {
     for (let i = 0; i < 4; i += 1) {
       await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     }
-    await user.click(await screen.findByRole('button', { name: /ELIMINAR_CONTACTO/i }));
     await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     await user.click(screen.getByRole('button', { name: /ENTRAR_A_MI_REFUGIO/i }));
@@ -135,6 +134,11 @@ describe('auth flow y guards', () => {
     expect(httpMock.post).toHaveBeenCalledWith('/users/me/onboarding', expect.objectContaining({
       preferredName: 'Emilio',
       language: 'es',
+      notifications: expect.objectContaining({
+        enabled: true,
+        dailyReminderTime: '21:00',
+        moodReminderEnabled: true,
+      }),
       trustedContact: undefined,
     }));
   });
@@ -155,6 +159,7 @@ describe('auth flow y guards', () => {
     for (let i = 0; i < 4; i += 1) {
       await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     }
+    await user.click((await screen.findAllByRole('button', { name: /AÑADIR_CONTACTO/i }))[0]);
     await user.clear(await screen.findByLabelText('CONTACTO_NOMBRE'));
     await user.type(screen.getByLabelText('CONTACTO_NOMBRE'), 'Ana');
     await user.clear(screen.getByLabelText('CONTACTO_TELEFONO'));
