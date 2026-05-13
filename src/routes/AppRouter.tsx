@@ -19,9 +19,6 @@ const VerifyEmailPage = lazy(() =>
 const GoogleOAuthCallbackPage = lazy(() =>
   import('@/pages/auth/GoogleOAuthCallbackPage').then((module) => ({ default: module.GoogleOAuthCallbackPage })),
 );
-const SupabaseOAuthCallbackPage = lazy(() =>
-  import('@/pages/auth/SupabaseOAuthCallbackPage').then((module) => ({ default: module.SupabaseOAuthCallbackPage })),
-);
 const OnboardingPage = lazy(() =>
   import('@/pages/onboarding/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
 );
@@ -53,7 +50,6 @@ export function AppRouter() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/emergencia" element={<EmergencyPage />} />
           <Route path="/auth/google/callback" element={<GoogleOAuthCallbackPage />} />
-          <Route path="/auth/supabase/callback" element={<SupabaseOAuthCallbackPage />} />
 
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<LoginPage />} />
