@@ -24,6 +24,11 @@ import {
   isPushSupported,
   sendPushTest,
 } from '@/services/pushNotifications';
+import {
+  getGoogleOAuthStatus,
+  startGoogleLink,
+  unlinkGoogleOAuth,
+} from '@/services/googleAuth';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -4891,6 +4896,7 @@ function ConfigView() {
     'PERFIL',
     'APARIENCIA_IDIOMA',
     'PRIVACIDAD_GDPR',
+    'GOOGLE',
     'NOTIFICACIONES',
     'PLAN_SUSCRIPCIÓN',
     'EXPORTAR_DATOS',
@@ -4903,6 +4909,8 @@ function ConfigView() {
       'Cambia idioma de interfaz y tema visual. Los cambios quedan guardados en localStorage.',
     PRIVACIDAD_GDPR:
       'Cumplimiento GDPR y AI Act. Datos cifrados en reposo y tránsito. Anonimización opcional. Exportación completa disponible.',
+    GOOGLE:
+      'Conecta Google para iniciar sesión sin contraseña. Los tokens de Google no se guardan en AURA.',
     NOTIFICACIONES:
       'Recordatorios privados de mood, diario y logros. El texto del diario y el estado emocional no aparecen en la notificación.',
     PLAN_SUSCRIPCIÓN: `Plan ${planLabel(profile.plan ?? panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
@@ -5054,6 +5062,7 @@ function ConfigView() {
                 </div>
               )}
               {s === 'NOTIFICACIONES' && <PushNotificationSettings />}
+              {s === 'GOOGLE' && <GoogleAccountSettings />}
               {s === 'ELIMINAR_CUENTA' && (
                 <button
                   onClick={deleteDiary}
@@ -5090,6 +5099,133 @@ function ConfigView() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function GoogleAccountSettings() {
+  const [status, setStatus] = useState({ linked: false, email: null, linkedAt: null });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  const errorMessage = (err, fallback) =>
+    err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback;
+
+  const loadStatus = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setStatus(await getGoogleOAuthStatus());
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo cargar el estado de Google.'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const next = await getGoogleOAuthStatus();
+        if (mounted) setStatus(next);
+      } catch (err) {
+        if (mounted) setError(errorMessage(err, 'No se pudo cargar el estado de Google.'));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const connect = async () => {
+    setBusy('connect');
+    setError('');
+    try {
+      const url = await startGoogleLink();
+      window.location.assign(url);
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo conectar Google.'));
+      setBusy('');
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy('disconnect');
+    setError('');
+    try {
+      await unlinkGoogleOAuth();
+      await loadStatus();
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo desconectar Google.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        className={status.linked ? 'chip chip-turquesa' : 'chip'}
+        style={{ width: 'fit-content' }}
+      >
+        {loading ? 'GOOGLE_VERIFICANDO' : status.linked ? 'GOOGLE_CONECTADO' : 'GOOGLE_NO_CONECTADO'}
+      </div>
+
+      {status.linked && (
+        <div className="mono" style={{ fontSize: 11, fontWeight: 700 }}>
+          EMAIL_GOOGLE: {status.email || 'SIN_EMAIL'}
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="mono"
+          role="alert"
+          style={{
+            border: '3px solid #000',
+            background: CR,
+            color: W,
+            padding: '8px 10px',
+            fontSize: 11,
+            fontWeight: 900,
+          }}
+        >
+          ERR_AUTH_GOOGLE: {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {!status.linked && (
+          <button
+            onClick={connect}
+            className="btn"
+            disabled={Boolean(busy)}
+            style={{ fontSize: 10, background: W, color: K }}
+          >
+            {busy === 'connect' ? 'CONECTANDO_GOOGLE' : 'CONECTAR_GOOGLE'}
+          </button>
+        )}
+        {status.linked && (
+          <button
+            onClick={disconnect}
+            className="btn btn-coral"
+            disabled={Boolean(busy)}
+            style={{ fontSize: 10 }}
+          >
+            {busy === 'disconnect' ? 'DESCONECTANDO_GOOGLE' : 'DESCONECTAR_GOOGLE'}
+          </button>
+        )}
+        <button onClick={loadStatus} className="btn btn-negro" style={{ fontSize: 10 }}>
+          RECARGAR_GOOGLE
+        </button>
+      </div>
     </div>
   );
 }
