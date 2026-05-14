@@ -5461,7 +5461,7 @@ function ConfigView() {
     setDataMessage('');
     try {
       await deleteCurrentAccount({
-        confirmationText: deleteForm.confirmationText,
+        confirmationText: deleteForm.confirmationText.trim(),
         currentPassword: deleteForm.currentPassword || undefined,
       });
       logout();
@@ -5472,7 +5472,8 @@ function ConfigView() {
       setBusySettings('');
     }
   };
-  const deleteReady = deleteForm.confirmationText === 'ELIMINAR MI CUENTA';
+  const deleteConfirmation = deleteForm.confirmationText.trim();
+  const deleteReady = deleteConfirmation === 'ELIMINAR MI CUENTA';
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp .3s ease' }}
@@ -5592,17 +5593,51 @@ function ConfigView() {
                     ADVERTENCIA: se eliminarán diario, mood, chat, contactos, SOS, logros,
                     notificaciones y acceso a la cuenta. No podremos recuperarlo.
                   </div>
-                  <input
+                  <label
+                    htmlFor="delete-account-confirmation"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    ESCRIBE EXACTAMENTE: ELIMINAR MI CUENTA
+                  </label>
+                  <textarea
+                    id="delete-account-confirmation"
                     aria-label="Confirmación eliminar cuenta"
+                    name="aura-delete-account-confirmation"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     placeholder="Escribe: ELIMINAR MI CUENTA"
                     value={deleteForm.confirmationText}
                     onChange={(e) =>
                       setDeleteForm((current) => ({ ...current, confirmationText: e.target.value }))
                     }
-                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
+                    rows={2}
+                    style={{
+                      border: BORDE,
+                      padding: '10px 12px',
+                      fontFamily: 'Space Mono',
+                      resize: 'vertical',
+                      minHeight: 58,
+                      background: W,
+                    }}
                   />
+                  {!deleteReady && (
+                    <div className="chip chip-coral" style={{ alignSelf: 'flex-start' }}>
+                      Falta escribir la frase exacta para activar el borrado.
+                    </div>
+                  )}
+                  <label
+                    htmlFor="delete-account-password"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    CONTRASEÑA ACTUAL
+                  </label>
                   <input
+                    id="delete-account-password"
                     aria-label="Contraseña actual para eliminar cuenta"
+                    name="aura-delete-account-password"
+                    autoComplete="current-password"
                     placeholder="Contraseña actual (si tu cuenta tiene contraseña)"
                     type="password"
                     value={deleteForm.currentPassword}
