@@ -1,6 +1,7 @@
 services:
   aura-frontend:
     image: ghcr.io/emilio-prog/aura-ai-frontend:latest
+    pull_policy: always
     container_name: aura-frontend
     restart: unless-stopped
     expose:
