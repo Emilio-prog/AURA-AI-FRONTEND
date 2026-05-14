@@ -319,6 +319,76 @@ describe('panel bienestar y utilidades', () => {
     ).toBeInTheDocument();
   });
 
+  it('chatbot recupera una sesión previa guardada en backend', async () => {
+    const previousSession = chatSession([
+      { role: 'user', content: 'Ayer tuve ansiedad', timestamp: '2026-05-11T09:00:00Z' },
+      {
+        role: 'assistant',
+        content: 'Gracias por contarlo. Podemos volver a ese momento con calma.',
+        timestamp: '2026-05-11T09:00:01Z',
+        riskLevel: 'low',
+      },
+    ]);
+    mockDashboardApis();
+    httpMock.get.mockImplementation((url: string) => {
+      if (url === '/auth/me') return Promise.resolve({ data: backendUser });
+      if (url === '/achievements') return Promise.resolve({ data: achievementsResponse });
+      if (url === '/chatbot/sessions') return Promise.resolve({ data: page([previousSession]) });
+      return Promise.resolve({ data: {} });
+    });
+    seedSession();
+    window.location.hash = '#/dashboard/chatbot';
+
+    render(<App />);
+
+    expect(await screen.findByText('Ayer tuve ansiedad')).toBeInTheDocument();
+    expect(await screen.findByText(/Gracias por contarlo/)).toBeInTheDocument();
+    expect(screen.getByText('HISTORIAL_GUARDADO')).toBeInTheDocument();
+    expect(httpMock.post).not.toHaveBeenCalledWith('/chatbot/sessions');
+  });
+
+  it('chatbot elimina la sesion seleccionada y abre otra guardada', async () => {
+    const user = userEvent.setup();
+    const activeSession = {
+      ...chatSession([
+        { role: 'user', content: 'Sesion a borrar', timestamp: '2026-05-12T09:00:00Z' },
+      ]),
+      title: 'Sesion a borrar',
+      updatedAt: '2026-05-12T09:00:00Z',
+    };
+    const nextSession = {
+      ...chatSession([
+        { role: 'user', content: 'Sesion conservada', timestamp: '2026-05-11T09:00:00Z' },
+      ]),
+      id: 'chat_002',
+      title: 'Sesion conservada',
+      updatedAt: '2026-05-11T09:00:00Z',
+    };
+    mockDashboardApis();
+    httpMock.get.mockImplementation((url: string) => {
+      if (url === '/auth/me') return Promise.resolve({ data: backendUser });
+      if (url === '/achievements') return Promise.resolve({ data: achievementsResponse });
+      if (url === '/chatbot/sessions') return Promise.resolve({ data: page([activeSession, nextSession]) });
+      if (url === '/chatbot/sessions/chat_002') return Promise.resolve({ data: nextSession });
+      return Promise.resolve({ data: {} });
+    });
+    seedSession();
+    window.location.hash = '#/dashboard/chatbot';
+
+    render(<App />);
+
+    expect(await screen.findByText('Sesion a borrar')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /ELIMINAR_SESIÓN_SELECCIONADA/i }));
+
+    await waitFor(() => {
+      expect(httpMock.delete).toHaveBeenCalledWith('/chatbot/sessions/chat_001');
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText('Sesion conservada').length).toBeGreaterThan(0);
+    });
+    expect(localStorage.getItem('aura.chatbot.activeSessionId.usr_001')).toBe('chat_002');
+  });
+
   it('chatbot muestra ERR_CHATBOT si falla el backend', async () => {
     const user = userEvent.setup();
     mockDashboardApis({ chatMessageError: new Error('Network Error') });
