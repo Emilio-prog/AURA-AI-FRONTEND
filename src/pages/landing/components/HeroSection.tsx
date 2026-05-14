@@ -3,26 +3,25 @@ import heroMeditationImage from '@/assets/landing/imagenYoga.png';
 
 export function HeroSection() {
   return (
-    <section className="relative px-6 pb-20 pt-40 lg:px-8">
-      <div
-        aria-hidden="true"
-        className="glowing-orb"
-        style={{ width: 250, height: 250, top: '10%', right: '5%', animationDelay: '0s' }}
-      />
-
+    <section className="relative px-6 pb-20 pt-40 lg:min-h-[calc(100vh-5rem)] lg:px-8">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
-        <div className="z-10">
-          <div className="mb-6 inline-block bg-black px-3 py-1 font-mono text-xs text-white">
+        <div className="z-10 min-w-0">
+          <div className="mb-6 inline-block bg-black px-3 py-1 font-mono text-xs text-white dark:border-2 dark:border-brutal-black dark:bg-brutal-purple dark:text-white dark:shadow-brutal-sm">
             STATUS: ONLINE_SECURE_ZONE
           </div>
 
-          <h1 className="mb-8 font-headline text-6xl font-black uppercase leading-[0.9] tracking-tighter lg:text-8xl">
+          <h1 className="mb-8 max-w-full font-headline text-[clamp(2.65rem,11vw,4.7rem)] font-black uppercase leading-[0.92] tracking-tighter text-black dark:text-white sm:text-6xl lg:text-8xl">
             BIENESTAR <br />
-            <span className="bg-black px-2 text-white">MENTAL</span> <br />
-            PARA TODOS
+            <span className="bg-black px-2 text-white dark:bg-white dark:text-[#111111]">MENTAL</span> <br />
+            <span className="sm:hidden">
+              PARA
+              <br />
+              TODOS
+            </span>
+            <span className="hidden sm:inline">PARA TODOS</span>
           </h1>
 
-          <p className="mb-10 max-w-lg border-l-8 border-black pl-6 font-mono text-xl font-bold uppercase">
+          <p className="mb-10 max-w-[31ch] break-words border-l-8 border-black pl-6 font-mono text-sm font-bold uppercase leading-6 text-black dark:border-white dark:text-zinc-100 sm:max-w-lg sm:text-xl sm:leading-7">
             Aura AI es tu compañero 24/7. Sin adornos. Sin distracciones. Solo herramientas de
             contención pura.
           </p>
@@ -36,7 +35,7 @@ export function HeroSection() {
             </Link>
             <Link
               to="/login"
-              className="border-4 border-brutal-black bg-white px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none dark:bg-zinc-900 dark:text-white"
+              className="border-4 border-brutal-black bg-white px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none dark:bg-brutal-coral dark:text-white"
             >
               VER DEMO_
             </Link>
@@ -44,11 +43,11 @@ export function HeroSection() {
         </div>
 
         <div className="relative">
-          <div className="border-4 border-brutal-black bg-black shadow-brutal">
+          <div className="border-4 border-brutal-black bg-black shadow-brutal dark:shadow-[12px_12px_0_#000]">
             <img
               src={heroMeditationImage}
               alt="Woman meditating"
-              className="aspect-square w-full object-cover contrast-125 grayscale"
+              className="aspect-[16/9] w-full object-cover contrast-125 grayscale lg:aspect-[4/3]"
               decoding="async"
             />
           </div>
