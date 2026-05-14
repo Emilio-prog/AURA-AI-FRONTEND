@@ -22,12 +22,6 @@ const testimonials = [
 export function TestimonialsSection() {
   return (
     <section id="testimonios" className="relative z-10 px-6 py-24">
-      <div
-        aria-hidden="true"
-        className="glowing-orb"
-        style={{ width: 200, height: 200, bottom: '10%', left: '5%', animationDelay: '2s' }}
-      />
-
       <div className="mx-auto max-w-7xl">
         <div className="mb-12">
           <p className="mb-4 font-mono text-sm font-bold uppercase">
