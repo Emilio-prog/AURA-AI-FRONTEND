@@ -47,8 +47,8 @@ export function PrivacyPage() {
           </li>
         </ul>
         <p>
-          No recogemos datos de menores de 16 años. Si detectamos una cuenta de un menor sin
-          autorización parental, la eliminaremos.
+          No recogemos datos de menores de edad. Para crear una cuenta debes tener al menos{' '}
+          <strong>18 años</strong>. Si detectamos una cuenta de un menor de edad, la eliminaremos.
         </p>
       </LegalSection>
 
