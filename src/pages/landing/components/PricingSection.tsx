@@ -100,12 +100,6 @@ export function PricingSection() {
 
   return (
     <section className="relative z-10 max-w-full overflow-x-hidden px-6 py-24" id="precios">
-      <div
-        aria-hidden="true"
-        className="glowing-orb"
-        style={{ width: 300, height: 300, top: '30%', right: '-5%', animationDelay: '4s' }}
-      />
-
       <div className="mx-auto max-w-7xl">
         <div className="mb-16 text-center">
           <h2 className="section-heading-mobile mb-4 font-headline text-5xl font-black uppercase tracking-tighter">
