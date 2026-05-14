@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+*.html
+AURA AI - LandingPage
+AURA AI-Panel-Interior

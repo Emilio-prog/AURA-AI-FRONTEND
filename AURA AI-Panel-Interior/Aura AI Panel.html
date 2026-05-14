@@ -753,28 +753,448 @@ function MinijuegosView(){
         ))}
       </div>
 
-      {/* Active game panel */}
-      {active==='burbujas'&&(
-        <div style={{border:BORDE,boxShadow:SOMBRA,background:W,padding:28,animation:'fadeUp .25s ease'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <div>
-              <div style={{fontWeight:900,fontSize:16,letterSpacing:'-0.02em'}}>EXPLOTAR_BURBUJAS · EN_SESIÓN</div>
-              <div className="lbl" style={{fontSize:9,color:'#555',marginTop:3}}>SIN_PRESIÓN · SIN_PUNTUACIÓN · SOLO_DESAHOGO</div>
+      {/* Game modal overlay */}
+      {active&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',backdropFilter:'blur(8px)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}
+          onClick={()=>setActive(null)}>
+          <div style={{width:'100%',maxWidth:860,maxHeight:'90vh',overflowY:'auto',animation:'fadeUp .25s ease'}}
+            onClick={e=>e.stopPropagation()}>
+            <GamePanel id={active} onClose={()=>setActive(null)}/>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════
+   GAME COMPONENTS
+══════════════════════════════════════ */
+
+function GamePanel({id,onClose}){
+  const titles={arena:'PINTURA_CON_ARENA',cromatica:'ORDENACIÓN_CROMÁTICA',burbujas:'EXPLOTAR_BURBUJAS',memoria:'MEMORIA_VISUAL'};
+  const subs={arena:'SIN_GAME_OVER · FLUJO_LIBRE · ENRAIZAMIENTO',cromatica:'SIN_GAME_OVER · ORDEN_SUAVE · CLARIDAD_MENTAL',burbujas:'SIN_PRESIÓN · FLUJO_INFINITO · SOLO_DESAHOGO',memoria:'SIN_TIMER · PARES_SUAVES · FOCO_COGNITIVO'};
+  return(
+    <div style={{border:BORDE,boxShadow:SOMBRA,background:W,overflow:'hidden',animation:'fadeUp .3s ease'}}>
+      <div style={{padding:'16px 22px',borderBottom:BORDE,display:'flex',alignItems:'center',justifyContent:'space-between',background:'#fafafa'}}>
+        <div>
+          <div style={{fontWeight:900,fontSize:15,letterSpacing:'-0.02em'}}>{titles[id]}</div>
+          <div className="lbl" style={{fontSize:9,color:'#666',marginTop:3}}>{subs[id]}</div>
+        </div>
+        <button onClick={onClose} className="btn" style={{fontSize:10,padding:'8px 14px'}}>CERRAR ×</button>
+      </div>
+      <div style={{padding:24}}>
+        {id==='arena'    && <GameArena/>}
+        {id==='cromatica'&& <GameCromatica/>}
+        {id==='burbujas' && <GameBurbujas/>}
+        {id==='memoria'  && <GameMemoria/>}
+      </div>
+    </div>
+  );
+}
+
+/* ── GAME 1: PINTURA CON ARENA ── */
+function GameArena(){
+  const canvasRef=useRef();
+  const painting=useRef(false);
+  const lastPos=useRef(null);
+  const [color,setColor]=useState('#2DD4BF');
+  const [size,setSize]=useState(18);
+  const [mode,setMode]=useState('sand');
+
+  const COLORS=['#2DD4BF','#A855F7','#FB7185','#FBBF24','#60A5FA','#34D399','#F472B6','#818CF8'];
+
+  const getPos=(e,canvas)=>{
+    const r=canvas.getBoundingClientRect();
+    const src=e.touches?e.touches[0]:e;
+    return{x:src.clientX-r.left,y:src.clientY-r.top};
+  };
+
+  const draw=(e)=>{
+    if(!painting.current)return;
+    e.preventDefault();
+    const canvas=canvasRef.current;
+    const ctx=canvas.getContext('2d');
+    const pos=getPos(e,canvas);
+    if(mode==='sand'){
+      // Sand particles
+      for(let i=0;i<12;i++){
+        const angle=Math.random()*Math.PI*2;
+        const dist=Math.random()*size;
+        const px=pos.x+Math.cos(angle)*dist;
+        const py=pos.y+Math.sin(angle)*dist;
+        const s=Math.random()*3+1;
+        ctx.globalAlpha=Math.random()*.6+.2;
+        ctx.fillStyle=color;
+        ctx.beginPath();ctx.arc(px,py,s,0,Math.PI*2);ctx.fill();
+      }
+    } else if(mode==='flow'){
+      if(lastPos.current){
+        ctx.globalAlpha=.55;
+        ctx.strokeStyle=color;
+        ctx.lineWidth=size;
+        ctx.lineCap='round';
+        ctx.lineJoin='round';
+        ctx.beginPath();
+        ctx.moveTo(lastPos.current.x,lastPos.current.y);
+        ctx.lineTo(pos.x,pos.y);
+        ctx.stroke();
+      }
+    } else {
+      // Watercolor blobs
+      const grad=ctx.createRadialGradient(pos.x,pos.y,0,pos.x,pos.y,size*1.5);
+      grad.addColorStop(0,color+'cc');grad.addColorStop(1,color+'00');
+      ctx.globalAlpha=.08;ctx.fillStyle=grad;
+      ctx.beginPath();ctx.arc(pos.x,pos.y,size*1.5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    lastPos.current=pos;
+  };
+
+  const start=(e)=>{painting.current=true;lastPos.current=null;draw(e);};
+  const stop=()=>{painting.current=false;lastPos.current=null;};
+
+  const clear=()=>{
+    const canvas=canvasRef.current;
+    canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  };
+
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    // Set actual pixel dimensions
+    canvas.width=canvas.offsetWidth||860;
+    canvas.height=canvas.offsetHeight||340;
+  },[]);
+
+  const modes=[{id:'sand',l:'ARENA',c:T},{id:'flow',l:'FLUJO',c:M},{id:'water',l:'ACUARELA',c:CR}];
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      {/* Controls */}
+      <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:0,border:BORDE}}>
+          {modes.map(({id,l,c})=>(
+            <button key={id} onClick={()=>setMode(id)}
+              style={{padding:'8px 14px',background:mode===id?c:W,color:mode===id?mode==='sand'?K:W:K,border:'none',borderRight:id!=='water'?'2px solid #000':'none',fontFamily:'Space Mono,monospace',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em'}}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          {COLORS.map(c=>(
+            <button key={c} onClick={()=>setColor(c)}
+              style={{width:28,height:28,background:c,border:`3px solid ${color===c?K:'transparent'}`,cursor:'pointer',flexShrink:0,boxShadow:color===c?SOMBRA_SM:'none'}}/>
+          ))}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginLeft:'auto'}}>
+          <span className="lbl" style={{fontSize:9}}>TAMAÑO</span>
+          <input type="range" min="6" max="40" value={size} onChange={e=>setSize(+e.target.value)}
+            style={{width:80,accentColor:M,cursor:'pointer'}}/>
+          <button onClick={clear} className="btn" style={{fontSize:9,padding:'7px 12px'}}>LIMPIAR</button>
+        </div>
+      </div>
+      {/* Canvas */}
+      <div style={{border:BORDE,background:'#fefefe',cursor:'crosshair',userSelect:'none',position:'relative'}}>
+        <canvas ref={canvasRef}
+          style={{display:'block',width:'100%',height:340,touchAction:'none'}}
+          onMouseDown={start} onMouseMove={draw} onMouseUp={stop} onMouseLeave={stop}
+          onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}/>
+        <div style={{position:'absolute',bottom:10,right:12}} className="lbl" style={{fontSize:9,color:'#bbb',fontFamily:'Space Mono,monospace',fontSize:9}}>LIENZO_INFINITO · SIN_ERRORES</div>
+      </div>
+      <div className="lbl" style={{fontSize:9,color:'#888',textAlign:'center'}}>Dibuja libremente. No hay manera de hacerlo mal.</div>
+    </div>
+  );
+}
+
+/* ── GAME 2: ORDENACIÓN CROMÁTICA ── */
+function GameCromatica(){
+  const makeSwatches=()=>{
+    const hues=[0,30,60,120,180,210,260,300,330,15];
+    const base=hues.map((h,i)=>({id:i,h,label:`H${String(h).padStart(3,'0')}`,color:`hsl(${h},65%,62%)`}));
+    // Shuffle
+    for(let i=base.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[base[i],base[j]]=[base[j],base[i]];}
+    return base;
+  };
+  const [swatches,setSwatches]=useState(makeSwatches);
+  const [drag,setDrag]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const [solved,setSolved]=useState(false);
+  const [moves,setMoves]=useState(0);
+  const [pops,setPops]=useState({});
+
+  const checkSorted=(arr)=>{
+    for(let i=0;i<arr.length-1;i++)if(arr[i].h>arr[i+1].h)return false;
+    return true;
+  };
+
+  const drop=(toIdx)=>{
+    if(drag===null||drag===toIdx){setDrag(null);setDragOver(null);return;}
+    const arr=[...swatches];
+    const item=arr.splice(drag,1)[0];
+    arr.splice(toIdx,0,item);
+    setSwatches(arr);setMoves(m=>m+1);setDrag(null);setDragOver(null);
+    // pop feedback
+    setPops(p=>({...p,[toIdx]:Date.now()}));
+    setTimeout(()=>setPops(p=>{const n={...p};delete n[toIdx];return n;}),400);
+    if(checkSorted(arr))setSolved(true);
+  };
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div className="lbl" style={{fontSize:9}}>ARRASTRA_Y_ORDENA_POR_MATIZ · DE_ROJO_A_PÚRPURA</div>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <span className="mono" style={{fontSize:10,color:'#555'}}>MOVIMIENTOS: {moves}</span>
+          <button onClick={()=>{setSwatches(makeSwatches());setSolved(false);setMoves(0);}} className="btn" style={{fontSize:9,padding:'7px 12px'}}>BARAJAR</button>
+        </div>
+      </div>
+
+      {solved&&(
+        <div style={{border:`4px solid ${T}`,background:TL,padding:'16px 20px',display:'flex',alignItems:'center',gap:14}}>
+          <span style={{fontSize:24}}>🌈</span>
+          <div>
+            <div style={{fontWeight:900,fontSize:14,letterSpacing:'-0.01em',color:T}}>ARMONÍA_COMPLETADA</div>
+            <div className="lbl" style={{fontSize:9,marginTop:2}}>En {moves} movimientos · La calma tiene su propio orden</div>
+          </div>
+          <button onClick={()=>{setSwatches(makeSwatches());setSolved(false);setMoves(0);}} className="btn btn-turquesa" style={{marginLeft:'auto',fontSize:10}}>VOLVER_A_JUGAR</button>
+        </div>
+      )}
+
+      {/* Swatch row */}
+      <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+        {swatches.map((sw,i)=>(
+          <div key={sw.id}
+            draggable
+            onDragStart={()=>setDrag(i)}
+            onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+            onDragLeave={()=>setDragOver(null)}
+            onDrop={()=>drop(i)}
+            onDragEnd={()=>{setDrag(null);setDragOver(null);}}
+            style={{
+              flex:1,height:drag===i?90:dragOver===i?110:80,
+              background:sw.color,
+              border:`3px solid ${dragOver===i?K:'transparent'}`,
+              cursor:'grab',
+              transition:'height .2s ease,transform .15s',
+              transform:drag===i?'scale(0.92)':pops[i]?'scale(1.08)':'scale(1)',
+              boxShadow:drag===i?'none':dragOver===i?SOMBRA_SM:'none',
+              display:'flex',flexDirection:'column',justifyContent:'flex-end',alignItems:'center',paddingBottom:6,
+              userSelect:'none',
+            }}>
+            <span style={{fontFamily:'Space Mono,monospace',fontSize:8,color:'rgba(255,255,255,.8)',fontWeight:700,textShadow:'0 1px 3px rgba(0,0,0,.3)'}}>{sw.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Reference gradient */}
+      <div style={{display:'flex',flexDirection:'column',gap:4}}>
+        <div className="lbl" style={{fontSize:9,color:'#aaa'}}>GRADIENTE_OBJETIVO</div>
+        <div style={{height:16,border:BORDE,background:'linear-gradient(to right,hsl(0,65%,62%),hsl(30,65%,62%),hsl(60,65%,62%),hsl(120,65%,62%),hsl(180,65%,62%),hsl(210,65%,62%),hsl(260,65%,62%),hsl(300,65%,62%),hsl(330,65%,62%),hsl(355,65%,62%))'}}/>
+      </div>
+      <div className="lbl" style={{fontSize:9,color:'#888',textAlign:'center'}}>No hay puntuación. Solo la satisfacción de ver el arco iris ordenarse.</div>
+    </div>
+  );
+}
+
+/* ── GAME 3: EXPLOTAR BURBUJAS (enhanced) ── */
+function GameBurbujas(){
+  const mkBubble=(id)=>({
+    id,x:5+Math.random()*88,y:5+Math.random()*85,
+    size:22+Math.random()*34,
+    color:['#f0abfc','#c084fc','#fb7185','#2dd4bf','#818cf8','#fda4af','#a5f3fc','#fbbf24'][Math.floor(Math.random()*8)],
+    speed:2+Math.random()*2,phase:Math.random()*Math.PI*2,
+    popped:false,popping:false,
+  });
+  const [bubbles,setBubbles]=useState(()=>Array.from({length:18},(_,i)=>mkBubble(i)));
+  const [score,setScore]=useState(0);
+  const [ripples,setRipples]=useState([]);
+  const nextId=useRef(18);
+  const rafRef=useRef();
+  const t=useRef(0);
+
+  // Gentle float animation
+  useEffect(()=>{
+    const tick=()=>{
+      t.current+=0.012;
+      setBubbles(bs=>bs.map(b=>b.popped?b:{...b,
+        y:b.y+Math.sin(t.current*b.speed+b.phase)*0.018,
+        x:b.x+Math.cos(t.current*b.speed*0.7+b.phase)*0.009,
+      }));
+      rafRef.current=requestAnimationFrame(tick);
+    };
+    rafRef.current=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(rafRef.current);
+  },[]);
+
+  const pop=(id,e)=>{
+    const rect=e.currentTarget.closest('[data-arena]').getBoundingClientRect();
+    const bRect=e.currentTarget.getBoundingClientRect();
+    const rx=((bRect.left+bRect.width/2)-rect.left)/rect.width*100;
+    const ry=((bRect.top+bRect.height/2)-rect.top)/rect.height*100;
+    const rid=Date.now();
+    setRipples(r=>[...r,{id:rid,x:rx,y:ry,color:bubbles.find(b=>b.id===id)?.color||'#c084fc'}]);
+    setTimeout(()=>setRipples(r=>r.filter(x=>x.id!==rid)),700);
+    setBubbles(bs=>bs.map(b=>b.id===id?{...b,popping:true}:b));
+    setScore(s=>s+1);
+    setTimeout(()=>{
+      setBubbles(bs=>{
+        const filtered=bs.filter(b=>b.id!==id);
+        const newB=mkBubble(nextId.current++);
+        return [...filtered,{...newB,popped:false}];
+      });
+    },300);
+  };
+
+  const activeBubbles=bubbles.filter(b=>!b.popped&&!b.popping);
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span className="lbl" style={{fontSize:9}}>TOCA_LAS_BURBUJAS · FLUJO_INFINITO</span>
+        <span className="mono" style={{fontSize:11,fontWeight:700}}>{score} <span style={{fontWeight:400,color:'#999'}}>LIBERADAS</span></span>
+      </div>
+      <div data-arena style={{position:'relative',height:320,border:BORDE,overflow:'hidden',
+        background:'linear-gradient(135deg,#fce7f3,#f5d0fe 50%,#fecdd3)',cursor:'default',userSelect:'none'}}>
+        {/* Ripple effects */}
+        {ripples.map(({id,x,y,color})=>(
+          <div key={id} style={{position:'absolute',left:`${x}%`,top:`${y}%`,transform:'translate(-50%,-50%)',
+            width:60,height:60,borderRadius:'50%',border:`3px solid ${color}`,
+            animation:'ring .7s ease-out forwards',pointerEvents:'none'}}/>
+        ))}
+        {activeBubbles.map(b=>(
+          <div key={b.id} onClick={e=>pop(b.id,e)}
+            style={{
+              position:'absolute',left:`${b.x}%`,top:`${b.y}%`,
+              width:b.size,height:b.size,borderRadius:'50%',
+              background:b.color,
+              border:'2px solid rgba(255,255,255,.6)',
+              cursor:'pointer',
+              transition:'transform .1s',
+              boxShadow:`inset -${b.size*.15}px -${b.size*.1}px ${b.size*.3}px rgba(255,255,255,.4), 0 2px 12px ${b.color}55`,
+            }}
+            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.18)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+            {/* Highlight gloss */}
+            <div style={{position:'absolute',top:'18%',left:'20%',width:'30%',height:'20%',
+              borderRadius:'50%',background:'rgba(255,255,255,.55)',transform:'rotate(-30deg)'}}/>
+          </div>
+        ))}
+        <div style={{position:'absolute',bottom:10,right:12,fontFamily:'Space Mono,monospace',fontSize:9,color:'rgba(0,0,0,.25)'}}>SIN_GAME_OVER · INFINITO</div>
+      </div>
+      <div className="lbl" style={{fontSize:9,color:'#888',textAlign:'center'}}>Las burbujas siempre vuelven. No hay manera de perder.</div>
+    </div>
+  );
+}
+
+/* ── GAME 4: MEMORIA VISUAL ── */
+function GameMemoria(){
+  const PAIRS=[
+    {id:'a',color:'#2DD4BF',label:'TURQUESA'},
+    {id:'b',color:'#A855F7',label:'AMATISTA'},
+    {id:'c',color:'#FB7185',label:'CORAL'},
+    {id:'d',color:'#FBBF24',label:'ÁMBAR'},
+    {id:'e',color:'#60A5FA',label:'ZAFIRO'},
+    {id:'f',color:'#34D399',label:'JADE'},
+    {id:'g',color:'#F472B6',label:'ROSA'},
+    {id:'h',color:'#818CF8',label:'LAVANDA'},
+  ];
+  const mkCards=()=>{
+    const c=[...PAIRS,...PAIRS].map((p,i)=>({uid:i,...p,flipped:false,matched:false}));
+    for(let i=c.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[c[i],c[j]]=[c[j],c[i]];}
+    return c;
+  };
+  const [cards,setCards]=useState(mkCards);
+  const [sel,setSel]=useState([]);
+  const [moves,setMoves]=useState(0);
+  const [matches,setMatches]=useState(0);
+  const [checking,setChecking]=useState(false);
+  const [done,setDone]=useState(false);
+
+  const flip=(uid)=>{
+    if(checking)return;
+    const card=cards.find(c=>c.uid===uid);
+    if(!card||card.flipped||card.matched)return;
+    const newSel=[...sel,uid];
+    setCards(cs=>cs.map(c=>c.uid===uid?{...c,flipped:true}:c));
+    if(newSel.length===2){
+      setMoves(m=>m+1);
+      setChecking(true);
+      setSel([]);
+      const [a,b]=newSel.map(uid=>cards.find(c=>c.uid===uid));
+      if(a.id===b.id){
+        setTimeout(()=>{
+          setCards(cs=>cs.map(c=>newSel.includes(c.uid)?{...c,matched:true}:c));
+          setMatches(m=>{const nm=m+1;if(nm===PAIRS.length)setDone(true);return nm;});
+          setChecking(false);
+        },500);
+      } else {
+        setTimeout(()=>{
+          setCards(cs=>cs.map(c=>newSel.includes(c.uid)?{...c,flipped:false}:c));
+          setChecking(false);
+        },900);
+      }
+    } else {
+      setSel(newSel);
+    }
+  };
+
+  const reset=()=>{setCards(mkCards());setSel([]);setMoves(0);setMatches(0);setDone(false);setChecking(false);};
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',gap:16}}>
+          <span className="mono" style={{fontSize:10}}>PARES: <span style={{color:M,fontWeight:700}}>{matches}/{PAIRS.length}</span></span>
+          <span className="mono" style={{fontSize:10}}>TURNOS: <span style={{fontWeight:700}}>{moves}</span></span>
+        </div>
+        <button onClick={reset} className="btn" style={{fontSize:9,padding:'7px 12px'}}>NUEVA_PARTIDA</button>
+      </div>
+
+      {done&&(
+        <div style={{border:`4px solid ${M}`,background:ML,padding:'16px 20px',display:'flex',alignItems:'center',gap:14,animation:'fadeUp .3s ease'}}>
+          <span style={{fontSize:24}}>✨</span>
+          <div>
+            <div style={{fontWeight:900,fontSize:14,color:M}}>MEMORIA_COMPLETADA</div>
+            <div className="lbl" style={{fontSize:9,marginTop:2}}>En {moves} turnos · Tu mente encontró el patrón</div>
+          </div>
+          <button onClick={reset} className="btn btn-morado" style={{marginLeft:'auto',fontSize:10}}>VOLVER_A_JUGAR</button>
+        </div>
+      )}
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+        {cards.map(({uid,id,color,label,flipped,matched})=>(
+          <div key={uid} onClick={()=>flip(uid)}
+            style={{
+              height:72,cursor:flipped||matched?'default':'pointer',
+              perspective:600,
+              position:'relative',
+            }}>
+            {/* Back */}
+            <div style={{
+              position:'absolute',inset:0,
+              border:BORDE,
+              background:flipped||matched?color:'#1a1a1a',
+              boxShadow:matched?`4px 4px 0 0 ${color}`:flipped?SOMBRA_SM:'4px 4px 0 0 #555',
+              transition:'background .25s',
+              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,
+              opacity:matched?.85:1,
+            }}>
+              {(flipped||matched)
+                ? <>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,255,255,.35)',border:'2px solid rgba(255,255,255,.6)'}}/>
+                    <span style={{fontFamily:'Space Mono,monospace',fontSize:8,color:'rgba(255,255,255,.9)',fontWeight:700,letterSpacing:'0.04em'}}>{label}</span>
+                  </>
+                : <div style={{display:'grid',gridTemplateColumns:'repeat(3,8px)',gap:3}}>
+                    {Array.from({length:9}).map((_,i)=>(
+                      <div key={i} style={{width:8,height:8,background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.08)'}}/>
+                    ))}
+                  </div>
+              }
             </div>
           </div>
-          <BubbleGame/>
-        </div>
-      )}
-      {active&&active!=='burbujas'&&(
-        <div style={{border:BORDE,boxShadow:SOMBRA,background:W,padding:28,animation:'fadeUp .25s ease'}}>
-          <div style={{fontWeight:900,fontSize:15,letterSpacing:'-0.02em',marginBottom:14}}>MÓDULO_EN_DESARROLLO</div>
-          <div style={{border:'3px dashed #ddd',padding:'32px',textAlign:'center',background:'#fafafa'}}>
-            <div className="lbl" style={{fontSize:10,marginBottom:8,color:'#999'}}>PRÓXIMAMENTE_DISPONIBLE</div>
-            <div style={{fontSize:13,color:'#555',lineHeight:1.7}}>Este ejercicio estará disponible en la próxima actualización.<br/>Mientras tanto, prueba EXPLOTAR_BURBUJAS.</div>
-            <button onClick={()=>setActive('burbujas')} className="btn btn-turquesa" style={{marginTop:16,fontSize:10}}>IR_A_BURBUJAS →</button>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
+      <div className="lbl" style={{fontSize:9,color:'#888',textAlign:'center'}}>Sin timer. Sin presión. El cerebro encuentra los pares cuando está en calma.</div>
     </div>
   );
 }
