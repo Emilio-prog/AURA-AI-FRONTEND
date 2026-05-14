@@ -1075,12 +1075,38 @@ function MoodChartCard() {
 function SoundPlayerCard() {
   const [playing, setPlaying] = useState(null);
   const [vol, setVol] = useState(70);
+  const audioRef = useRef(null);
   const sounds = [
     { id: 'lluvia', icon: '☁️', l: 'LLUVIA_SUAVE' },
     { id: 'oceano', icon: '🌊', l: 'OCÉANO' },
     { id: 'bosque', icon: '🌿', l: 'BOSQUE' },
     { id: 'blanco', icon: '〰️', l: 'RUIDO_BLANCO' },
   ];
+
+  useEffect(() => {
+    audioRef.current?.stop();
+    audioRef.current = null;
+    if (playing) {
+      audioRef.current = startGeneratedSound(playing, 'FOCO', vol);
+    }
+    return () => {
+      audioRef.current?.stop();
+      audioRef.current = null;
+    };
+  }, [playing]);
+
+  useEffect(() => {
+    audioRef.current?.setVolume(vol);
+  }, [vol]);
+
+  const toggleSound = (id) => {
+    setPlaying((current) => {
+      const next = current === id ? null : id;
+      if (next) fireAchievementEvent('SOUNDSCAPE_PLAYED', { soundscape: id, mode: 'FOCO', source: 'dashboard_home' });
+      return next;
+    });
+  };
+
   return (
     <div className="bc c4" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: '-0.02em' }}>
@@ -1115,7 +1141,10 @@ function SoundPlayerCard() {
         {sounds.map(({ id, icon, l }) => (
           <button
             key={id}
-            onClick={() => setPlaying((p) => (p === id ? null : id))}
+            type="button"
+            aria-pressed={playing === id}
+            aria-label={`${playing === id ? 'Detener' : 'Reproducir'} ${l}`}
+            onClick={() => toggleSound(id)}
             style={{
               border: `3px solid ${playing === id ? T : K}`,
               padding: '10px 8px',
@@ -1151,10 +1180,6 @@ function SoundPlayerCard() {
             cursor: 'pointer',
             position: 'relative',
           }}
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect();
-            setVol(Math.round(((e.clientX - r.left) / r.width) * 100));
-          }}
         >
           <div
             style={{
@@ -1176,6 +1201,23 @@ function SoundPlayerCard() {
               height: 12,
               background: W,
               border: '2px solid #000',
+            }}
+          />
+          <input
+            aria-label="Volumen ambiente sonoro"
+            type="range"
+            min="0"
+            max="100"
+            value={vol}
+            onChange={(e) => setVol(Number(e.target.value))}
+            style={{
+              position: 'absolute',
+              inset: -10,
+              width: 'calc(100% + 20px)',
+              height: 25,
+              opacity: 0,
+              cursor: 'pointer',
+              margin: 0,
             }}
           />
         </div>
@@ -4389,6 +4431,9 @@ function startGeneratedSound(soundId, mode, volume) {
     return { stop: () => undefined, setVolume: () => undefined };
   }
   const ctx = new AudioCtx();
+  if (typeof ctx.resume === 'function') {
+    ctx.resume().catch(() => undefined);
+  }
   const master = ctx.createGain();
   master.gain.value = Math.max(0, Math.min(1, volume / 100)) * soundModeGain(mode) * 0.24;
   master.connect(ctx.destination);
@@ -5559,7 +5604,7 @@ function ConfigView() {
   const [dataMessage, setDataMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [busySettings, setBusySettings] = useState('');
-  const [deleteForm, setDeleteForm] = useState({ confirmationText: '', currentPassword: '' });
+  const [deleteForm, setDeleteForm] = useState({ confirmationText: '' });
   const [open, setOpen] = useState('PERFIL');
   const sections = [
     'PERFIL',
@@ -5654,7 +5699,6 @@ function ConfigView() {
     try {
       await deleteCurrentAccount({
         confirmationText: deleteForm.confirmationText.trim(),
-        currentPassword: deleteForm.currentPassword || undefined,
       });
       logout();
       navigate('/', { replace: true });
@@ -5819,25 +5863,6 @@ function ConfigView() {
                       Falta escribir la frase exacta para activar el borrado.
                     </div>
                   )}
-                  <label
-                    htmlFor="delete-account-password"
-                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
-                  >
-                    CONTRASEÑA ACTUAL
-                  </label>
-                  <input
-                    id="delete-account-password"
-                    aria-label="Contraseña actual para eliminar cuenta"
-                    name="aura-delete-account-password"
-                    autoComplete="current-password"
-                    placeholder="Contraseña actual (si tu cuenta tiene contraseña)"
-                    type="password"
-                    value={deleteForm.currentPassword}
-                    onChange={(e) =>
-                      setDeleteForm((current) => ({ ...current, currentPassword: e.target.value }))
-                    }
-                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
-                  />
                   <button
                     onClick={deleteAccount}
                     disabled={!deleteReady || busySettings === 'delete-account'}
