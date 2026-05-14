@@ -32,12 +32,12 @@ export const getPushConfig = async (): Promise<PushConfig> => {
 
 export const enablePushNotifications = async (): Promise<void> => {
   if (!isPushSupported()) {
-    throw new Error('Este navegador no soporta notificaciones push.');
+    throw new Error('Este navegador no soporta notificaciones.');
   }
 
   const config = await getPushConfig();
   if (!config.enabled || !config.publicKey) {
-    throw new Error('Las notificaciones push no estan disponibles ahora mismo.');
+    throw new Error('Las notificaciones no estan disponibles ahora mismo.');
   }
 
   const permission = await Notification.requestPermission();
@@ -89,7 +89,7 @@ export const disablePushNotifications = async (): Promise<void> => {
 export const sendPushTest = async (): Promise<void> => {
   const { data } = await httpClient.post<PushTestResponse>('/push/test');
   if (!data.sent) {
-    throw new Error('No se pudo entregar la notificación. Pulsa RENOVAR_PUSH y vuelve a probar.');
+    throw new Error('No se pudo entregar la notificacion. Activa de nuevo las notificaciones y vuelve a probar.');
   }
 };
 

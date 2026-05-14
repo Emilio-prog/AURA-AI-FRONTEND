@@ -262,7 +262,7 @@ function usePushNotificationState() {
       setEnabled(Boolean(config.enabled && config.publicKey));
       setSubscribed(Boolean(config.subscribed));
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -278,7 +278,7 @@ function usePushNotificationState() {
     }
     const onPushMessage = (event: MessageEvent) => {
       if (event.data?.source === 'aura-push') {
-        setMessage(`PUSH_RECIBIDO: ${event.data.body || 'Notificación recibida.'}`);
+        setMessage(`Notificación recibida: ${event.data.body || 'Notificación recibida.'}`);
       }
     };
     navigator.serviceWorker.addEventListener('message', onPushMessage);
@@ -291,10 +291,10 @@ function usePushNotificationState() {
     setMessage('');
     try {
       await enablePushNotifications();
-      setMessage('PUSH_ACTIVADO');
+      setMessage('Notificaciones activado');
       await refresh();
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
       setPermission(getPushPermissionState());
     } finally {
       setBusy(false);
@@ -307,10 +307,10 @@ function usePushNotificationState() {
     setMessage('');
     try {
       await disablePushNotifications();
-      setMessage('PUSH_DESACTIVADO');
+      setMessage('Notificaciones desactivadas');
       await refresh();
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -328,9 +328,9 @@ function usePushNotificationState() {
         await refresh();
         await sendPushTest();
       }
-      setMessage('PUSH_TEST_ENVIADO');
+      setMessage('Notificación de prueba enviada');
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -566,7 +566,10 @@ const generateMoodHistory = (days = 90) => {
 };
 
 function sectionFromPath(pathname) {
-  const match = pathname.match(/\/dashboard\/([^/]+)/);
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  if (normalizedPath === '/dashboard') return 'inicio';
+
+  const match = normalizedPath.match(/\/dashboard\/([^/]+)/);
   if (!match) return null;
   return PANEL_SECTIONS.includes(match[1]) ? match[1] : null;
 }
@@ -1560,51 +1563,27 @@ function PushOptInBanner() {
 
 function PushNotificationSettings() {
   const push = usePushNotificationState();
+  const toggleLabel = push.subscribed ? 'Desactivar notificaciones' : 'Activar notificaciones';
+  const togglePush = () => (push.subscribed ? push.deactivate() : push.activate());
   if (push.loading) {
-    return <div className="chip">CARGANDO_PUSH...</div>;
+    return <div className="chip">Cargando notificaciones...</div>;
   }
   if (!push.supported) {
-    return <div className="chip chip-coral">ERR_PUSH: navegador no compatible</div>;
+    return <div className="chip chip-coral">Este navegador no permite notificaciones</div>;
   }
   if (!push.enabled) {
-    return <div className="chip chip-coral">ERR_PUSH: servicio no configurado</div>;
+    return <div className="chip chip-coral">Notificaciones no configuradas</div>;
   }
   return (
     <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <span className={push.permission === 'granted' ? 'chip chip-turquesa' : 'chip'}>
-          PERMISO_{String(push.permission).toUpperCase()}
-        </span>
-        <span className={push.subscribed ? 'chip chip-turquesa' : 'chip chip-coral'}>
-          {push.subscribed ? 'SUSCRIPCIÓN_ACTIVA' : 'SIN_SUSCRIPCIÓN'}
-        </span>
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button
-          onClick={push.activate}
-          disabled={push.busy}
-          className="btn btn-morado"
-          style={{ fontSize: 10 }}
-        >
-          {push.subscribed ? 'Renovar permiso' : 'Activar notificaciones'}
-        </button>
-        <button
-          onClick={push.test}
-          disabled={push.busy}
-          className="btn"
-          style={{ fontSize: 10, background: T, color: K }}
-        >
-          Enviar prueba
-        </button>
-        <button
-          onClick={push.deactivate}
-          disabled={push.busy || !push.subscribed}
-          className="btn btn-coral"
-          style={{ fontSize: 10 }}
-        >
-          Desactivar notificaciones
-        </button>
-      </div>
+      <button
+        onClick={togglePush}
+        disabled={push.busy}
+        className={push.subscribed ? 'btn btn-coral' : 'btn btn-morado'}
+        style={{ alignSelf: 'flex-start', fontSize: 10 }}
+      >
+        {push.busy ? 'Guardando...' : toggleLabel}
+      </button>
       {push.message && <div className="chip chip-turquesa">{push.message}</div>}
       {push.error && <div className="chip chip-coral">{push.error}</div>}
     </div>
@@ -5374,6 +5353,7 @@ function ContactosView() {
 function ConfigView() {
   const { user, logout, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const panelUser = user ?? DEFAULT_PANEL_USER;
   const [profile, setProfile] = useState(() =>
     readLocalJSON(PROFILE_STORAGE_KEY, {
@@ -5478,20 +5458,22 @@ function ConfigView() {
   const deleteAccount = async () => {
     setBusySettings('delete-account');
     setSettingsError('');
+    setDataMessage('');
     try {
       await deleteCurrentAccount({
-        confirmationText: deleteForm.confirmationText,
+        confirmationText: deleteForm.confirmationText.trim(),
         currentPassword: deleteForm.currentPassword || undefined,
       });
-      setDataMessage('CUENTA_ELIMINADA');
       logout();
+      navigate('/', { replace: true });
     } catch (err) {
       setSettingsError(`ERR_DELETE_ACCOUNT: ${backendErrorMessage(err)}`);
     } finally {
       setBusySettings('');
     }
   };
-  const deleteReady = deleteForm.confirmationText === 'ELIMINAR MI CUENTA';
+  const deleteConfirmation = deleteForm.confirmationText.trim();
+  const deleteReady = deleteConfirmation === 'ELIMINAR MI CUENTA';
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp .3s ease' }}
@@ -5611,17 +5593,51 @@ function ConfigView() {
                     ADVERTENCIA: se eliminarán diario, mood, chat, contactos, SOS, logros,
                     notificaciones y acceso a la cuenta. No podremos recuperarlo.
                   </div>
-                  <input
+                  <label
+                    htmlFor="delete-account-confirmation"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    ESCRIBE EXACTAMENTE: ELIMINAR MI CUENTA
+                  </label>
+                  <textarea
+                    id="delete-account-confirmation"
                     aria-label="Confirmación eliminar cuenta"
+                    name="aura-delete-account-confirmation"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     placeholder="Escribe: ELIMINAR MI CUENTA"
                     value={deleteForm.confirmationText}
                     onChange={(e) =>
                       setDeleteForm((current) => ({ ...current, confirmationText: e.target.value }))
                     }
-                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
+                    rows={2}
+                    style={{
+                      border: BORDE,
+                      padding: '10px 12px',
+                      fontFamily: 'Space Mono',
+                      resize: 'vertical',
+                      minHeight: 58,
+                      background: W,
+                    }}
                   />
+                  {!deleteReady && (
+                    <div className="chip chip-coral" style={{ alignSelf: 'flex-start' }}>
+                      Falta escribir la frase exacta para activar el borrado.
+                    </div>
+                  )}
+                  <label
+                    htmlFor="delete-account-password"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    CONTRASEÑA ACTUAL
+                  </label>
                   <input
+                    id="delete-account-password"
                     aria-label="Contraseña actual para eliminar cuenta"
+                    name="aura-delete-account-password"
+                    autoComplete="current-password"
                     placeholder="Contraseña actual (si tu cuenta tiene contraseña)"
                     type="password"
                     value={deleteForm.currentPassword}
@@ -6133,7 +6149,7 @@ function AuraPanelApp() {
   }, [section]);
   useEffect(() => {
     const next = sectionFromPath(location.pathname);
-    if (next && next !== section) setSection(next);
+    if (next !== null && next !== section) setSection(next);
   }, [location.pathname, section]);
   const selectSection = (s) => {
     setSection(s);
