@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, vi, type Mock } from 'vitest';
 import App from '@/App';
@@ -29,6 +29,54 @@ const httpMock = httpClient as unknown as {
   post: Mock;
   put: Mock;
   delete: Mock;
+};
+
+const installAudioContextMock = () => {
+  const stop = vi.fn();
+  const close = vi.fn(() => Promise.resolve());
+  const setTargetAtTime = vi.fn();
+  const AudioContextMock = vi.fn(() => ({
+    currentTime: 0,
+    destination: {},
+    sampleRate: 44100,
+    resume: vi.fn(() => Promise.resolve()),
+    close,
+    createGain: vi.fn(() => ({
+      gain: { value: 0, setTargetAtTime },
+      connect: vi.fn(),
+    })),
+    createBuffer: vi.fn((_channels: number, length: number) => ({
+      getChannelData: vi.fn(() => new Float32Array(length)),
+    })),
+    createBufferSource: vi.fn(() => ({
+      buffer: null,
+      loop: false,
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop,
+    })),
+    createBiquadFilter: vi.fn(() => ({
+      type: 'lowpass',
+      frequency: { value: 0 },
+      Q: { value: 0 },
+      connect: vi.fn(),
+    })),
+    createOscillator: vi.fn(() => ({
+      type: 'sine',
+      frequency: { value: 0 },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop,
+    })),
+  }));
+
+  Object.defineProperty(window, 'AudioContext', {
+    configurable: true,
+    writable: true,
+    value: AudioContextMock,
+  });
+
+  return { AudioContextMock, close, setTargetAtTime, stop };
 };
 
 const achievementsResponse = {
@@ -251,6 +299,8 @@ describe('panel bienestar y utilidades', () => {
     httpMock.put.mockReset();
     httpMock.delete.mockReset();
     httpMock.post.mockResolvedValue({ data: {} });
+    Reflect.deleteProperty(window, 'AudioContext');
+    Reflect.deleteProperty(window, 'webkitAudioContext');
   });
 
   it('registra una entrada de diario en backend', async () => {
@@ -452,6 +502,36 @@ describe('panel bienestar y utilidades', () => {
     expect(httpMock.get).toHaveBeenCalledWith('/achievements');
   });
 
+  it('home reproduce ambientes sonoros y permite ajustar volumen', async () => {
+    const audio = installAudioContextMock();
+    const user = userEvent.setup();
+    renderDashboard('inicio');
+
+    const lluvia = await screen.findByRole('button', { name: /Reproducir LLUVIA_SUAVE/i });
+    await user.click(lluvia);
+
+    expect(audio.AudioContextMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('REPRODUCIENDO_AHORA')).toBeInTheDocument();
+    expect(lluvia).toHaveAttribute('aria-pressed', 'true');
+    expect(httpMock.post).toHaveBeenCalledWith('/achievements/events', expect.objectContaining({
+      type: 'SOUNDSCAPE_PLAYED',
+    }));
+
+    fireEvent.change(screen.getByRole('slider', { name: /Volumen ambiente sonoro/i }), {
+      target: { value: '25' },
+    });
+
+    expect(screen.getByText('25%')).toBeInTheDocument();
+    expect(audio.setTargetAtTime).toHaveBeenCalled();
+
+    await user.click(lluvia);
+
+    expect(audio.stop).toHaveBeenCalled();
+    expect(audio.close).toHaveBeenCalled();
+    expect(screen.queryByText('REPRODUCIENDO_AHORA')).not.toBeInTheDocument();
+    expect(lluvia).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('vuelve de SOS a Inicio con un solo click del menu lateral', async () => {
     const user = userEvent.setup();
     renderDashboard('sos');
@@ -597,13 +677,12 @@ describe('panel bienestar y utilidades', () => {
     await screen.findAllByText('CONFIGURACIÓN');
     await user.click(screen.getByRole('button', { name: /ELIMINAR_CUENTA/i }));
     await user.type(screen.getByLabelText('Confirmación eliminar cuenta'), 'ELIMINAR MI CUENTA');
-    await user.type(screen.getByLabelText('Contraseña actual para eliminar cuenta'), 'Password123!');
+    expect(screen.queryByLabelText('Contraseña actual para eliminar cuenta')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /ELIMINAR_CUENTA_DEFINITIVAMENTE/i }));
 
     await waitFor(() => {
       expect(httpMock.post).toHaveBeenCalledWith('/users/me/delete', {
         confirmationText: 'ELIMINAR MI CUENTA',
-        currentPassword: 'Password123!',
       });
     });
     await waitFor(() => expect(localStorage.getItem('aura.token')).toBeNull());
