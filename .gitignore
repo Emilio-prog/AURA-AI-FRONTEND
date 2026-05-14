@@ -28,7 +28,12 @@ Thumbs.db
 # Env
 .env
 .env.local
+.env.*
+!.env.example
+*.env
+!*.env.example
 .env.*.local
+.mcp.json
 
 # Test
 coverage/
