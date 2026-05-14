@@ -382,6 +382,18 @@ describe('panel bienestar y utilidades', () => {
     expect(httpMock.get).toHaveBeenCalledWith('/achievements');
   });
 
+  it('vuelve de SOS a Inicio con un solo click del menu lateral', async () => {
+    const user = userEvent.setup();
+    renderDashboard('sos');
+
+    expect(await screen.findByText('PROTOCOLO_DE_CONTENCIÓN_INMEDIATA')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /INICIO_|HOME_/i }));
+
+    await waitFor(() => expect(window.location.hash).toBe('#/dashboard'));
+    expect(await screen.findByText(/LOGROS_DESBLOQUEADOS/)).toBeInTheDocument();
+    expect(screen.queryByText('PROTOCOLO_DE_CONTENCIÓN_INMEDIATA')).not.toBeInTheDocument();
+  });
+
   it('envia SOS por SMS al contacto elegido', async () => {
     const user = userEvent.setup();
     mockDashboardApis({
@@ -507,6 +519,26 @@ describe('panel bienestar y utilidades', () => {
     await user.click(screen.getByRole('button', { name: /CERRAR_SESIÓN/i }));
     await waitFor(() => expect(localStorage.getItem('aura.token')).toBeNull());
   });
+
+  it('elimina la cuenta con confirmación fuerte y limpia la sesión local', async () => {
+    const user = userEvent.setup();
+    renderDashboard('config');
+
+    await screen.findAllByText('CONFIGURACIÓN');
+    await user.click(screen.getByRole('button', { name: /ELIMINAR_CUENTA/i }));
+    await user.type(screen.getByLabelText('Confirmación eliminar cuenta'), 'ELIMINAR MI CUENTA');
+    await user.type(screen.getByLabelText('Contraseña actual para eliminar cuenta'), 'Password123!');
+    await user.click(screen.getByRole('button', { name: /ELIMINAR_CUENTA_DEFINITIVAMENTE/i }));
+
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/users/me/delete', {
+        confirmationText: 'ELIMINAR MI CUENTA',
+        currentPassword: 'Password123!',
+      });
+    });
+    await waitFor(() => expect(localStorage.getItem('aura.token')).toBeNull());
+  });
+
   it('facturacion muestra el estado de Stripe del usuario', async () => {
     mockDashboardApis({ billing: billingStatus });
     seedSession();
