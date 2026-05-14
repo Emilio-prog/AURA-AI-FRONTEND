@@ -1,9 +1,19 @@
-node_modules
-dist
-.git
-.vite
-coverage
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+.mcp.json
+.git/
+.github/
+*.md
+coverage/
+.vscode/
+.idea/
+.vite/
 *.log
 *.tsbuildinfo
-AURA AI - LandingPage
-AURA AI-Panel-Interior
+AURA AI - LandingPage/
+AURA AI-Panel-Interior/
