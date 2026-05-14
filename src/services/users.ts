@@ -2,7 +2,6 @@ import { httpClient } from './httpClient';
 
 export interface DeleteAccountPayload {
   confirmationText: string;
-  currentPassword?: string;
 }
 
 export async function exportUserDataJson() {
