@@ -15,7 +15,7 @@ import {
 } from '@/services/diary';
 import { createMoodLog, listMoodLogs } from '@/services/mood';
 import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
-import { createChatSession, sendChatMessage } from '@/services/chatbot';
+import { createChatSession, deleteChatSession, getChatSession, listChatSessions, sendChatMessage } from '@/services/chatbot';
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -262,7 +262,7 @@ function usePushNotificationState() {
       setEnabled(Boolean(config.enabled && config.publicKey));
       setSubscribed(Boolean(config.subscribed));
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -278,7 +278,7 @@ function usePushNotificationState() {
     }
     const onPushMessage = (event: MessageEvent) => {
       if (event.data?.source === 'aura-push') {
-        setMessage(`PUSH_RECIBIDO: ${event.data.body || 'Notificación recibida.'}`);
+        setMessage(`Notificación recibida: ${event.data.body || 'Notificación recibida.'}`);
       }
     };
     navigator.serviceWorker.addEventListener('message', onPushMessage);
@@ -291,10 +291,10 @@ function usePushNotificationState() {
     setMessage('');
     try {
       await enablePushNotifications();
-      setMessage('PUSH_ACTIVADO');
+      setMessage('Notificaciones activado');
       await refresh();
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
       setPermission(getPushPermissionState());
     } finally {
       setBusy(false);
@@ -307,10 +307,10 @@ function usePushNotificationState() {
     setMessage('');
     try {
       await disablePushNotifications();
-      setMessage('PUSH_DESACTIVADO');
+      setMessage('Notificaciones desactivadas');
       await refresh();
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -328,9 +328,9 @@ function usePushNotificationState() {
         await refresh();
         await sendPushTest();
       }
-      setMessage('PUSH_TEST_ENVIADO');
+      setMessage('Notificación de prueba enviada');
     } catch (err) {
-      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setError(`Error de notificaciones: ${backendErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -539,6 +539,12 @@ const backendChatToPanel = (message, index) => ({
 const panelMessagesFromChatSession = (session) =>
   (session?.messages ?? []).map(backendChatToPanel).filter((message) => message.text.trim());
 
+const chatSessionTime = (session) =>
+  new Date(session?.updatedAt || session?.startedAt || 0).getTime() || 0;
+
+const sortChatSessions = (sessions = []) =>
+  [...sessions].sort((a, b) => chatSessionTime(b) - chatSessionTime(a));
+
 const emptyAchievements = {
   total: 8,
   unlocked: 0,
@@ -566,7 +572,10 @@ const generateMoodHistory = (days = 90) => {
 };
 
 function sectionFromPath(pathname) {
-  const match = pathname.match(/\/dashboard\/([^/]+)/);
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  if (normalizedPath === '/dashboard') return 'inicio';
+
+  const match = normalizedPath.match(/\/dashboard\/([^/]+)/);
   if (!match) return null;
   return PANEL_SECTIONS.includes(match[1]) ? match[1] : null;
 }
@@ -1560,51 +1569,27 @@ function PushOptInBanner() {
 
 function PushNotificationSettings() {
   const push = usePushNotificationState();
+  const toggleLabel = push.subscribed ? 'Desactivar notificaciones' : 'Activar notificaciones';
+  const togglePush = () => (push.subscribed ? push.deactivate() : push.activate());
   if (push.loading) {
-    return <div className="chip">CARGANDO_PUSH...</div>;
+    return <div className="chip">Cargando notificaciones...</div>;
   }
   if (!push.supported) {
-    return <div className="chip chip-coral">ERR_PUSH: navegador no compatible</div>;
+    return <div className="chip chip-coral">Este navegador no permite notificaciones</div>;
   }
   if (!push.enabled) {
-    return <div className="chip chip-coral">ERR_PUSH: servicio no configurado</div>;
+    return <div className="chip chip-coral">Notificaciones no configuradas</div>;
   }
   return (
     <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <span className={push.permission === 'granted' ? 'chip chip-turquesa' : 'chip'}>
-          PERMISO_{String(push.permission).toUpperCase()}
-        </span>
-        <span className={push.subscribed ? 'chip chip-turquesa' : 'chip chip-coral'}>
-          {push.subscribed ? 'SUSCRIPCIÓN_ACTIVA' : 'SIN_SUSCRIPCIÓN'}
-        </span>
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button
-          onClick={push.activate}
-          disabled={push.busy}
-          className="btn btn-morado"
-          style={{ fontSize: 10 }}
-        >
-          {push.subscribed ? 'Renovar permiso' : 'Activar notificaciones'}
-        </button>
-        <button
-          onClick={push.test}
-          disabled={push.busy}
-          className="btn"
-          style={{ fontSize: 10, background: T, color: K }}
-        >
-          Enviar prueba
-        </button>
-        <button
-          onClick={push.deactivate}
-          disabled={push.busy || !push.subscribed}
-          className="btn btn-coral"
-          style={{ fontSize: 10 }}
-        >
-          Desactivar notificaciones
-        </button>
-      </div>
+      <button
+        onClick={togglePush}
+        disabled={push.busy}
+        className={push.subscribed ? 'btn btn-coral' : 'btn btn-morado'}
+        style={{ alignSelf: 'flex-start', fontSize: 10 }}
+      >
+        {push.busy ? 'Guardando...' : toggleLabel}
+      </button>
       {push.message && <div className="chip chip-turquesa">{push.message}</div>}
       {push.error && <div className="chip chip-coral">{push.error}</div>}
     </div>
@@ -2142,6 +2127,93 @@ function ChatbotView() {
   const isBusy = botStatus !== 'idle' || loadingSession;
   const CHIPS = ['ME_SIENTO_ANSIOSO', 'NO_PUEDO_DORMIR', 'TENGO_PÁNICO', 'ESTOY_BIEN'];
   const visibleMessages = msgs.length ? msgs : [welcomeMessage];
+  const activeChatStorageKey = `aura.chatbot.activeSessionId.${panelUser.id}`;
+  const [sessionTitle, setSessionTitle] = useState('');
+  const [chatSessions, setChatSessions] = useState([]);
+
+  const applySession = useCallback(
+    (session) => {
+      setSessionId(session.id);
+      setSessionTitle(session.title || 'Nueva conversación');
+      setMsgs(panelMessagesFromChatSession(session));
+      localStorage.setItem(activeChatStorageKey, session.id);
+    },
+    [activeChatStorageKey],
+  );
+
+  const refreshChatSessions = useCallback(async () => {
+    const page = await listChatSessions();
+    const sessions = sortChatSessions(page.content ?? []);
+    setChatSessions(sessions);
+    return sessions;
+  }, []);
+
+  const createFreshSession = useCallback(async () => {
+    setBotStatus('idle');
+    setError('');
+    setLoadingSession(true);
+    window.clearTimeout(thinkingRef.current);
+    window.clearInterval(streamRef.current);
+    try {
+      const session = await createChatSession();
+      applySession(session);
+      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
+      setInp('');
+    } catch (err) {
+      setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [applySession]);
+
+  const openChatSession = useCallback(
+    async (id) => {
+      if (!id || id === sessionId || isBusy) return;
+      setLoadingSession(true);
+      setError('');
+      window.clearTimeout(thinkingRef.current);
+      window.clearInterval(streamRef.current);
+      try {
+        const session = await getChatSession(id);
+        applySession(session);
+      } catch (err) {
+        localStorage.removeItem(activeChatStorageKey);
+        setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+      } finally {
+        setLoadingSession(false);
+      }
+    },
+    [activeChatStorageKey, applySession, isBusy, sessionId],
+  );
+
+  const deleteSelectedSession = useCallback(async () => {
+    if (!sessionId || isBusy) return;
+    const deletedSessionId = sessionId;
+    setLoadingSession(true);
+    setError('');
+    setInp('');
+    window.clearTimeout(thinkingRef.current);
+    window.clearInterval(streamRef.current);
+    try {
+      await deleteChatSession(deletedSessionId);
+      const remainingSessions = sortChatSessions(chatSessions.filter((session) => session.id !== deletedSessionId));
+      setChatSessions(remainingSessions);
+      localStorage.removeItem(activeChatStorageKey);
+      if (remainingSessions.length) {
+        const nextSession = await getChatSession(remainingSessions[0].id);
+        applySession(nextSession);
+        return;
+      }
+      const freshSession = await createChatSession();
+      applySession(freshSession);
+      setChatSessions([freshSession]);
+    } catch (err) {
+      setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [activeChatStorageKey, applySession, chatSessions, isBusy, sessionId]);
+
   const streamAssistantReply = (baseMessages, assistantMessage) => {
     const aiId = assistantMessage.id ?? `ai_${Date.now()}`;
     const reply = assistantMessage.text ?? '';
@@ -2174,6 +2246,9 @@ function ChatbotView() {
     try {
       const session = await sendChatMessage(sessionId, t);
       void refreshAchievementsForNotifications(startedAt);
+      setSessionTitle(session.title || 'Conversación guardada');
+      localStorage.setItem(activeChatStorageKey, session.id);
+      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
       const backendMessages = panelMessagesFromChatSession(session);
       const assistantIndex = backendMessages.map((message) => message.from).lastIndexOf('ai');
       if (assistantIndex >= 0) {
@@ -2193,18 +2268,41 @@ function ChatbotView() {
     let active = true;
     setLoadingSession(true);
     setError('');
-    createChatSession()
-      .then((session) => {
+    const loadPersistedSession = async () => {
+      try {
+        const storedSessionId = localStorage.getItem(activeChatStorageKey);
+        const sessions = await refreshChatSessions();
         if (!active) return;
-        setSessionId(session.id);
-        setMsgs(panelMessagesFromChatSession(session));
-      })
-      .catch((err) => active && setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`))
-      .finally(() => active && setLoadingSession(false));
+        if (storedSessionId) {
+          try {
+            const session = await getChatSession(storedSessionId);
+            if (!active) return;
+            applySession(session);
+            return;
+          } catch {
+            localStorage.removeItem(activeChatStorageKey);
+          }
+        }
+        const latestSession = sessions[0];
+        if (latestSession) {
+          applySession(latestSession);
+          return;
+        }
+        const session = await createChatSession();
+        if (!active) return;
+        applySession(session);
+        setChatSessions([session]);
+      } catch (err) {
+        if (active) setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+      } finally {
+        if (active) setLoadingSession(false);
+      }
+    };
+    void loadPersistedSession();
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeChatStorageKey, applySession, refreshChatSessions]);
   useEffect(() => {
     botRef.current && (botRef.current.scrollTop = botRef.current.scrollHeight);
   }, [visibleMessages, botStatus]);
@@ -2262,10 +2360,24 @@ function ChatbotView() {
               AURA · ASISTENTE_IA
             </div>
             <div className="lbl lbl-turquesa" style={{ fontSize: 9 }}>
-              DISPONIBLE_24/7 · TCC_DIGITAL
+              {sessionTitle ? `SESIÓN_GUARDADA · ${sessionTitle}` : 'DISPONIBLE_24/7 · TCC_DIGITAL'}
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 18 }}>
+            <button
+              onClick={createFreshSession}
+              disabled={isBusy}
+              className="btn"
+              style={{
+                background: W,
+                color: K,
+                fontSize: 9,
+                padding: '8px 10px',
+                opacity: isBusy ? 0.55 : 1,
+              }}
+            >
+              NUEVA_CONVERSACIÓN
+            </button>
             <span
               style={{
                 width: 8,
@@ -2385,6 +2497,65 @@ function ChatbotView() {
         </div>
       </div>
       <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={{
+            border: BORDE,
+            background: W,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            boxShadow: SOMBRA_SM,
+          }}
+        >
+          <div className="lbl" style={{ fontSize: 9 }}>
+            HISTORIAL_GUARDADO
+          </div>
+          {loadingSession && !chatSessions.length ? (
+            <div className="chip">CARGANDO_SESIONES...</div>
+          ) : chatSessions.length ? (
+            chatSessions.slice(0, 6).map((session) => (
+              <button
+                key={session.id}
+                onClick={() => openChatSession(session.id)}
+                disabled={isBusy || session.id === sessionId}
+                style={{
+                  border: session.id === sessionId ? `3px solid ${M}` : '2px solid #000',
+                  padding: '8px 10px',
+                  background: session.id === sessionId ? ML : W,
+                  color: K,
+                  cursor: isBusy || session.id === sessionId ? 'default' : 'pointer',
+                  opacity: isBusy && session.id !== sessionId ? 0.55 : 1,
+                  textAlign: 'left',
+                  fontFamily: 'Space Mono, monospace',
+                  fontSize: 9,
+                  fontWeight: 800,
+                  lineHeight: 1.35,
+                }}
+              >
+                {(session.title || 'Nueva conversación').slice(0, 38)}
+                <span style={{ display: 'block', marginTop: 4, color: 'var(--aura-fg-soft)', fontSize: 8 }}>
+                  {(session.messages?.length ?? 0)} MENSAJES
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="chip">SIN_HISTORIAL</div>
+          )}
+          <button
+            onClick={deleteSelectedSession}
+            disabled={!sessionId || isBusy}
+            className="btn btn-coral"
+            style={{
+              marginTop: 2,
+              fontSize: 8,
+              padding: '8px 10px',
+              opacity: !sessionId || isBusy ? 0.55 : 1,
+            }}
+          >
+            ELIMINAR_SESIÓN_SELECCIONADA
+          </button>
+        </div>
         <div
           style={{
             border: BORDE,
@@ -5374,6 +5545,7 @@ function ContactosView() {
 function ConfigView() {
   const { user, logout, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const panelUser = user ?? DEFAULT_PANEL_USER;
   const [profile, setProfile] = useState(() =>
     readLocalJSON(PROFILE_STORAGE_KEY, {
@@ -5478,20 +5650,22 @@ function ConfigView() {
   const deleteAccount = async () => {
     setBusySettings('delete-account');
     setSettingsError('');
+    setDataMessage('');
     try {
       await deleteCurrentAccount({
-        confirmationText: deleteForm.confirmationText,
+        confirmationText: deleteForm.confirmationText.trim(),
         currentPassword: deleteForm.currentPassword || undefined,
       });
-      setDataMessage('CUENTA_ELIMINADA');
       logout();
+      navigate('/', { replace: true });
     } catch (err) {
       setSettingsError(`ERR_DELETE_ACCOUNT: ${backendErrorMessage(err)}`);
     } finally {
       setBusySettings('');
     }
   };
-  const deleteReady = deleteForm.confirmationText === 'ELIMINAR MI CUENTA';
+  const deleteConfirmation = deleteForm.confirmationText.trim();
+  const deleteReady = deleteConfirmation === 'ELIMINAR MI CUENTA';
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp .3s ease' }}
@@ -5611,17 +5785,51 @@ function ConfigView() {
                     ADVERTENCIA: se eliminarán diario, mood, chat, contactos, SOS, logros,
                     notificaciones y acceso a la cuenta. No podremos recuperarlo.
                   </div>
-                  <input
+                  <label
+                    htmlFor="delete-account-confirmation"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    ESCRIBE EXACTAMENTE: ELIMINAR MI CUENTA
+                  </label>
+                  <textarea
+                    id="delete-account-confirmation"
                     aria-label="Confirmación eliminar cuenta"
+                    name="aura-delete-account-confirmation"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     placeholder="Escribe: ELIMINAR MI CUENTA"
                     value={deleteForm.confirmationText}
                     onChange={(e) =>
                       setDeleteForm((current) => ({ ...current, confirmationText: e.target.value }))
                     }
-                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
+                    rows={2}
+                    style={{
+                      border: BORDE,
+                      padding: '10px 12px',
+                      fontFamily: 'Space Mono',
+                      resize: 'vertical',
+                      minHeight: 58,
+                      background: W,
+                    }}
                   />
+                  {!deleteReady && (
+                    <div className="chip chip-coral" style={{ alignSelf: 'flex-start' }}>
+                      Falta escribir la frase exacta para activar el borrado.
+                    </div>
+                  )}
+                  <label
+                    htmlFor="delete-account-password"
+                    style={{ fontFamily: 'Space Mono', fontSize: 10, fontWeight: 900 }}
+                  >
+                    CONTRASEÑA ACTUAL
+                  </label>
                   <input
+                    id="delete-account-password"
                     aria-label="Contraseña actual para eliminar cuenta"
+                    name="aura-delete-account-password"
+                    autoComplete="current-password"
                     placeholder="Contraseña actual (si tu cuenta tiene contraseña)"
                     type="password"
                     value={deleteForm.currentPassword}
@@ -6133,7 +6341,7 @@ function AuraPanelApp() {
   }, [section]);
   useEffect(() => {
     const next = sectionFromPath(location.pathname);
-    if (next && next !== section) setSection(next);
+    if (next !== null && next !== section) setSection(next);
   }, [location.pathname, section]);
   const selectSection = (s) => {
     setSection(s);

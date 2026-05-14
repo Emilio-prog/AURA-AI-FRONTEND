@@ -12,7 +12,8 @@ const plans = [
     features: ['Botón SOS Básico', 'Diario simple', '3 Ambientes sonoros'],
     cta: 'ACTIVAR_LICENCIA',
     headerClassName: 'bg-brutal-teal text-black',
-    className: 'bg-white/80 backdrop-blur-md border-4 border-brutal-black p-8 flex flex-col h-full',
+    className:
+      'bg-white/80 dark:bg-zinc-900/90 backdrop-blur-md border-4 border-brutal-black p-8 flex flex-col h-full',
     buttonClassName: 'bg-brutal-teal text-black',
     checkClassName: 'text-brutal-teal',
   },
@@ -30,7 +31,7 @@ const plans = [
     cta: 'EJECUTAR_PLAN',
     headerClassName: 'bg-brutal-purple text-white',
     className:
-      'relative z-10 flex h-full -translate-y-4 flex-col border-4 border-l-0 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md md:border-l-4',
+      'relative z-10 flex h-full -translate-y-4 flex-col border-4 border-l-0 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md dark:bg-zinc-900/95 md:border-l-4',
     buttonClassName: 'bg-brutal-purple text-white',
     checkClassName: 'text-brutal-purple',
     popular: true,
@@ -49,7 +50,7 @@ const plans = [
     cta: 'UPGRADE_FULL',
     headerClassName: 'bg-brutal-coral text-white',
     className:
-      'flex h-full flex-col border-4 border-l-0 border-brutal-black bg-white/80 p-8 backdrop-blur-md',
+      'flex h-full flex-col border-4 border-l-0 border-brutal-black bg-white/80 p-8 backdrop-blur-md dark:bg-zinc-900/90',
     buttonClassName: 'bg-brutal-coral text-white',
     checkClassName: 'text-brutal-coral',
   },
@@ -126,7 +127,7 @@ export function PricingSection() {
           {plans.map((plan) => (
             <div key={plan.name} className={plan.className}>
               {plan.popular && (
-                <div className="absolute -top-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 border-4 border-brutal-black bg-white px-4 py-1 text-xs font-black uppercase">
+                <div className="absolute -top-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 border-4 border-brutal-black bg-white px-4 py-1 text-xs font-black uppercase text-black">
                   ★ MÁS POPULAR
                 </div>
               )}

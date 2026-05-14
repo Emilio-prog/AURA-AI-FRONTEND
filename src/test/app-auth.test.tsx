@@ -61,6 +61,21 @@ describe('auth flow y guards', () => {
     httpMock.delete.mockReset();
   });
 
+  it('landing permite alternar entre modo oscuro y claro', async () => {
+    const user = userEvent.setup();
+    window.location.hash = '#/';
+
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /Activar modo oscuro/i }));
+    expect(document.documentElement).toHaveClass('dark');
+    expect(localStorage.getItem('aura.theme')).toBe('dark');
+
+    await user.click(screen.getByRole('button', { name: /Activar modo claro/i }));
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(localStorage.getItem('aura.theme')).toBe('light');
+  });
+
   it('permite iniciar sesion con el backend', async () => {
     httpMock.post.mockResolvedValueOnce({ data: authResponse });
     const user = userEvent.setup();
