@@ -6,7 +6,7 @@
   "auth.demo.email": "demo@aura.ai",
   "dashboard.nav.inicio": "HOME_",
   "dashboard.nav.sos": "SOS_BUTTON",
-  "dashboard.nav.chatbot": "AI_CHATBOT",
+  "dashboard.nav.chatbot": "AURA AI",
   "dashboard.nav.mood": "MOOD_TRACKER",
   "dashboard.nav.juegos": "MINIGAMES",
   "dashboard.nav.sonidos": "SOUNDSCAPES",

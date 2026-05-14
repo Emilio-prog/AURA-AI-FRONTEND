@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -25,14 +25,14 @@ const TOTAL_ONBOARDING_STEPS = 8;
 const CONSENT_GRANTED = true;
 
 const goalOptions = [
-  { id: 'sleep', label: 'CALIDAD_DEL_SUEÑO', icon: '🌙', activeClass: 'bg-white' },
+  { id: 'sleep', label: 'CALIDAD_DEL_SUEÑO', icon: '🌙', activeClass: 'bg-[#2DD4BF]/30' },
   { id: 'anxiety', label: 'GESTIONAR_ANSIEDAD', icon: '💭', activeClass: 'bg-[#F0DBFF]' },
   { id: 'stress', label: 'REDUCIR_ESTRÉS', icon: '🌊', activeClass: 'bg-[#FFDADC]' },
-  { id: 'focus', label: 'MEJORAR_CONCENTRACIÓN', icon: '🎯', activeClass: 'bg-white' },
-  { id: 'calm', label: 'ENCONTRAR_CALMA', icon: '🧘', activeClass: 'bg-white' },
-  { id: 'mood', label: 'SUPERAR_BAJONES', icon: '💔', activeClass: 'bg-white' },
+  { id: 'focus', label: 'MEJORAR_CONCENTRACIÓN', icon: '🎯', activeClass: 'bg-[#FDE68A]' },
+  { id: 'calm', label: 'ENCONTRAR_CALMA', icon: '🧘', activeClass: 'bg-[#BAE6FD]' },
+  { id: 'mood', label: 'SUPERAR_BAJONES', icon: '💔', activeClass: 'bg-[#FB7185]/25' },
   { id: 'rumination', label: 'ROMPER_RUMIACIÓN', icon: '↩️', activeClass: 'bg-[#62FAE3]' },
-  { id: 'relationships', label: 'MEJORAR_RELACIONES', icon: '🤝', activeClass: 'bg-white' },
+  { id: 'relationships', label: 'MEJORAR_RELACIONES', icon: '🤝', activeClass: 'bg-[#A855F7]/25' },
 ];
 
 const moodOptions = [
@@ -126,6 +126,7 @@ export function OnboardingPage() {
   const navigate = useNavigate();
   const timezone = useMemo(detectTimezone, []);
   const fallbackName = useMemo(() => firstName(user?.name), [user?.name]);
+  const contactNameInputRef = useRef<HTMLInputElement>(null);
 
   const [screen, setScreen] = useState(0);
   const [preferredName, setPreferredName] = useState('');
@@ -140,14 +141,14 @@ export function OnboardingPage() {
     'sounds',
     'journal',
   ]);
-  const [contactEnabled, setContactEnabled] = useState(true);
-  const [contactName, setContactName] = useState('MARÍA GARCÍA');
-  const [contactPhone, setContactPhone] = useState('+34 600 000 000');
+  const [contactEnabled, setContactEnabled] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [contactRelationship, setContactRelationship] = useState('FAMILIA');
   const [sosMessage, setSosMessage] = useState(
     'Hola, necesito ayuda. Estoy teniendo una crisis de ansiedad y agradecería que me contactaras lo antes posible.',
   );
-  const [moodReminderEnabled, setMoodReminderEnabled] = useState(false);
+  const [moodReminderEnabled, setMoodReminderEnabled] = useState(true);
   const [quickMeditationEnabled, setQuickMeditationEnabled] = useState(true);
   const [streakEnabled, setStreakEnabled] = useState(true);
   const [weeklyCheckinEnabled, setWeeklyCheckinEnabled] = useState(false);
@@ -157,6 +158,18 @@ export function OnboardingPage() {
 
   const displayName = preferredName.trim() || fallbackName;
   const isFinal = screen === 8;
+
+  useEffect(() => {
+    if (screen === 6 && contactEnabled) {
+      contactNameInputRef.current?.focus();
+    }
+  }, [screen, contactEnabled]);
+
+  const openTrustedContactForm = () => {
+    setError(null);
+    setContactEnabled(true);
+    setContactRelationship((value) => value || 'FAMILIA');
+  };
 
   const goNext = () => {
     setError(null);
@@ -220,10 +233,14 @@ export function OnboardingPage() {
           streakEnabled ||
           weeklyCheckinEnabled,
         dailyReminderTime,
+        timezone,
         moodReminderEnabled,
         quickMeditationEnabled,
+        quickMeditationPeriods: ['morning', 'night'],
         streakEnabled,
         weeklyCheckinEnabled,
+        weeklyCheckinDay: 'sunday',
+        weeklyCheckinTime: '19:00',
       },
       trustedContact:
         contactEnabled && contactName.trim() && contactPhone.trim()
@@ -249,7 +266,7 @@ export function OnboardingPage() {
   return (
     <form
       onSubmit={submit}
-      className="relative min-h-screen overflow-x-hidden bg-[#f9f9f9] font-mono text-[#1b1b1b]"
+      className="relative h-dvh overflow-hidden bg-[#f9f9f9] font-mono text-[#1b1b1b]"
     >
       <AuraBlobs />
       {screen === 0 ? (
@@ -262,7 +279,7 @@ export function OnboardingPage() {
             variant={screen === 6 || screen === 7 ? 'wide' : 'segments'}
             onSkip={skipQuestion}
           />
-          <main className="relative z-10 min-h-[calc(100vh-138px)] px-4 pb-24 pt-6 md:px-6 lg:px-8">
+          <main className="relative z-10 h-[calc(100dvh-122px)] overflow-y-auto overflow-x-hidden px-4 pb-7 pt-3 md:px-6 lg:px-8">
             {renderScreen()}
             {error && (
               <div
@@ -346,7 +363,7 @@ export function OnboardingPage() {
               Elige todas las que apliquen. Sin límite.
             </p>
 
-            <div className="mx-auto mt-10 grid max-w-[1040px] gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mx-auto mt-7 grid max-w-[1040px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {goalOptions.map((option) => {
                 const active = goals.includes(option.id);
                 return (
@@ -355,7 +372,7 @@ export function OnboardingPage() {
                     type="button"
                     onClick={() => setGoals(toggleValue(goals, option.id))}
                     className={cn(
-                      'relative flex h-36 flex-col items-center justify-center border-4 border-black p-4 transition-transform',
+                      'relative flex min-h-28 flex-col items-center justify-center border-4 border-black p-3 transition-transform',
                       active
                         ? `${option.activeClass} translate-x-1 translate-y-1 shadow-[8px_8px_0_#000]`
                         : 'bg-white hover:-translate-y-1 hover:shadow-[8px_8px_0_#000]',
@@ -506,7 +523,7 @@ export function OnboardingPage() {
               Personalizaremos tus accesos rápidos según esto.
             </p>
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            <div className="mt-7 grid gap-4 lg:grid-cols-3">
               {toolOptions.map((option) => {
                 const Icon = option.icon;
                 const active = toolPreferences.includes(option.id);
@@ -516,7 +533,7 @@ export function OnboardingPage() {
                     type="button"
                     onClick={() => setToolPreferences(toggleValue(toolPreferences, option.id))}
                     className={cn(
-                      'relative flex min-h-44 flex-col border-4 border-black p-6 text-left transition-transform',
+                      'relative flex min-h-36 flex-col border-4 border-black p-5 text-left transition-transform',
                       active
                         ? option.id === 'sounds'
                           ? 'bg-[#2DD4BF]/25 shadow-[6px_6px_0_#000]'
@@ -540,10 +557,10 @@ export function OnboardingPage() {
                       )}
                       strokeWidth={3}
                     />
-                    <h2 className="mt-8 break-words font-headline text-2xl font-black uppercase leading-none">
+                    <h2 className="mt-5 break-words font-headline text-xl font-black uppercase leading-none">
                       {option.label}
                     </h2>
-                    <p className="mt-3 max-w-sm text-base leading-6">{option.detail}</p>
+                    <p className="mt-2 max-w-sm text-sm leading-5">{option.detail}</p>
                     <span
                       className={cn(
                         'mt-5 inline-flex w-max border-0 px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.12em]',
@@ -560,23 +577,23 @@ export function OnboardingPage() {
         );
       case 6:
         return (
-          <section className="aura-screen max-w-[1080px]">
+          <section className="aura-screen max-w-[920px]">
             <h1 className="aura-onboarding-title max-w-[1500px]">
               ¿QUIÉN_PUEDE_AYUDARTE_EN_CRISIS?
             </h1>
-            <p className="aura-screen-copy mt-5">
+            <p className="aura-screen-copy mt-3">
               Configuremos tu red SOS. Podrás cambiarla cuando quieras.
             </p>
 
-            <div className="mt-8 border-0 bg-[#FFA5AE] px-5 py-4 font-mono text-xs font-black uppercase tracking-[0.1em] shadow-[6px_6px_0_#000]">
-              <Info className="mr-3 inline h-6 w-6" strokeWidth={3} />
+            <div className="mt-5 border-0 bg-[#FFA5AE] px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.1em] shadow-[5px_5px_0_#000]">
+              <Info className="mr-2 inline h-5 w-5" strokeWidth={3} />
               // PASO_OPCIONAL - PUEDES_CONFIGURARLO_DESPUÉS
             </div>
 
-            <div className="mt-10 grid gap-8 lg:grid-cols-2">
-              <div className="border-b-8 border-r-8 border-black p-6">
-                <div className="mb-6 flex items-center justify-between gap-4">
-                  <span className="font-mono text-sm font-black uppercase tracking-[0.12em]">
+            <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="border-b-[6px] border-r-[6px] border-black bg-white p-4">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <span className="font-mono text-xs font-black uppercase tracking-[0.12em]">
                     CONTACTO_01
                   </span>
                   {contactEnabled && (
@@ -595,10 +612,11 @@ export function OnboardingPage() {
                   )}
                 </div>
                 {contactEnabled ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <FieldLabel label="NOMBRE">
                       <input
                         aria-label="CONTACTO_NOMBRE"
+                        ref={contactNameInputRef}
                         className="aura-input"
                         value={contactName}
                         onChange={(event) => setContactName(event.target.value)}
@@ -631,38 +649,37 @@ export function OnboardingPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setContactEnabled(true);
-                      setContactRelationship('FAMILIA');
-                    }}
-                    className="flex min-h-56 w-full flex-col items-center justify-center gap-5 border-4 border-dashed border-black bg-[#eeeeee] font-mono text-sm font-black uppercase tracking-[0.12em]"
+                    onClick={openTrustedContactForm}
+                    aria-expanded={contactEnabled}
+                    className="flex min-h-32 w-full flex-col items-center justify-center gap-3 border-4 border-dashed border-black bg-[#eeeeee] font-mono text-xs font-black uppercase tracking-[0.12em] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0_#000]"
                   >
-                    <Plus className="h-12 w-12" />
+                    <Plus className="h-9 w-9" />
                     + AÑADIR_CONTACTO
                   </button>
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setContactEnabled(true);
-                  if (!contactName) setContactName('MARÍA GARCÍA');
-                  if (!contactPhone) setContactPhone('+34 600 000 000');
-                  if (!contactRelationship) setContactRelationship('FAMILIA');
-                }}
-                className="flex min-h-72 flex-col items-center justify-center gap-6 border-4 border-dashed border-black bg-[#eeeeee] font-mono text-sm font-black uppercase tracking-[0.12em]"
-              >
-                <Plus className="h-12 w-12" />
-                + AÑADIR_CONTACTO
-              </button>
+              <aside className="flex min-h-36 flex-col justify-between border-4 border-black bg-[#2DD4BF]/20 p-4 shadow-[5px_5px_0_#000]">
+                <div>
+                  <h2 className="font-headline text-xl font-black uppercase leading-none">
+                    RED_SOS_OPCIONAL
+                  </h2>
+                  <p className="mt-3 text-xs leading-5">
+                    Si añades un contacto, lo guardaremos como contacto SOS activo. Si lo omites,
+                    podrás configurarlo más tarde desde Contactos.
+                  </p>
+                </div>
+                <div className="mt-4 border-4 border-black bg-white px-4 py-2 font-mono text-[10px] font-black uppercase tracking-[0.1em] shadow-[4px_4px_0_#000]">
+                  {contactEnabled ? 'SE_GUARDA_AL_FINALIZAR' : 'PUEDES_OMITIR_ESTE_PASO'}
+                </div>
+              </aside>
             </div>
 
-            <div className="mt-10">
+            <div className="mt-5">
               <div className="flex justify-between">
                 <label
                   htmlFor="sos-message"
-                  className="font-mono text-sm font-black uppercase tracking-[0.1em]"
+                  className="font-mono text-xs font-black uppercase tracking-[0.1em]"
                 >
                   // MENSAJE_QUE_RECIBIRÁN
                 </label>
@@ -670,7 +687,7 @@ export function OnboardingPage() {
               </div>
               <textarea
                 id="sos-message"
-                className="mt-3 h-32 w-full resize-none border-4 border-black bg-white p-4 text-base leading-7 shadow-[6px_6px_0_#000] outline-none focus:border-[#8127CF]"
+                className="mt-2 h-20 w-full resize-none border-4 border-black bg-white p-3 text-xs leading-5 shadow-[5px_5px_0_#000] outline-none focus:border-[#8127CF]"
                 value={sosMessage}
                 maxLength={280}
                 onChange={(event) => setSosMessage(event.target.value)}
@@ -680,18 +697,18 @@ export function OnboardingPage() {
         );
       case 7:
         return (
-          <section className="aura-screen max-w-[1000px]">
+          <section className="aura-screen max-w-[940px]">
             <h1 className="aura-onboarding-title">¿CUÁNDO_TE_RECORDAMOS?</h1>
             <p className="aura-screen-copy mt-5">
               Sin spam. Solo cuando elijas.
             </p>
 
-            <div className="mt-8 border-0 bg-[#e2e2e2] px-6 py-5 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[6px_6px_0_#000]">
+            <div className="mt-5 border-0 bg-[#e2e2e2] px-5 py-4 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[6px_6px_0_#000]">
               <Info className="mr-3 inline h-7 w-7" strokeWidth={3} />
               // PUEDES_DESACTIVAR_TODO_DESDE_CONFIGURACIÓN
             </div>
 
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
               <NotificationCard
                 icon={<BarChart3 className="h-8 w-8" strokeWidth={3} />}
                 title="RECORDATORIO_MOOD_DIARIO"
@@ -750,15 +767,17 @@ export function OnboardingPage() {
         );
       default:
         return (
-          <section className="aura-screen max-w-[1000px]">
-            <h1 className="aura-onboarding-title">LISTO, {displayName.toUpperCase()}_</h1>
-            <p className="aura-screen-copy mt-5">
+          <section className="aura-screen max-w-[880px]">
+            <h1 className="aura-onboarding-title text-[clamp(1.8rem,3.4vw,3.2rem)]">
+              LISTO, {displayName.toUpperCase()}_
+            </h1>
+            <p className="aura-screen-copy mt-3">
               Tu refugio digital está preparado.
             </p>
 
-            <div className="mt-8 border-4 border-black bg-[#080808] p-8 text-white shadow-[10px_10px_0_#A855F7] md:p-10">
-              <div className="grid gap-8 md:grid-cols-[1fr_1px_1fr]">
-                <div className="space-y-7">
+            <div className="mt-4 border-4 border-black bg-[#080808] p-4 text-white shadow-[8px_8px_0_#A855F7] md:p-5">
+              <div className="grid gap-4 md:grid-cols-[1fr_1px_1fr]">
+                <div className="space-y-3">
                   <SummaryBlock
                     label="OBJETIVOS_PRIORITARIOS"
                     value={summaryGoals()}
@@ -773,33 +792,34 @@ export function OnboardingPage() {
                   />
                   <SummaryBlock
                     label="CONTACTOS_SOS"
-                    value={contactEnabled && contactName.trim() ? '01_CONFIGURADO' : 'OMITIDO'}
+                    value={summaryContact()}
                   />
                 </div>
                 <div className="hidden bg-white/30 md:block" />
-                <div className="space-y-7">
+                <div className="space-y-3">
                   <SummaryBlock label="LÍNEA_BASE_EMOCIONAL" value={`${moodIntensity}/10`} />
                   <SummaryBlock label="MOMENTOS_CRÍTICOS" value={summaryTriggers()} />
                   <SummaryBlock label="HERRAMIENTAS_FAVORITAS" value={summaryTools()} />
                   <SummaryBlock label="RECORDATORIOS_ACTIVOS" value={summaryNotifications()} />
+                  <SummaryBlock label="IDIOMA_Y_ZONA" value={`Español · ${timezone}`} />
                 </div>
               </div>
             </div>
 
-            <div className="mt-10 flex flex-wrap justify-center gap-5">
-              <Badge icon={<Lock className="h-6 w-6" />}>DATOS_ENCRIPTADOS</Badge>
-              <Badge icon={<Shield className="h-6 w-6" />}>CUMPLE_GDPR</Badge>
+            <div className="mt-4 flex flex-wrap justify-center gap-4">
+              <Badge icon={<Lock className="h-5 w-5" />}>DATOS_ENCRIPTADOS</Badge>
+              <Badge icon={<Shield className="h-5 w-5" />}>CUMPLE_GDPR</Badge>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mx-auto mt-10 flex w-full max-w-xl items-center justify-center border-4 border-black bg-gradient-to-r from-[#A855F7] to-[#FB7185] px-8 py-5 font-headline text-2xl font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] disabled:opacity-60 md:text-3xl"
+              className="mx-auto mt-5 flex w-full max-w-md items-center justify-center border-4 border-black bg-gradient-to-r from-[#A855F7] to-[#FB7185] px-7 py-3 font-headline text-lg font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] disabled:opacity-60 md:text-xl"
             >
               {loading ? 'CARGANDO' : 'ENTRAR_A_MI_REFUGIO'}
             </button>
 
-            <div className="fixed bottom-[76px] left-0 right-0 z-30 border-y-4 border-black bg-[#1b1b1b] py-3 text-center font-mono text-xs font-black uppercase tracking-[0.08em] text-white">
+            <div className="mt-4 border-y-4 border-black bg-[#1b1b1b] px-3 py-2 text-center font-mono text-[10px] font-black uppercase tracking-[0.08em] text-white">
               // AURA AI NO SUSTITUYE ATENCIÓN PROFESIONAL. EN CRISIS GRAVE LLAMA AL 024
             </div>
           </section>
@@ -811,7 +831,6 @@ export function OnboardingPage() {
     const labels = goals
       .map((id) => goalOptions.find((option) => option.id === id)?.label.replaceAll('_', ' '))
       .filter(Boolean)
-      .slice(0, 3);
     return labels.length ? labels.join(', ') : 'Sin prioridad';
   }
 
@@ -819,15 +838,13 @@ export function OnboardingPage() {
     const labels = anxietyTriggers
       .map((id) => triggerOptions.find((option) => option.id === id)?.label.replaceAll('_', ' '))
       .filter(Boolean)
-      .slice(0, 2);
     return labels.length ? labels.join(', ') : 'Sin momentos críticos';
   }
 
   function summaryTools(): string {
     const labels = toolPreferences
-      .map((id) => toolOptions.find((option) => option.id === id)?.label.split('_')[0])
-      .filter(Boolean)
-      .slice(0, 3);
+      .map((id) => toolOptions.find((option) => option.id === id)?.label.replaceAll('_', ' '))
+      .filter(Boolean);
     return labels.length ? labels.join(', ') : 'Dashboard completo';
   }
 
@@ -839,6 +856,15 @@ export function OnboardingPage() {
       weeklyCheckinEnabled ? 'Check-in semanal' : null,
     ].filter(Boolean);
     return items.length ? items.join(', ') : 'Desactivados';
+  }
+
+  function summaryContact(): string {
+    if (!contactEnabled || !contactName.trim() || !contactPhone.trim()) {
+      return 'Omitido';
+    }
+    return [contactName.trim(), contactPhone.trim(), contactRelationship.trim()]
+      .filter(Boolean)
+      .join(' · ');
   }
 }
 
@@ -855,7 +881,7 @@ function AuraBlobs() {
 function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
   return (
     <>
-      <nav className="fixed left-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b-[6px] border-black bg-[#f9f9f9] px-5 shadow-[6px_6px_0_#000] md:px-8">
+      <nav className="fixed left-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b-[5px] border-black bg-[#f9f9f9] px-5 shadow-[6px_6px_0_#000] md:px-8">
         <div className="font-headline text-3xl font-black leading-none">Aura AI</div>
         <button
           type="button"
@@ -865,22 +891,22 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           SALTAR_ONBOARDING
         </button>
       </nav>
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-5 pb-10 pt-20 text-center">
-        <div className="mx-auto flex max-w-[1100px] flex-col items-center">
-          <div className="mb-10 h-40 w-40 rounded-full border-[6px] border-black bg-gradient-to-tr from-[#8127CF] to-[#2DD4BF] shadow-[8px_8px_0_#000] md:h-56 md:w-56" />
-          <div className="mb-5 bg-[#2DD4BF] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#00574d]">
-            DURACIÓN_ESTIMADA: ~120_SEGUNDOS
+      <main className="relative z-10 flex h-dvh items-center justify-center overflow-y-auto px-5 pb-8 pt-20 text-center">
+        <div className="mx-auto flex max-w-[1000px] flex-col items-center">
+          <EqualizerOrb />
+          <div className="mb-4 mt-6 bg-[#2DD4BF] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#00574d]">
+            DURACIÓN_ESTIMADA: DOS_MINUTOS
           </div>
           <h1 className="aura-onboarding-title">
             BIENVENIDO_A_TU_REFUGIO
           </h1>
-          <p className="aura-screen-copy mx-auto mt-6 max-w-3xl">
+          <p className="aura-screen-copy mx-auto mt-5 max-w-3xl">
             Vamos a conocerte en 2 minutos. Sin prisas. Sin juicios.
           </p>
           <button
             type="button"
             onClick={onStart}
-            className="mt-10 w-full max-w-md border-4 border-black bg-gradient-to-r from-[#8127CF] to-[#A93349] px-8 py-5 font-headline text-2xl font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] md:text-3xl"
+            className="mt-7 w-full max-w-md border-4 border-black bg-gradient-to-r from-[#8127CF] to-[#A93349] px-8 py-4 font-headline text-xl font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] md:text-2xl"
           >
             COMENZAR_VIAJE
           </button>
@@ -890,6 +916,19 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
         </div>
       </main>
     </>
+  );
+}
+
+function EqualizerOrb() {
+  return (
+    <div className="aura-eq-orb" aria-hidden="true">
+      <div className="aura-eq-orb__glow" />
+      <div className="aura-eq-orb__bars">
+        {Array.from({ length: 13 }, (_, index) => (
+          <span key={index} style={{ animationDelay: `${index * 90}ms` }} />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -905,7 +944,7 @@ function TopBar({
   onSkip: () => void;
 }) {
   return (
-    <nav className="relative z-40 flex h-16 items-center justify-between gap-4 border-b-[6px] border-black bg-[#f9f9f9] px-5 md:px-7">
+    <nav className="relative z-40 flex h-14 items-center justify-between gap-4 border-b-[5px] border-black bg-[#f9f9f9] px-5 md:px-7">
       <div className="shrink-0 font-headline text-3xl font-black leading-none">Aura AI</div>
       {final ? (
         <span className="font-mono text-sm font-black uppercase tracking-[0.2em] text-[#8127CF]">
@@ -946,7 +985,7 @@ function Footer({
   onBack: () => void;
 }) {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-[74px] items-center justify-between gap-3 border-t-[6px] border-black bg-[#f9f9f9] px-5 md:px-8">
+    <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-[68px] items-center justify-between gap-3 border-t-[5px] border-black bg-[#f9f9f9] px-5 md:px-8">
       <button
         type="button"
         onClick={onBack}
@@ -1035,11 +1074,11 @@ function NotificationCard({
   children: ReactNode;
 }) {
   return (
-    <article className="border-0 bg-white p-6 shadow-[6px_6px_0_#000]">
+    <article className="border-4 border-black bg-white p-5 shadow-[6px_6px_0_#000]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           {icon}
-          <h2 className="break-words font-headline text-2xl font-black uppercase leading-none">
+          <h2 className="break-words font-headline text-xl font-black uppercase leading-none">
             {title.replace('_', '_\n').split('\n').map((part) => (
               <span key={part} className="block">
                 {part}
@@ -1051,12 +1090,15 @@ function NotificationCard({
           type="button"
           onClick={onToggle}
           aria-pressed={enabled}
-          className="relative h-9 w-16 shrink-0 border-4 border-black bg-white"
+          className={cn(
+            'relative h-9 w-16 shrink-0 border-4 border-black',
+            enabled ? 'bg-[#2DD4BF]' : 'bg-white',
+          )}
         >
           <span
             className={cn(
               'absolute top-0 h-7 w-7 bg-[#A855F7] transition-transform',
-              enabled ? 'left-0 translate-x-0' : 'right-0 bg-white',
+              enabled ? 'right-0' : 'left-0 bg-white',
             )}
           />
         </button>
@@ -1083,17 +1125,17 @@ function SmallAccentButton({ active, children }: { active?: boolean; children: R
 function SummaryBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="break-words font-mono text-xs font-black uppercase tracking-[0.14em] text-[#2DD4BF]">
+      <div className="break-words font-mono text-[10px] font-black uppercase tracking-[0.14em] text-[#2DD4BF]">
         {label}
       </div>
-      <div className="mt-2 break-words text-lg leading-7">{value}</div>
+      <div className="mt-1 break-words text-base leading-6">{value}</div>
     </div>
   );
 }
 
 function Badge({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-3 bg-white px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.1em] shadow-[6px_6px_0_#000]">
+    <span className="inline-flex items-center gap-2 bg-white px-4 py-2 font-mono text-[10px] font-black uppercase tracking-[0.1em] shadow-[5px_5px_0_#000]">
       {icon}
       {children}
     </span>

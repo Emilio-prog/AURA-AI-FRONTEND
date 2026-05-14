@@ -23,7 +23,7 @@ export interface DashboardNavEntry {
 export const DASHBOARD_NAV: DashboardNavEntry[] = [
   { id: 'inicio', path: '/dashboard', label: 'INICIO_', icon: Home },
   { id: 'sos', path: '/dashboard/sos', label: 'BOTÓN_SOS', icon: Siren, isSOS: true },
-  { id: 'chatbot', path: '/dashboard/chatbot', label: 'CHATBOT_IA', icon: Bot },
+  { id: 'chatbot', path: '/dashboard/chatbot', label: 'AURA IA', icon: Bot },
   { id: 'mood', path: '/dashboard/mood', label: 'MOOD_TRACKER', icon: Smile },
   { id: 'juegos', path: '/dashboard/juegos', label: 'MINIJUEGOS', icon: Gamepad2 },
   { id: 'sonidos', path: '/dashboard/sonidos', label: 'AMBIENTES_SONOROS', icon: Headphones },

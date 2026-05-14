@@ -16,6 +16,21 @@ import {
 import { createMoodLog, listMoodLogs } from '@/services/mood';
 import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
 import { createChatSession, sendChatMessage } from '@/services/chatbot';
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushConfig,
+  getPushPermissionState,
+  isPushSupported,
+  sendPushTest,
+} from '@/services/pushNotifications';
+import {
+  getGoogleOAuthStatus,
+  startGoogleLink,
+  unlinkGoogleOAuth,
+} from '@/services/googleAuth';
+import { triggerPanic } from '@/services/panic';
+import { deleteCurrentAccount, exportUserDataJson, exportUserDataPdf } from '@/services/users';
 import i18n from '@/i18n';
 
 /* ── CONSTANTS ──
@@ -38,7 +53,7 @@ const BORDE = '4px solid var(--aura-fg)',
 const NAV = [
   { id: 'inicio', icon: 'home', label: 'INICIO_', labelKey: 'dashboard.nav.inicio' },
   { id: 'sos', icon: 'emergency', label: 'BOTÓN_SOS', labelKey: 'dashboard.nav.sos', sos: true },
-  { id: 'chatbot', icon: 'smart_toy', label: 'CHATBOT_IA', labelKey: 'dashboard.nav.chatbot' },
+  { id: 'chatbot', icon: 'smart_toy', label: 'AURA IA', labelKey: 'dashboard.nav.chatbot' },
   { id: 'mood', icon: 'mood', label: 'MOOD_TRACKER', labelKey: 'dashboard.nav.mood' },
   { id: 'juegos', icon: 'sports_esports', label: 'MINIJUEGOS', labelKey: 'dashboard.nav.juegos' },
   {
@@ -222,10 +237,209 @@ const emptyContact = {
 const backendErrorMessage = (error) =>
   error?.response?.data?.message || error?.message || 'No se pudo completar la operacion.';
 
+function usePushNotificationState() {
+  const [supported, setSupported] = useState(false);
+  const [permission, setPermission] = useState('unsupported');
+  const [enabled, setEnabled] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    const browserSupported = isPushSupported();
+    setSupported(browserSupported);
+    setPermission(getPushPermissionState());
+    if (!browserSupported) {
+      setEnabled(false);
+      setSubscribed(false);
+      setLoading(false);
+      return;
+    }
+    try {
+      const config = await getPushConfig();
+      setEnabled(Boolean(config.enabled && config.publicKey));
+      setSubscribed(Boolean(config.subscribed));
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return undefined;
+    }
+    const onPushMessage = (event: MessageEvent) => {
+      if (event.data?.source === 'aura-push') {
+        setMessage(`PUSH_RECIBIDO: ${event.data.body || 'Notificación recibida.'}`);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onPushMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onPushMessage);
+  }, []);
+
+  const activate = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await enablePushNotifications();
+      setMessage('PUSH_ACTIVADO');
+      await refresh();
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+      setPermission(getPushPermissionState());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deactivate = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await disablePushNotifications();
+      setMessage('PUSH_DESACTIVADO');
+      await refresh();
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      try {
+        await sendPushTest();
+      } catch {
+        await enablePushNotifications();
+        await refresh();
+        await sendPushTest();
+      }
+      setMessage('PUSH_TEST_ENVIADO');
+    } catch (err) {
+      setError(`ERR_PUSH: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return {
+    supported,
+    permission,
+    enabled,
+    subscribed,
+    loading,
+    busy,
+    message,
+    error,
+    activate,
+    deactivate,
+    test,
+  };
+}
+
 const currentDayKey = () => new Date().toISOString().slice(0, 10);
 
-const fireAchievementEvent = (type, metadata = {}) =>
-  recordAchievementEvent(type, `${type}:${currentDayKey()}`, metadata).catch(() => null);
+const ACHIEVEMENT_SEEN_STORAGE_KEY = 'aura.achievements.seen';
+
+const unlockedAchievements = (data) =>
+  (data?.achievements ?? []).filter((achievement) => achievement?.unlocked && achievement?.code);
+
+const readSeenAchievementCodes = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ACHIEVEMENT_SEEN_STORAGE_KEY) || '[]'));
+  } catch {
+    return new Set();
+  }
+};
+
+const writeSeenAchievementCodes = (codes) => {
+  localStorage.setItem(ACHIEVEMENT_SEEN_STORAGE_KEY, JSON.stringify([...codes]));
+};
+
+const notifyAchievementUnlocks = (achievements, unlockedAfter) => {
+  const fresh = achievements.filter((achievement) => {
+    if (!achievement.unlockedAt || !unlockedAfter) return true;
+    return new Date(achievement.unlockedAt).getTime() >= unlockedAfter;
+  });
+  if (!fresh.length) return;
+  const body =
+    fresh.length === 1
+      ? `Enhorabuena, has desbloqueado: ${fresh[0].title}.`
+      : `Enhorabuena, has desbloqueado ${fresh.length} logros nuevos.`;
+  window.dispatchEvent(new CustomEvent('aura-achievement-unlocked', {
+    detail: {
+      title: 'LOGRO_DESBLOQUEADO',
+      body,
+      achievements: fresh,
+    },
+  }));
+  if (getPushPermissionState() !== 'granted') return;
+  try {
+    const options = {
+      body,
+      tag: `aura-achievement-${fresh.map((achievement) => achievement.code).join('-')}`,
+      data: { url: '/#/dashboard/logros' },
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then((registration) => registration.showNotification('AURA IA', options))
+        .catch(() => new Notification('AURA IA', options));
+    } else {
+      new Notification('AURA IA', options);
+    }
+  } catch {
+    // La notificación del navegador es un extra visual; nunca debe romper el flujo.
+  }
+};
+
+const syncAchievementUnlockState = (data, { notify = false, unlockedAfter = 0 } = {}) => {
+  const unlocked = unlockedAchievements(data);
+  const seen = readSeenAchievementCodes();
+  const newlyUnlocked = unlocked.filter((achievement) => !seen.has(achievement.code));
+  const recentlyUnlocked = notify
+    ? unlocked.filter((achievement) => {
+        if (!seen.has(achievement.code) || !achievement.unlockedAt || !unlockedAfter) return false;
+        return new Date(achievement.unlockedAt).getTime() >= unlockedAfter;
+      })
+    : [];
+  const notifyTargets = [...new Map([...newlyUnlocked, ...recentlyUnlocked].map((achievement) => [achievement.code, achievement])).values()];
+  unlocked.forEach((achievement) => seen.add(achievement.code));
+  writeSeenAchievementCodes(seen);
+  if (notify) notifyAchievementUnlocks(notifyTargets, unlockedAfter);
+  window.dispatchEvent(new CustomEvent('aura-achievements-updated', { detail: data }));
+  return data;
+};
+
+const refreshAchievementsForNotifications = (unlockedAfter = Date.now() - 1000) =>
+  getAchievements()
+    .then((data) => syncAchievementUnlockState(data, { notify: true, unlockedAfter }))
+    .catch(() => null);
+
+const fireAchievementEvent = (type, metadata = {}) => {
+  const startedAt = Date.now() - 1000;
+  return recordAchievementEvent(type, `${type}:${currentDayKey()}`, metadata)
+    .then((data) =>
+      syncAchievementUnlockState(data, {
+        notify: true,
+        unlockedAfter: startedAt,
+      }),
+    )
+    .catch(() => null);
+};
 
 const moodByLabel = (label) =>
   MOOD_OPTIONS.find((item) => item.label === label) ?? MOOD_OPTIONS.find((item) => item.label === 'NEUTRAL');
@@ -277,6 +491,42 @@ const panelContactToRequest = (contact, priority = 1) => ({
   available: Boolean(contact.available),
   sosEnabled: Boolean(contact.sosAuto),
 });
+
+const SOS_MANUAL_MESSAGE = 'AURA IA: necesito apoyo ahora. Puedes llamarme o escribirme?';
+
+const normalizePhoneForUri = (phone = '') =>
+  String(phone)
+    .trim()
+    .replace(/[^\d+]/g, '')
+    .replace(/(?!^)\+/g, '');
+
+const normalizePhoneForWhatsapp = (phone = '') =>
+  normalizePhoneForUri(phone).replace(/^\+/, '').replace(/^00/, '');
+
+const buildManualSosLinks = (phone, message = SOS_MANUAL_MESSAGE) => {
+  const smsPhone = normalizePhoneForUri(phone);
+  const whatsappPhone = normalizePhoneForWhatsapp(phone);
+  return {
+    sms: smsPhone ? `sms:${smsPhone}` : '',
+    whatsapp: whatsappPhone ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}` : '',
+  };
+};
+
+const copyToClipboard = async (text) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+};
 
 const backendChatToPanel = (message, index) => ({
   id: `${message?.role ?? 'message'}_${message?.timestamp ?? index}`,
@@ -931,7 +1181,7 @@ function SoundPlayerCard() {
 /* ── QUICK ACCESS ROW ── */
 function QuickAccess({ setSection, openBreathing }) {
   const items = [
-    { icon: 'smart_toy', l: 'CHATBOT_IA', sec: 'chatbot', c: M, bg: ML },
+    { icon: 'smart_toy', l: 'AURA IA', sec: 'chatbot', c: M, bg: ML },
     { icon: 'sports_esports', l: 'MINIJUEGOS', sec: 'juegos', c: T, bg: TL },
     { icon: 'book_2', l: 'DIARIO', sec: 'diario', c: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
     { icon: 'air', l: 'RESPIRACIÓN_GUIADA', sec: null, action: openBreathing, c: CR, bg: CL },
@@ -1089,11 +1339,17 @@ function useAchievementsData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options = {}) => {
     setLoading(true);
     setError('');
     try {
-      setData(await getAchievements());
+      const next = await getAchievements();
+      setData(
+        syncAchievementUnlockState(next, {
+          notify: Boolean(options.notify),
+          unlockedAfter: Date.now() - 60_000,
+        }),
+      );
     } catch (err) {
       setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
     } finally {
@@ -1104,6 +1360,14 @@ function useAchievementsData() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const onAchievementsUpdated = (event) => {
+      if (event.detail) setData(event.detail);
+    };
+    window.addEventListener('aura-achievements-updated', onAchievementsUpdated);
+    return () => window.removeEventListener('aura-achievements-updated', onAchievementsUpdated);
+  }, []);
 
   return { data, loading, error, refresh };
 }
@@ -1179,7 +1443,7 @@ function AchievementsView() {
             DESBLOQUEOS_MOTIVACIONALES · {data.unlocked}/{data.total}
           </div>
         </div>
-        <button onClick={refresh} className="btn" style={{ fontSize: 10 }}>
+        <button onClick={() => refresh({ notify: true })} className="btn" style={{ fontSize: 10 }}>
           RECALCULAR
         </button>
       </div>
@@ -1248,12 +1512,112 @@ function AchievementsView() {
   );
 }
 
+function PushOptInBanner() {
+  const push = usePushNotificationState();
+  if (push.loading || !push.supported || !push.enabled || push.permission === 'granted') {
+    return null;
+  }
+  return (
+    <div className="bento">
+      <div
+        className="bc c12"
+        style={{
+          background: ML,
+          border: BORDE,
+          boxShadow: SOMBRA_SM,
+          padding: 18,
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          gap: 14,
+          alignItems: 'center',
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: 'Space Mono', fontWeight: 800, fontSize: 11 }}>
+            RECORDATORIOS_PUSH
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+            Activa avisos privados para mood, diario y logros. Nunca mostramos contenido sensible.
+          </div>
+          {push.error && (
+            <div className="chip chip-coral" style={{ marginTop: 10 }}>
+              {push.error}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={push.activate}
+          disabled={push.busy}
+          className="btn btn-morado"
+          style={{ fontSize: 10, whiteSpace: 'nowrap' }}
+        >
+          {push.busy ? 'Activando...' : 'Activar notificaciones'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PushNotificationSettings() {
+  const push = usePushNotificationState();
+  if (push.loading) {
+    return <div className="chip">CARGANDO_PUSH...</div>;
+  }
+  if (!push.supported) {
+    return <div className="chip chip-coral">ERR_PUSH: navegador no compatible</div>;
+  }
+  if (!push.enabled) {
+    return <div className="chip chip-coral">ERR_PUSH: servicio no configurado</div>;
+  }
+  return (
+    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <span className={push.permission === 'granted' ? 'chip chip-turquesa' : 'chip'}>
+          PERMISO_{String(push.permission).toUpperCase()}
+        </span>
+        <span className={push.subscribed ? 'chip chip-turquesa' : 'chip chip-coral'}>
+          {push.subscribed ? 'SUSCRIPCIÓN_ACTIVA' : 'SIN_SUSCRIPCIÓN'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          onClick={push.activate}
+          disabled={push.busy}
+          className="btn btn-morado"
+          style={{ fontSize: 10 }}
+        >
+          {push.subscribed ? 'Renovar permiso' : 'Activar notificaciones'}
+        </button>
+        <button
+          onClick={push.test}
+          disabled={push.busy}
+          className="btn"
+          style={{ fontSize: 10, background: T, color: K }}
+        >
+          Enviar prueba
+        </button>
+        <button
+          onClick={push.deactivate}
+          disabled={push.busy || !push.subscribed}
+          className="btn btn-coral"
+          style={{ fontSize: 10 }}
+        >
+          Desactivar notificaciones
+        </button>
+      </div>
+      {push.message && <div className="chip chip-turquesa">{push.message}</div>}
+      {push.error && <div className="chip chip-coral">{push.error}</div>}
+    </div>
+  );
+}
+
 /* ── DASHBOARD VIEW ── */
 function DashboardView({ setSection, openBreathing }) {
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'fadeUp .3s ease' }}
     >
+      <PushOptInBanner />
       <div className="bento">
         <HeroBentoCard />
         <SOSBentoCard openBreathing={openBreathing} />
@@ -1277,12 +1641,54 @@ function DashboardView({ setSection, openBreathing }) {
 }
 
 /* ── SOS VIEW ── */
+function ManualSosFallback({ contact, message = SOS_MANUAL_MESSAGE }) {
+  const links = buildManualSosLinks(contact.phone, message);
+
+  if (!links.sms && !links.whatsapp) return null;
+
+  return (
+    <div
+      style={{
+        border: '3px solid #000',
+        background: ML,
+        padding: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        maxWidth: 420,
+        boxShadow: '4px 4px 0 #000',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {links.whatsapp && (
+          <a
+            className="btn btn-turquesa"
+            href={links.whatsapp}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 9, padding: '8px 12px', textDecoration: 'none' }}
+          >
+            AVISAR_WHATSAPP
+          </a>
+        )}
+        {links.sms && (
+          <a
+            className="btn"
+            href={links.sms}
+            style={{ fontSize: 9, padding: '8px 12px', textDecoration: 'none' }}
+          >
+            ENVIAR_SMS
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SOSView({ openBreathing }) {
-  const contacts = [
-    { name: 'Ana López', rol: 'HERMANA', e: '👩', avail: true, phone: '+34600111222' },
-    { name: 'Dr. Carlos Ruiz', rol: 'PSICÓLOGO', e: '👨‍⚕️', avail: true, phone: '+34600666777' },
-    { name: 'Marco Sánchez', rol: 'AMIGO', e: '👨', avail: false, phone: '+34600999888' },
-  ];
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [sosError, setSosError] = useState('');
   const emergencyNumbers = [
     {
       label: 'EMERGENCIAS',
@@ -1315,9 +1721,58 @@ function SOSView({ openBreathing }) {
     },
   ];
   const [sent, setSent] = useState({});
+  const [introActive, setIntroActive] = useState(true);
+  const loadContacts = useCallback(async () => {
+    setLoadingContacts(true);
+    setSosError('');
+    try {
+      const items = await listContacts();
+      setContacts(items.map(backendContactToPanel));
+    } catch (err) {
+      setSosError(`ERR_SOS: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoadingContacts(false);
+    }
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIntroActive(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    void loadContacts();
+  }, [loadContacts]);
+  const sendSos = async (contact) => {
+    if (!contact.available || !contact.sosAuto) return;
+    setSent((current) => ({ ...current, [contact.id]: 'ENVIANDO' }));
+    setSosError('');
+    try {
+      const alert = await triggerPanic({
+        contactId: contact.id,
+        contextJson: { source: 'dashboard_sos', contactName: contact.name },
+      });
+      const notification = alert.notifications?.find((item) => item.contactId === contact.id);
+      if (notification?.status === 'FAILED') {
+        setSent((current) => ({ ...current, [contact.id]: 'MANUAL_READY' }));
+        setSosError(`ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`);
+        return;
+      }
+      setSent((current) => ({
+        ...current,
+        [contact.id]: notification?.status === 'MOCKED' ? 'MANUAL_READY' : 'SMS_ENVIADO',
+      }));
+    } catch (err) {
+      setSent((current) => ({ ...current, [contact.id]: 'ERROR' }));
+      setSosError(`ERR_SOS: ${backendErrorMessage(err)}`);
+    }
+  };
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'column', gap: 18, animation: 'fadeUp .3s ease' }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 18,
+        animation: 'fadeUp .3s ease, auraSosViewSnap .62s ease-out',
+      }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -1330,13 +1785,60 @@ function SOSView({ openBreathing }) {
       </div>
       <div
         className="bc"
-        style={{ textAlign: 'center', padding: 48, position: 'relative', overflow: 'hidden' }}
+        style={{
+          textAlign: 'center',
+          padding: 48,
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: introActive ? '12px 12px 0 0 #FB7185' : SOMBRA,
+          transition: 'box-shadow .35s ease',
+        }}
       >
         <div style={{ position: 'absolute', inset: 0, background: CL, zIndex: 0 }} />
         <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: '-35%',
+              top: 0,
+              width: '28%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(45,212,191,0.46), transparent)',
+              animation: introActive ? 'auraSosScan .9s ease-out 1' : 'none',
+            }}
+          />
+          <div
+            className="mono"
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 16,
+              border: '3px solid #000',
+              background: introActive ? CR : W,
+              color: introActive ? W : K,
+              padding: '5px 10px',
+              fontSize: 9,
+              fontWeight: 900,
+              boxShadow: '4px 4px 0 #000',
+              transition: 'background .25s ease, color .25s ease',
+            }}
+          >
+            {introActive ? 'SOS_ACTIVADO' : 'MODO_CONTENCIÓN'}
+          </div>
+        </div>
+        <div
           style={{
             position: 'relative',
-            zIndex: 1,
+            zIndex: 2,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -1391,9 +1893,12 @@ function SOSView({ openBreathing }) {
                 gap: 6,
                 position: 'relative',
                 zIndex: 1,
+                animation: introActive
+                  ? 'auraSosButtonAlarm 1.05s ease-out 1, auraSosBreath 3.4s ease-in-out 1.05s infinite'
+                  : 'auraSosBreath 3.4s ease-in-out infinite',
                 transition: 'transform .15s',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.06)')}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.12)')}
               onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
               aria-label="Activar respiración guiada - Botón SOS"
             >
@@ -1470,10 +1975,20 @@ function SOSView({ openBreathing }) {
         <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em', marginBottom: 12 }}>
           CONTACTOS_DE_CONFIANZA
         </div>
+        {loadingContacts && <div className="chip">CARGANDO_CONTACTOS...</div>}
+        {sosError && <div className="chip chip-coral" style={{ marginBottom: 10 }}>{sosError}</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {contacts.map(({ name, rol, e, avail, phone }) => (
+          {!loadingContacts && contacts.length === 0 && (
+            <div className="bc" style={{ padding: 16 }}>
+              <div className="lbl">SIN_CONTACTOS_SOS</div>
+              <div style={{ marginTop: 6, fontSize: 13 }}>
+                Añade contactos de confianza desde la sección Contactos para poder avisar por SOS.
+              </div>
+            </div>
+          )}
+          {contacts.map(({ id, name, role, emoji, available, phone, sosAuto }) => (
             <div
-              key={name}
+              key={id}
               className="bc"
               style={{
                 flexDirection: 'row',
@@ -1496,34 +2011,54 @@ function SOSView({ openBreathing }) {
                   flexShrink: 0,
                 }}
               >
-                {e}
+                {emoji}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{name}</div>
                 <div className="lbl" style={{ fontSize: 9, marginTop: 2 }}>
-                  {rol} ·{' '}
-                  <span style={{ color: avail ? T : CR }}>{avail ? 'DISPONIBLE' : 'OCUPADO'}</span>
+                  {role} ·{' '}
+                  <span style={{ color: available && sosAuto ? T : CR }}>
+                    {available && sosAuto ? 'SOS_ACTIVO' : 'NO_DISPONIBLE_PARA_SMS'}
+                  </span>
                   {' · '}
                   <span>{phone}</span>
                 </div>
               </div>
-              <div
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
-              >
-                <a
-                  className="btn btn-negro"
-                  href={`tel:${phone}`}
-                  style={{ fontSize: 10, textDecoration: 'none' }}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                <div
+                  style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
                 >
-                  LLAMAR
-                </a>
-                <button
-                  onClick={() => setSent((s) => ({ ...s, [name]: true }))}
-                  className={`btn ${sent[name] ? 'btn-turquesa' : 'btn-coral'}`}
-                  style={{ fontSize: 10 }}
-                >
-                  {sent[name] ? '✓ SOS_ENVIADO' : 'ENVIAR_SOS'}
-                </button>
+                  <a
+                    className="btn btn-negro"
+                    href={`tel:${normalizePhoneForUri(phone)}`}
+                    style={{ fontSize: 10, textDecoration: 'none' }}
+                  >
+                    LLAMAR
+                  </a>
+                  <button
+                    onClick={() => sendSos({ id, name, role, emoji, available, phone, sosAuto })}
+                    disabled={!available || !sosAuto || sent[id] === 'ENVIANDO'}
+                    className={`btn ${
+                      sent[id] === 'SMS_ENVIADO'
+                        ? 'btn-turquesa'
+                        : sent[id] === 'MANUAL_READY'
+                          ? 'btn-morado'
+                          : 'btn-coral'
+                    }`}
+                    style={{ fontSize: 10 }}
+                  >
+                    {sent[id] === 'ENVIANDO'
+                      ? 'ENVIANDO'
+                      : sent[id] === 'SMS_ENVIADO'
+                        ? `✓ ${sent[id]}`
+                        : sent[id] === 'MANUAL_READY'
+                          ? 'ENVIAR_SOS'
+                          : 'ENVIAR_SOS'}
+                  </button>
+                </div>
+                {sent[id] === 'MANUAL_READY' && (
+                  <ManualSosFallback contact={{ id, name, role, emoji, available, phone, sosAuto }} />
+                )}
               </div>
             </div>
           ))}
@@ -1627,6 +2162,7 @@ function ChatbotView() {
   const send = async (text) => {
     const t = (text || inp).trim();
     if (!t || isBusy || !sessionId) return;
+    const startedAt = Date.now() - 1000;
     const userId = `user_${Date.now()}`;
     const optimisticMessages = [...msgs, { id: userId, from: 'user', text: t, riskLevel: 'low' }];
     setMsgs(optimisticMessages);
@@ -1637,6 +2173,7 @@ function ChatbotView() {
     window.clearInterval(streamRef.current);
     try {
       const session = await sendChatMessage(sessionId, t);
+      void refreshAchievementsForNotifications(startedAt);
       const backendMessages = panelMessagesFromChatSession(session);
       const assistantIndex = backendMessages.map((message) => message.from).lastIndexOf('ai');
       if (assistantIndex >= 0) {
@@ -1933,7 +2470,14 @@ function MoodTrackerView() {
     let active = true;
     setLoading(true);
     setError('');
-    listMoodLogs(120)
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(to.getDate() - range + 1);
+    listMoodLogs({
+      size: range,
+      from: from.toISOString(),
+      to: to.toISOString(),
+    })
       .then((page) => {
         if (!active) return;
         setHistory((page.content ?? []).map(backendMoodToPanel).sort((a, b) => new Date(a.date) - new Date(b.date)));
@@ -1943,9 +2487,10 @@ function MoodTrackerView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [range]);
   const saveSession = async () => {
     const today = new Date();
+    const startedAt = Date.now() - 1000;
     setError('');
     try {
       const savedLog = await createMoodLog({
@@ -1957,6 +2502,7 @@ function MoodTrackerView() {
       const next = backendMoodToPanel(savedLog);
       setHistory((items) => [...items, next].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-120));
       setSessionSaved(true);
+      void refreshAchievementsForNotifications(startedAt);
       setTimeout(() => setSessionSaved(false), 1800);
     } catch (err) {
       setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
@@ -3620,10 +4166,121 @@ function GameMemoria() {
 }
 
 /* ── SONIDOS VIEW ── */
+const soundModeGain = (mode) => (mode === 'DORMIR' ? 0.55 : mode === 'MEDITAR' ? 0.72 : 0.82);
+
+function createNoiseBuffer(ctx, type) {
+  const seconds = 3;
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let brown = 0;
+  for (let i = 0; i < data.length; i += 1) {
+    const white = Math.random() * 2 - 1;
+    if (type === 'brown') {
+      brown = (brown + 0.02 * white) / 1.02;
+      data[i] = brown * 3.5;
+    } else {
+      data[i] = white;
+    }
+  }
+  return buffer;
+}
+
+function attachFilter(ctx, source, soundId) {
+  const filter = ctx.createBiquadFilter();
+  if (soundId === 'lluvia') {
+    filter.type = 'bandpass';
+    filter.frequency.value = 2400;
+    filter.Q.value = 0.8;
+  } else if (soundId === 'oceano') {
+    filter.type = 'lowpass';
+    filter.frequency.value = 900;
+    filter.Q.value = 0.5;
+  } else if (soundId === 'bosque') {
+    filter.type = 'bandpass';
+    filter.frequency.value = 1800;
+    filter.Q.value = 1.2;
+  } else if (soundId === 'cafe') {
+    filter.type = 'bandpass';
+    filter.frequency.value = 650;
+    filter.Q.value = 0.7;
+  } else {
+    filter.type = 'lowpass';
+    filter.frequency.value = soundId === 'marron' ? 520 : 3600;
+    filter.Q.value = 0.4;
+  }
+  source.connect(filter);
+  return filter;
+}
+
+function startGeneratedSound(soundId, mode, volume) {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
+    return { stop: () => undefined, setVolume: () => undefined };
+  }
+  const ctx = new AudioCtx();
+  const master = ctx.createGain();
+  master.gain.value = Math.max(0, Math.min(1, volume / 100)) * soundModeGain(mode) * 0.24;
+  master.connect(ctx.destination);
+  const nodes = [];
+
+  if (soundId === '432hz' || soundId === '528hz') {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = soundId === '432hz' ? 432 : 528;
+    const pad = ctx.createOscillator();
+    pad.type = 'sine';
+    pad.frequency.value = soundId === '432hz' ? 216 : 264;
+    const padGain = ctx.createGain();
+    padGain.gain.value = 0.28;
+    osc.connect(master);
+    pad.connect(padGain);
+    padGain.connect(master);
+    osc.start();
+    pad.start();
+    nodes.push(osc, pad);
+  } else {
+    const source = ctx.createBufferSource();
+    source.buffer = createNoiseBuffer(ctx, soundId === 'marron' ? 'brown' : 'white');
+    source.loop = true;
+    const filter = attachFilter(ctx, source, soundId);
+    filter.connect(master);
+    source.start();
+    nodes.push(source);
+
+    if (soundId === 'oceano') {
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 0.16;
+      lfoGain.gain.value = 260;
+      lfo.connect(lfoGain);
+      lfoGain.connect(filter.frequency);
+      lfo.start();
+      nodes.push(lfo);
+    }
+  }
+
+  return {
+    setVolume: (nextVolume) => {
+      master.gain.setTargetAtTime(Math.max(0, Math.min(1, nextVolume / 100)) * soundModeGain(mode) * 0.24, ctx.currentTime, 0.05);
+    },
+    stop: () => {
+      nodes.forEach((node) => {
+        try {
+          node.stop();
+        } catch {
+          // Already stopped.
+        }
+      });
+      ctx.close().catch(() => undefined);
+    },
+  };
+}
+
 function SonidosView() {
   const [playing, setPlaying] = useState(null);
   const [vol, setVol] = useState(70);
   const [modo, setModo] = useState('FOCO');
+  const audioRef = useRef(null);
   const ambientes = [
     { id: 'lluvia', icon: '🌧️', l: 'LLUVIA_SUAVE', dur: '∞' },
     { id: 'oceano', icon: '🌊', l: 'OCÉANO', dur: '∞' },
@@ -3635,6 +4292,20 @@ function SonidosView() {
     { id: 'cafe', icon: '☕', l: 'CAFÉ_AMBIENTE', dur: '∞' },
   ];
   const modos = ['FOCO', 'DORMIR', 'MEDITAR'];
+  useEffect(() => {
+    audioRef.current?.stop();
+    audioRef.current = null;
+    if (playing) {
+      audioRef.current = startGeneratedSound(playing, modo, vol);
+    }
+    return () => {
+      audioRef.current?.stop();
+      audioRef.current = null;
+    };
+  }, [playing, modo]);
+  useEffect(() => {
+    audioRef.current?.setVolume(vol);
+  }, [vol]);
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp .3s ease' }}
@@ -3644,7 +4315,7 @@ function SonidosView() {
           AMBIENTES_SONOROS
         </div>
         <span className="chip chip-negro" style={{ fontSize: 9 }}>
-          MUTED · SIN_ARCHIVOS_AUDIO
+          WEB_AUDIO · SIN_TRACKING
         </span>
         <div style={{ display: 'flex', gap: 0, border: BORDE }}>
           {modos.map((m) => (
@@ -3738,7 +4409,7 @@ function SonidosView() {
               {ambientes.find((a) => a.id === playing)?.l}
             </div>
             <div className="lbl" style={{ color: 'var(--aura-fg-soft)', fontSize: 9, marginTop: 2 }}>
-              MODO_{modo} · UI_FUNCIONAL_MUTED
+              MODO_{modo} · AUDIO_GENERADO_EN_TU_NAVEGADOR
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -3875,6 +4546,7 @@ function DiarioView() {
   }, [loadEntries]);
   const saveEntry = async () => {
     if (!text.trim() && !mood) return;
+    const startedAt = Date.now() - 1000;
     const payload = {
       title: null,
       content: text.trim() || selectedMood?.label || 'Registro emocional',
@@ -3910,6 +4582,7 @@ function DiarioView() {
       setMood(null);
       setEntryTags([]);
       setTagDraft('');
+      if (!editingId) void refreshAchievementsForNotifications(startedAt);
       setTimeout(() => setSaved(false), 1800);
     } catch (err) {
       setError(`ERR_DIARY: ${backendErrorMessage(err)}`);
@@ -4384,6 +5057,7 @@ function ContactosView() {
   }, [loadContacts]);
   const saveContact = async () => {
     if (!form.name.trim() || !form.phone.trim()) return;
+    const startedAt = Date.now() - 1000;
     const next = {
       id: editingId ?? `contact_${Date.now().toString(36)}`,
       name: form.name.trim(),
@@ -4408,6 +5082,9 @@ function ContactosView() {
       setFormOpen(false);
       setEditingId(null);
       setForm(emptyContact);
+      if (panelContact.available && panelContact.sosAuto) {
+        void refreshAchievementsForNotifications(startedAt);
+      }
     } catch (err) {
       setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
     }
@@ -4432,11 +5109,39 @@ function ContactosView() {
     setContacts((items) => items.map((contact) => (contact.id === id ? next : contact)));
     setError('');
     try {
+      const startedAt = Date.now() - 1000;
       const savedContact = await updateContact(id, panelContactToRequest(next, next.priority));
       setContacts((items) => items.map((contact) => (contact.id === id ? backendContactToPanel(savedContact) : contact)));
+      if (next.available && next.sosAuto) {
+        void refreshAchievementsForNotifications(startedAt);
+      }
     } catch (err) {
       setContacts((items) => items.map((contact) => (contact.id === id ? current : contact)));
       setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+    }
+  };
+  const sendContactSos = async (contact) => {
+    if (!contact.available || !contact.sosAuto) return;
+    setSent((current) => ({ ...current, [contact.id]: 'ENVIANDO' }));
+    setError('');
+    try {
+      const alert = await triggerPanic({
+        contactId: contact.id,
+        contextJson: { source: 'contacts_view', contactName: contact.name },
+      });
+      const notification = alert.notifications?.find((item) => item.contactId === contact.id);
+      if (notification?.status === 'FAILED') {
+        setSent((current) => ({ ...current, [contact.id]: 'MANUAL_READY' }));
+        setError(`ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`);
+        return;
+      }
+      setSent((current) => ({
+        ...current,
+        [contact.id]: notification?.status === 'MOCKED' ? 'MANUAL_READY' : 'SMS_ENVIADO',
+      }));
+    } catch (err) {
+      setSent((current) => ({ ...current, [contact.id]: 'ERROR' }));
+      setError(`ERR_SOS: ${backendErrorMessage(err)}`);
     }
   };
 
@@ -4614,18 +5319,31 @@ function ContactosView() {
             </label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <a
-                href={`tel:${phone.replace(/\s+/g, '')}`}
+                href={`tel:${normalizePhoneForUri(phone)}`}
                 className="btn btn-negro"
                 style={{ fontSize: 10, padding: '8px 14px', textDecoration: 'none' }}
               >
                 LLAMAR
               </a>
               <button
-                onClick={() => setSent((s) => ({ ...s, [id]: true }))}
-                className={`btn ${sent[id] ? 'btn-turquesa' : 'btn-coral'}`}
+                onClick={() => sendContactSos({ id, name, role, emoji, phone, available, sosAuto })}
+                disabled={!available || !sosAuto || sent[id] === 'ENVIANDO'}
+                className={`btn ${
+                  sent[id] === 'SMS_ENVIADO'
+                    ? 'btn-turquesa'
+                    : sent[id] === 'MANUAL_READY'
+                      ? 'btn-morado'
+                      : 'btn-coral'
+                }`}
                 style={{ fontSize: 10, padding: '8px 14px' }}
               >
-                {sent[id] ? '✓ ENVIADO' : 'ENVIAR_SOS'}
+                {sent[id] === 'ENVIANDO'
+                  ? 'ENVIANDO'
+                  : sent[id] === 'SMS_ENVIADO'
+                    ? `✓ ${sent[id]}`
+                    : sent[id] === 'MANUAL_READY'
+                      ? 'ENVIAR_SOS'
+                    : 'ENVIAR_SOS'}
               </button>
               <button
                 onClick={() => startEdit({ id, name, role, emoji, phone, available, sosAuto })}
@@ -4642,6 +5360,9 @@ function ContactosView() {
                 BORRAR
               </button>
             </div>
+            {sent[id] === 'MANUAL_READY' && (
+              <ManualSosFallback contact={{ id, name, role, emoji, phone, available, sosAuto }} />
+            )}
           </div>
         </div>
       ))}
@@ -4664,11 +5385,15 @@ function ConfigView() {
   const [language, setLanguage] = useState(() => i18n.language?.split('-')[0] || 'es');
   const [profileSaved, setProfileSaved] = useState(false);
   const [dataMessage, setDataMessage] = useState('');
+  const [settingsError, setSettingsError] = useState('');
+  const [busySettings, setBusySettings] = useState('');
+  const [deleteForm, setDeleteForm] = useState({ confirmationText: '', currentPassword: '' });
   const [open, setOpen] = useState('PERFIL');
   const sections = [
     'PERFIL',
     'APARIENCIA_IDIOMA',
     'PRIVACIDAD_GDPR',
+    'GOOGLE',
     'NOTIFICACIONES',
     'PLAN_SUSCRIPCIÓN',
     'EXPORTAR_DATOS',
@@ -4681,13 +5406,16 @@ function ConfigView() {
       'Cambia idioma de interfaz y tema visual. Los cambios quedan guardados en localStorage.',
     PRIVACIDAD_GDPR:
       'Cumplimiento GDPR y AI Act. Datos cifrados en reposo y tránsito. Anonimización opcional. Exportación completa disponible.',
+    GOOGLE:
+      'Conecta Google para iniciar sesión sin contraseña. Los tokens de Google no se guardan en AURA.',
     NOTIFICACIONES:
-      'Recordatorio diario de mood: 20:00h · Alertas de racha: Activado · Sin notificaciones push nocturnas (22:00–09:00h)',
+      'Recordatorios privados de mood, diario y logros. El texto del diario y el estado emocional no aparecen en la notificación.',
     PLAN_SUSCRIPCIÓN: `Plan ${planLabel(profile.plan ?? panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
     EXPORTAR_DATOS:
-      'Descarga todos tus datos: historial de mood, entradas de diario, sesiones. Formato: JSON / PDF',
-    ELIMINAR_CUENTA: 'Borra el diario local de este navegador. No elimina la cuenta mock.',
-    SESIÓN: 'Cierra la sesión mock y limpia el token aura.token.',
+      'Descarga una copia de tus datos personales. Puedes elegir JSON o PDF.',
+    ELIMINAR_CUENTA:
+      'Elimina tu cuenta y todos tus datos de forma definitiva. Esta acción no se puede deshacer.',
+    SESIÓN: 'Cierra tu sesión en este dispositivo. Podrás volver a entrar cuando quieras.',
   };
   const saveProfile = () => {
     const next = {
@@ -4706,30 +5434,64 @@ function ConfigView() {
     i18n.changeLanguage(next);
     localStorage.setItem('aura.language', next);
   };
-  const exportDiary = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      profile,
-      diary: readLocalJSON(DIARY_STORAGE_KEY, []),
-      contacts: readLocalJSON(CONTACTS_STORAGE_KEY, []),
-    };
-    const content = JSON.stringify(payload, null, 2);
+  const downloadBlob = (content, filename, type) => {
     if (typeof URL !== 'undefined' && URL.createObjectURL) {
-      const blob = new Blob([content], { type: 'application/json' });
+      const blob = content instanceof Blob ? content : new Blob([content], { type });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aura-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     }
-    setDataMessage('EXPORT_COMPLETADO');
   };
-  const deleteDiary = () => {
-    localStorage.removeItem(DIARY_STORAGE_KEY);
-    setDataMessage('DIARIO_LOCAL_BORRADO');
+  const exportJson = async () => {
+    setBusySettings('export-json');
+    setSettingsError('');
+    try {
+      const payload = await exportUserDataJson();
+      downloadBlob(
+        JSON.stringify(payload, null, 2),
+        `aura-export-${new Date().toISOString().slice(0, 10)}.json`,
+        'application/json',
+      );
+      setDataMessage('EXPORT_JSON_COMPLETADO');
+    } catch (err) {
+      setSettingsError(`ERR_EXPORT: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusySettings('');
+    }
   };
-
+  const exportPdf = async () => {
+    setBusySettings('export-pdf');
+    setSettingsError('');
+    try {
+      const blob = await exportUserDataPdf();
+      downloadBlob(blob, `aura-export-${new Date().toISOString().slice(0, 10)}.pdf`, 'application/pdf');
+      setDataMessage('EXPORT_PDF_COMPLETADO');
+    } catch (err) {
+      setSettingsError(`ERR_EXPORT: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusySettings('');
+    }
+  };
+  const deleteAccount = async () => {
+    setBusySettings('delete-account');
+    setSettingsError('');
+    try {
+      await deleteCurrentAccount({
+        confirmationText: deleteForm.confirmationText,
+        currentPassword: deleteForm.currentPassword || undefined,
+      });
+      setDataMessage('CUENTA_ELIMINADA');
+      logout();
+    } catch (err) {
+      setSettingsError(`ERR_DELETE_ACCOUNT: ${backendErrorMessage(err)}`);
+    } finally {
+      setBusySettings('');
+    }
+  };
+  const deleteReady = deleteForm.confirmationText === 'ELIMINAR MI CUENTA';
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp .3s ease' }}
@@ -4831,23 +5593,72 @@ function ConfigView() {
                   </button>
                 </div>
               )}
+              {s === 'NOTIFICACIONES' && <PushNotificationSettings />}
+              {s === 'GOOGLE' && <GoogleAccountSettings />}
               {s === 'ELIMINAR_CUENTA' && (
-                <button
-                  onClick={deleteDiary}
-                  className="btn btn-coral"
-                  style={{ marginTop: 12, fontSize: 10 }}
-                >
-                  BORRAR_DIARIO_LOCAL
-                </button>
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div
+                    style={{
+                      border: `3px solid ${CR}`,
+                      background: CL,
+                      padding: 12,
+                      fontFamily: 'Space Mono',
+                      fontSize: 10,
+                      fontWeight: 900,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    ADVERTENCIA: se eliminarán diario, mood, chat, contactos, SOS, logros,
+                    notificaciones y acceso a la cuenta. No podremos recuperarlo.
+                  </div>
+                  <input
+                    aria-label="Confirmación eliminar cuenta"
+                    placeholder="Escribe: ELIMINAR MI CUENTA"
+                    value={deleteForm.confirmationText}
+                    onChange={(e) =>
+                      setDeleteForm((current) => ({ ...current, confirmationText: e.target.value }))
+                    }
+                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
+                  />
+                  <input
+                    aria-label="Contraseña actual para eliminar cuenta"
+                    placeholder="Contraseña actual (si tu cuenta tiene contraseña)"
+                    type="password"
+                    value={deleteForm.currentPassword}
+                    onChange={(e) =>
+                      setDeleteForm((current) => ({ ...current, currentPassword: e.target.value }))
+                    }
+                    style={{ border: BORDE, padding: '10px 12px', fontFamily: 'Space Mono' }}
+                  />
+                  <button
+                    onClick={deleteAccount}
+                    disabled={!deleteReady || busySettings === 'delete-account'}
+                    className="btn btn-coral"
+                    style={{ fontSize: 10, opacity: deleteReady ? 1 : 0.55 }}
+                  >
+                    {busySettings === 'delete-account' ? 'ELIMINANDO_CUENTA...' : 'ELIMINAR_CUENTA_DEFINITIVAMENTE'}
+                  </button>
+                </div>
               )}
               {s === 'EXPORTAR_DATOS' && (
-                <button
-                  onClick={exportDiary}
-                  className="btn"
-                  style={{ marginTop: 12, fontSize: 10, background: T, color: K }}
-                >
-                  DESCARGAR_MIS_DATOS →
-                </button>
+                <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={exportJson}
+                    disabled={busySettings === 'export-json'}
+                    className="btn"
+                    style={{ fontSize: 10, background: T, color: K }}
+                  >
+                    {busySettings === 'export-json' ? 'PREPARANDO_JSON...' : 'DESCARGAR_JSON'}
+                  </button>
+                  <button
+                    onClick={exportPdf}
+                    disabled={busySettings === 'export-pdf'}
+                    className="btn btn-morado"
+                    style={{ fontSize: 10 }}
+                  >
+                    {busySettings === 'export-pdf' ? 'PREPARANDO_PDF...' : 'DESCARGAR_PDF'}
+                  </button>
+                </div>
               )}
               {s === 'SESIÓN' && (
                 <button
@@ -4863,10 +5674,142 @@ function ConfigView() {
                   {dataMessage}
                 </div>
               )}
+              {settingsError && (s === 'EXPORTAR_DATOS' || s === 'ELIMINAR_CUENTA') && (
+                <div className="chip chip-coral" style={{ marginTop: 12 }}>
+                  {settingsError}
+                </div>
+              )}
             </div>
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function GoogleAccountSettings() {
+  const [status, setStatus] = useState({ linked: false, email: null, linkedAt: null });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  const errorMessage = (err, fallback) =>
+    err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback;
+
+  const loadStatus = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setStatus(await getGoogleOAuthStatus());
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo cargar el estado de Google.'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const next = await getGoogleOAuthStatus();
+        if (mounted) setStatus(next);
+      } catch (err) {
+        if (mounted) setError(errorMessage(err, 'No se pudo cargar el estado de Google.'));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const connect = async () => {
+    setBusy('connect');
+    setError('');
+    try {
+      const url = await startGoogleLink();
+      window.location.assign(url);
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo conectar Google.'));
+      setBusy('');
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy('disconnect');
+    setError('');
+    try {
+      await unlinkGoogleOAuth();
+      await loadStatus();
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo desconectar Google.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        className={status.linked ? 'chip chip-turquesa' : 'chip'}
+        style={{ width: 'fit-content' }}
+      >
+        {loading ? 'GOOGLE_VERIFICANDO' : status.linked ? 'GOOGLE_CONECTADO' : 'GOOGLE_NO_CONECTADO'}
+      </div>
+
+      {status.linked && (
+        <div className="mono" style={{ fontSize: 11, fontWeight: 700 }}>
+          EMAIL_GOOGLE: {status.email || 'SIN_EMAIL'}
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="mono"
+          role="alert"
+          style={{
+            border: '3px solid #000',
+            background: CR,
+            color: W,
+            padding: '8px 10px',
+            fontSize: 11,
+            fontWeight: 900,
+          }}
+        >
+          ERR_AUTH_GOOGLE: {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {!status.linked && (
+          <button
+            onClick={connect}
+            className="btn"
+            disabled={Boolean(busy)}
+            style={{ fontSize: 10, background: W, color: K }}
+          >
+            {busy === 'connect' ? 'CONECTANDO_GOOGLE' : 'CONECTAR_GOOGLE'}
+          </button>
+        )}
+        {status.linked && (
+          <button
+            onClick={disconnect}
+            className="btn btn-coral"
+            disabled={Boolean(busy)}
+            style={{ fontSize: 10 }}
+          >
+            {busy === 'disconnect' ? 'DESCONECTANDO_GOOGLE' : 'DESCONECTAR_GOOGLE'}
+          </button>
+        )}
+        <button onClick={loadStatus} className="btn btn-negro" style={{ fontSize: 10 }}>
+          RECARGAR_GOOGLE
+        </button>
+      </div>
     </div>
   );
 }
@@ -4907,7 +5850,7 @@ function BreathingModal({ onClose }) {
       fireAchievementEvent('BREATHING_COMPLETED', { protocol: '4-4-6' });
     }
   }, [cycle]);
-  const isExpand = pi === 0 || pi === 1;
+  const breathScale = pi === 0 ? 1.14 : pi === 1 ? 1.05 : 0.76;
   return (
     <div
       style={{
@@ -4945,9 +5888,9 @@ function BreathingModal({ onClose }) {
         <div
           style={{
             position: 'relative',
-            width: 180,
-            height: 180,
-            margin: '0 auto 36px',
+            width: 154,
+            height: 154,
+            margin: '0 auto 34px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -4957,26 +5900,37 @@ function BreathingModal({ onClose }) {
             style={{
               position: 'absolute',
               inset: 0,
-              borderRadius: '50%',
-              border: '4px solid #000',
-              background: `radial-gradient(circle, #fda4af 0%, ${CR} 100%)`,
-              transform: isExpand ? 'scale(1)' : 'scale(0.6)',
-              transition: `transform ${ph.dur}s ease-in-out`,
-              opacity: 0.9,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'auraBreathingFloat 2.35s ease-in-out infinite',
             }}
-          />
-          <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
-            <div style={{ fontSize: 40, fontWeight: 900, color: W, lineHeight: 1 }}>{count}</div>
+          >
             <div
-              className="mono"
               style={{
-                fontSize: 12,
-                color: 'rgba(255,255,255,0.9)',
-                fontWeight: 700,
-                marginTop: 4,
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                border: '4px solid #000',
+                background: `radial-gradient(circle, #fda4af 0%, ${CR} 100%)`,
+                transform: `scale(${breathScale})`,
+                transition: `transform ${ph.dur}s ease-in-out`,
+                opacity: 0.9,
               }}
-            >
-              {ph.name}
+            />
+            <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+              <div style={{ fontSize: 34, fontWeight: 900, color: W, lineHeight: 1 }}>{count}</div>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.9)',
+                  fontWeight: 700,
+                  marginTop: 4,
+                }}
+              >
+                {ph.name}
+              </div>
             </div>
           </div>
         </div>
@@ -4988,24 +5942,30 @@ function BreathingModal({ onClose }) {
             marginBottom: 24,
           }}
         >
-          {phases.map(({ name, dur }, i) => (
+          {phases.map(({ name, dur }, i) => {
+            const isActive = i === pi;
+            const displaySeconds = isActive ? count : dur;
+            return (
             <div
               key={name}
               style={{
-                border: `3px solid ${i === pi ? CR : K}`,
+                border: `3px solid ${isActive ? CR : K}`,
                 padding: '8px',
-                background: i === pi ? CL : W,
+                background: isActive ? CL : W,
               }}
             >
               <div
                 className="mono"
-                style={{ fontSize: 9, fontWeight: 700, color: i === pi ? CR : K }}
+                style={{ fontSize: 9, fontWeight: 700, color: isActive ? CR : K }}
               >
                 {name}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: i === pi ? CR : K }}>{dur}s</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: isActive ? CR : K }}>
+                {displaySeconds}s
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         <button
           onClick={onClose}
@@ -5166,6 +6126,8 @@ function AuraPanelApp() {
   );
   const [modal, setModal] = useState(null);
   const [tweaks, setTweaks] = useState(false);
+  const [achievementToast, setAchievementToast] = useState(null);
+  const achievementToastTimer = useRef();
   useEffect(() => {
     localStorage.setItem('aura-section', section);
   }, [section]);
@@ -5185,6 +6147,18 @@ function AuraPanelApp() {
     window.addEventListener('message', h);
     window.parent.postMessage({ type: '__edit_mode_available' }, '*');
     return () => window.removeEventListener('message', h);
+  }, []);
+  useEffect(() => {
+    const onAchievementUnlocked = (event) => {
+      window.clearTimeout(achievementToastTimer.current);
+      setAchievementToast(event.detail);
+      achievementToastTimer.current = window.setTimeout(() => setAchievementToast(null), 6500);
+    };
+    window.addEventListener('aura-achievement-unlocked', onAchievementUnlocked);
+    return () => {
+      window.clearTimeout(achievementToastTimer.current);
+      window.removeEventListener('aura-achievement-unlocked', onAchievementUnlocked);
+    };
   }, []);
   return (
     <div className="aura-panel-shell">
@@ -5218,6 +6192,40 @@ function AuraPanelApp() {
           </main>
         </div>
       </div>
+      {achievementToast && (
+        <button
+          type="button"
+          onClick={() => {
+            setAchievementToast(null);
+            selectSection('logros');
+          }}
+          style={{
+            position: 'fixed',
+            top: 54,
+            right: 28,
+            zIndex: 1200,
+            width: 'min(320px, calc(100vw - 32px))',
+            border: '3px solid var(--aura-fg)',
+            boxShadow: SOMBRA_SM,
+            backgroundColor: '#D8FFF8',
+            opacity: 1,
+            color: K,
+            padding: 12,
+            textAlign: 'left',
+            cursor: 'pointer',
+          }}
+        >
+          <div className="lbl lbl-turquesa" style={{ fontSize: 8, marginBottom: 6 }}>
+            {achievementToast.title ?? 'LOGRO_DESBLOQUEADO'}
+          </div>
+          <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
+            {achievementToast.body}
+          </div>
+          <div className="mono" style={{ marginTop: 7, fontSize: 8, color: 'var(--aura-fg-muted)' }}>
+            CLIC_PARA_VER_LOGROS
+          </div>
+        </button>
+      )}
       {modal === 'breathing' && <BreathingModal onClose={() => setModal(null)} />}
       <TweaksPanel visible={tweaks} />
     </div>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, RefreshCcw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import { GoogleLogo } from '@/components/brand/GoogleLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { DEMO_CREDENTIALS } from '@/data/users';
 import { AuthLayout } from './AuthLayout';
@@ -11,7 +12,7 @@ interface LocationState {
 }
 
 export function LoginPage() {
-  const { login, resendVerification } = useAuth();
+  const { login, resendVerification, startGoogleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as LocationState | null)?.from ?? '/dashboard';
@@ -21,11 +22,14 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setGoogleError(null);
     setResendMessage(null);
     setLoading(true);
     try {
@@ -35,6 +39,18 @@ export function LoginPage() {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleError(null);
+    setGoogleLoading(true);
+    try {
+      await startGoogleLogin();
+    } catch (err) {
+      setGoogleError(err instanceof Error ? err.message : 'No se pudo iniciar sesion con Google.');
+      setGoogleLoading(false);
     }
   };
 
@@ -76,6 +92,35 @@ export function LoginPage() {
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <Button
+          type="button"
+          variant="white"
+          size="lg"
+          loading={googleLoading}
+          leftIcon={<GoogleLogo />}
+          className="w-full justify-center"
+          onClick={handleGoogleLogin}
+        >
+          CONTINUAR_CON_GOOGLE
+        </Button>
+
+        {googleError && (
+          <div
+            role="alert"
+            className="border-3 border-brutal-coral bg-brutal-coral/10 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-brutal-coral"
+          >
+            ERR_AUTH_GOOGLE: {googleError}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <span className="h-0.5 flex-1 bg-brutal-black" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+            O_EMAIL
+          </span>
+          <span className="h-0.5 flex-1 bg-brutal-black" />
+        </div>
+
         <Input
           label="EMAIL_USUARIO"
           type="email"

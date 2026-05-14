@@ -2,6 +2,7 @@ import { useCallback, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus, Check } from 'lucide-react';
 import { Button, Input, TurnstileWidget } from '@/components/ui';
+import { GoogleLogo } from '@/components/brand/GoogleLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLayout } from './AuthLayout';
 
@@ -10,7 +11,7 @@ const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
 export function RegisterPage() {
-  const { register } = useAuth();
+  const { register, startGoogleLogin } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -21,7 +22,9 @@ export function RegisterPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleCaptchaVerify = useCallback((token: string) => setCaptchaToken(token), []);
   const handleCaptchaExpire = useCallback(() => setCaptchaToken(null), []);
@@ -29,6 +32,7 @@ export function RegisterPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setGoogleError(null);
 
     if (name.trim().length < 2) {
       setError('Nombre demasiado corto.');
@@ -73,6 +77,18 @@ export function RegisterPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleError(null);
+    setGoogleLoading(true);
+    try {
+      await startGoogleLogin();
+    } catch (err) {
+      setGoogleError(err instanceof Error ? err.message : 'No se pudo iniciar sesion con Google.');
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <AuthLayout
       badge="ID: REGISTRO_NUEVO"
@@ -88,6 +104,35 @@ export function RegisterPage() {
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <Button
+          type="button"
+          variant="white"
+          size="lg"
+          loading={googleLoading}
+          leftIcon={<GoogleLogo />}
+          className="w-full justify-center"
+          onClick={handleGoogleLogin}
+        >
+          CONTINUAR_CON_GOOGLE
+        </Button>
+
+        {googleError && (
+          <div
+            role="alert"
+            className="border-3 border-brutal-coral bg-brutal-coral/10 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-brutal-coral"
+          >
+            ERR_AUTH_GOOGLE: {googleError}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <span className="h-0.5 flex-1 bg-brutal-black" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+            O_EMAIL
+          </span>
+          <span className="h-0.5 flex-1 bg-brutal-black" />
+        </div>
+
         <Input
           label="NOMBRE_COMPLETO"
           type="text"

@@ -246,7 +246,7 @@ export function DevPlayground() {
                 label: 'BOTÓN_SOS',
                 sos: true,
               },
-              { id: 'chatbot', icon: <MessageCircle className="h-4 w-4" />, label: 'CHATBOT_IA' },
+              { id: 'chatbot', icon: <MessageCircle className="h-4 w-4" />, label: 'AURA IA' },
               { id: 'mood', icon: <Activity className="h-4 w-4" />, label: 'MOOD_TRACKER' },
               { id: 'juegos', icon: <Gamepad2 className="h-4 w-4" />, label: 'MINIJUEGOS' },
               { id: 'sonidos', icon: <Music className="h-4 w-4" />, label: 'AMBIENTES_SONOROS' },

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { httpClient } from '@/services/httpClient';
+import { exchangeGoogleCode, startGoogleLogin as requestGoogleLoginUrl } from '@/services/googleAuth';
 import { writeJSON, remove, STORAGE_KEYS } from '@/utils/storage';
 
 export type UserPlan = 'free' | 'personal' | 'premium';
@@ -31,10 +32,14 @@ export interface CompleteOnboardingPayload {
   notifications: {
     enabled: boolean;
     dailyReminderTime: string;
+    timezone?: string;
     moodReminderEnabled?: boolean;
     quickMeditationEnabled?: boolean;
+    quickMeditationPeriods?: string[];
     streakEnabled?: boolean;
     weeklyCheckinEnabled?: boolean;
+    weeklyCheckinDay?: string;
+    weeklyCheckinTime?: string;
   };
   trustedContact?: {
     name: string;
@@ -61,6 +66,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isHydrating: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
+  startGoogleLogin: () => Promise<void>;
+  completeGoogleOAuth: (code: string) => Promise<AuthUser>;
   register: (payload: RegisterPayload) => Promise<RegisterResult>;
   resendVerification: (email: string) => Promise<string>;
   completeOnboarding: (payload: CompleteOnboardingPayload) => Promise<AuthUser>;
@@ -216,6 +223,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const beginGoogleLogin = useCallback(async (): Promise<void> => {
+    try {
+      const authorizationUrl = await requestGoogleLoginUrl();
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google.'));
+    }
+  }, []);
+
+  const completeGoogleOAuth = useCallback(async (code: string): Promise<AuthUser> => {
+    try {
+      const data = await exchangeGoogleCode<AuthResponse>(code);
+      const authUser = persistSession(data);
+      setUser(authUser);
+      return authUser;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'No se pudo completar el acceso con Google.'));
+    }
+  }, []);
+
   const register = useCallback(
     async ({ name, email, password, captchaToken }: RegisterPayload): Promise<RegisterResult> => {
       try {
@@ -294,13 +321,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: user !== null,
       isHydrating,
       login,
+      startGoogleLogin: beginGoogleLogin,
+      completeGoogleOAuth,
       register,
       resendVerification,
       completeOnboarding,
       updateProfile,
       logout,
     }),
-    [user, isHydrating, login, register, resendVerification, completeOnboarding, updateProfile, logout],
+    [user, isHydrating, login, beginGoogleLogin, completeGoogleOAuth, register, resendVerification, completeOnboarding, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

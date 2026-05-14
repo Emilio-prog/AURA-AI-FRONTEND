@@ -106,6 +106,7 @@ const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
   const mood = overrides.mood ?? [];
   const contacts = overrides.contacts ?? [];
   const billing = overrides.billing ?? billingStatus;
+  const panicStatus = String(overrides.panicStatus ?? 'SENT');
 
   httpMock.get.mockImplementation((url: string) => {
     if (url === '/auth/me') return Promise.resolve({ data: backendUser });
@@ -113,6 +114,8 @@ const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
     if (url === '/diary') return Promise.resolve({ data: page(diary as unknown[]) });
     if (url === '/mood') return Promise.resolve({ data: page(mood as unknown[]) });
     if (url === '/contacts') return Promise.resolve({ data: contacts });
+    if (url === '/users/me/export') return Promise.resolve({ data: { exportedAt: '2026-05-11T10:00:00Z' } });
+    if (url === '/users/me/export.pdf') return Promise.resolve({ data: new Blob(['pdf']) });
     if (url === '/billing/me') return Promise.resolve({ data: billing });
     return Promise.resolve({ data: {} });
   });
@@ -183,7 +186,32 @@ const mockDashboardApis = (overrides: Record<string, unknown> = {}) => {
         },
       });
     }
+    if (url === '/panic/trigger') {
+      return Promise.resolve({
+        data: {
+          id: 'panic_001',
+          triggeredAt: '2026-05-11T10:00:00Z',
+          resolvedAt: null,
+          notes: payload.notes ?? null,
+          contextJson: payload.contextJson ?? {},
+          notifications: [
+            {
+              id: 'notif_001',
+              contactId: payload.contactId,
+              contactName: 'Ana',
+              channel: 'SMS',
+              status: panicStatus,
+              details: panicStatus === 'MOCKED' ? 'SMS simulated for Ana' : 'Twilio SMS sent',
+              createdAt: '2026-05-11T10:00:00Z',
+            },
+          ],
+          createdAt: '2026-05-11T10:00:00Z',
+          updatedAt: null,
+        },
+      });
+    }
     if (url === '/achievements/events') return Promise.resolve({ data: achievementsResponse });
+    if (url === '/users/me/delete') return Promise.resolve({ data: { message: 'OK' } });
     if (url === '/billing/checkout/sync') return Promise.resolve({ data: overrides.syncBilling ?? billing });
     return Promise.resolve({ data: {} });
   });
@@ -354,6 +382,71 @@ describe('panel bienestar y utilidades', () => {
     expect(httpMock.get).toHaveBeenCalledWith('/achievements');
   });
 
+  it('envia SOS por SMS al contacto elegido', async () => {
+    const user = userEvent.setup();
+    mockDashboardApis({
+      contacts: [
+        {
+          id: 'contact_001',
+          name: 'Ana',
+          phone: '+34 600 000 001',
+          relationship: 'Hermana',
+          priority: 1,
+          available: true,
+          sosEnabled: true,
+          createdAt: '2026-05-11T10:00:00Z',
+          updatedAt: null,
+        },
+      ],
+    });
+    seedSession();
+    window.location.hash = '#/dashboard/sos';
+    render(<App />);
+
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /ENVIAR_SOS/i }));
+
+    await waitFor(() => {
+      expect(httpMock.post).toHaveBeenCalledWith('/panic/trigger', expect.objectContaining({
+        contactId: 'contact_001',
+      }));
+    });
+    expect(await screen.findByText(/SMS_ENVIADO/)).toBeInTheDocument();
+  });
+
+  it('muestra WhatsApp y SMS manual si el envio automatico esta simulado', async () => {
+    const user = userEvent.setup();
+    mockDashboardApis({
+      panicStatus: 'MOCKED',
+      contacts: [
+        {
+          id: 'contact_001',
+          name: 'Ana',
+          phone: '+34 600 000 001',
+          relationship: 'Hermana',
+          priority: 1,
+          available: true,
+          sosEnabled: true,
+          createdAt: '2026-05-11T10:00:00Z',
+          updatedAt: null,
+        },
+      ],
+    });
+    seedSession();
+    window.location.hash = '#/dashboard/sos';
+    render(<App />);
+
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /ENVIAR_SOS/i }));
+
+    expect(await screen.findByRole('link', { name: /AVISAR_WHATSAPP/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /AVISAR_WHATSAPP/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('https://wa.me/34600000001?text='),
+    );
+    expect(screen.getByRole('link', { name: /ENVIAR_SMS/i })).toHaveAttribute('href', 'sms:+34600000001');
+  });
+
   it('ruta logros lista bloqueados y desbloqueados', async () => {
     renderDashboard('logros');
 
@@ -404,11 +497,11 @@ describe('panel bienestar y utilidades', () => {
 
     await screen.findAllByText('CONFIGURACIÓN');
     await user.click(screen.getByRole('button', { name: /EXPORTAR_DATOS/i }));
-    const exportPanel = screen.getByText(/Descarga todos tus datos/i).closest('div');
+    const exportPanel = screen.getByText(/Descarga una copia de tus datos/i).closest('div');
     await user.click(
-      within(exportPanel as HTMLElement).getByRole('button', { name: /DESCARGAR/i }),
+      within(exportPanel as HTMLElement).getByRole('button', { name: /DESCARGAR_JSON/i }),
     );
-    expect(await screen.findByText('EXPORT_COMPLETADO')).toBeInTheDocument();
+    expect(await screen.findByText('EXPORT_JSON_COMPLETADO')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /SESIÓN/i }));
     await user.click(screen.getByRole('button', { name: /CERRAR_SESIÓN/i }));

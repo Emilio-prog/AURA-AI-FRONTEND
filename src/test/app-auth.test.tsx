@@ -9,6 +9,7 @@ vi.mock('@/services/httpClient', () => ({
   httpClient: {
     get: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -34,6 +35,7 @@ const authResponse = {
 const httpMock = httpClient as unknown as {
   get: Mock;
   post: Mock;
+  delete: Mock;
 };
 
 const seedSession = () => {
@@ -56,6 +58,7 @@ describe('auth flow y guards', () => {
   beforeEach(() => {
     httpMock.get.mockReset();
     httpMock.post.mockReset();
+    httpMock.delete.mockReset();
   });
 
   it('permite iniciar sesion con el backend', async () => {
@@ -123,7 +126,6 @@ describe('auth flow y guards', () => {
     for (let i = 0; i < 4; i += 1) {
       await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     }
-    await user.click(await screen.findByRole('button', { name: /ELIMINAR_CONTACTO/i }));
     await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     await user.click(screen.getByRole('button', { name: /ENTRAR_A_MI_REFUGIO/i }));
@@ -132,6 +134,11 @@ describe('auth flow y guards', () => {
     expect(httpMock.post).toHaveBeenCalledWith('/users/me/onboarding', expect.objectContaining({
       preferredName: 'Emilio',
       language: 'es',
+      notifications: expect.objectContaining({
+        enabled: true,
+        dailyReminderTime: '21:00',
+        moodReminderEnabled: true,
+      }),
       trustedContact: undefined,
     }));
   });
@@ -152,6 +159,7 @@ describe('auth flow y guards', () => {
     for (let i = 0; i < 4; i += 1) {
       await user.click(screen.getByRole('button', { name: /CONTINUAR/i }));
     }
+    await user.click((await screen.findAllByRole('button', { name: /AÑADIR_CONTACTO/i }))[0]);
     await user.clear(await screen.findByLabelText('CONTACTO_NOMBRE'));
     await user.type(screen.getByLabelText('CONTACTO_NOMBRE'), 'Ana');
     await user.clear(screen.getByLabelText('CONTACTO_TELEFONO'));
@@ -228,6 +236,20 @@ describe('auth flow y guards', () => {
     expect(await screen.findByText(/Email verificado correctamente./i)).toBeInTheDocument();
     expect(screen.getByText(/IR_A_LOGIN/i)).toBeInTheDocument();
     expect(httpMock.post).toHaveBeenCalledWith('/auth/verify-email?token=raw-token');
+  });
+
+  it('canjea callback de Google y persiste la sesion', async () => {
+    httpMock.post.mockResolvedValueOnce({ data: authResponse });
+    window.location.hash = '#/auth/google/callback?code=google-temp-code';
+
+    render(<App />);
+
+    await waitFor(() => expect(window.location.hash).toContain('/dashboard'));
+    expect(httpMock.post).toHaveBeenCalledWith('/auth/oauth/google/exchange', {
+      code: 'google-temp-code',
+    });
+    expect(localStorage.getItem('aura.token')).toBe(authResponse.accessToken);
+    expect(localStorage.getItem('aura.refreshToken')).toBe(authResponse.refreshToken);
   });
 
   it('permite reenviar verificacion si el login esta bloqueado por email no verificado', async () => {
