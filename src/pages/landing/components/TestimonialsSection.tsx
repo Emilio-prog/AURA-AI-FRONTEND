@@ -42,7 +42,7 @@ export function TestimonialsSection() {
           {testimonials.map(({ quote, author, color }) => (
             <div
               key={author}
-              className="flex flex-col justify-between border-4 border-brutal-black bg-white p-6 shadow-brutal-sm"
+              className="flex flex-col justify-between border-4 border-brutal-black bg-white p-6 shadow-brutal-sm dark:bg-zinc-900"
             >
               <div>
                 <div
@@ -56,7 +56,7 @@ export function TestimonialsSection() {
                     </span>
                   ))}
                 </div>
-                <p className="mb-8 italic text-black">"{quote}"</p>
+                <p className="mb-8 italic text-black dark:text-white">"{quote}"</p>
               </div>
               <p className={`font-mono font-bold uppercase ${color}`}>{author}</p>
             </div>

@@ -36,7 +36,7 @@ export function HeroSection() {
             </Link>
             <Link
               to="/login"
-              className="border-4 border-brutal-black bg-white px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="border-4 border-brutal-black bg-white px-10 py-5 text-center text-xl font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none dark:bg-zinc-900 dark:text-white"
             >
               VER DEMO_
             </Link>
@@ -53,7 +53,7 @@ export function HeroSection() {
             />
           </div>
 
-          <div className="absolute -bottom-6 -left-6 border-4 border-brutal-black bg-brutal-teal p-4 font-mono text-sm font-black uppercase shadow-brutal-sm">
+          <div className="absolute -bottom-6 -left-6 border-4 border-brutal-black bg-brutal-teal p-4 font-mono text-sm font-black uppercase text-black shadow-brutal-sm">
             CALMA_INMEDIATA
           </div>
         </div>

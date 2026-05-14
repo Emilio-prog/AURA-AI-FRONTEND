@@ -36,7 +36,7 @@ export function ModulesSection() {
             <p className="font-mono text-xs uppercase">LOG_DIARIO_ESTADO_EMOCIONAL. SIN JUICIOS.</p>
           </div>
 
-          <div className="flex min-h-[200px] flex-col items-center justify-center border-4 border-brutal-black bg-white/80 p-6 text-center shadow-brutal-sm backdrop-blur-sm md:col-span-4">
+          <div className="flex min-h-[200px] flex-col items-center justify-center border-4 border-brutal-black bg-white/80 p-6 text-center shadow-brutal-sm backdrop-blur-sm dark:bg-zinc-900/90 md:col-span-4">
             <svg
               className="mb-4"
               fill="none"
@@ -55,12 +55,12 @@ export function ModulesSection() {
               <line x1="20" x2="20" y1="14" y2="10" />
             </svg>
             <h3 className="mb-2 text-3xl font-black uppercase text-brutal-teal">AUDIO_DATA</h3>
-            <p className="font-mono text-xs font-bold uppercase text-black">
+            <p className="font-mono text-xs font-bold uppercase text-black dark:text-white">
               MODULACIÓN DE FRECUENCIAS CEREBRALES VÍA BINAURAL.
             </p>
           </div>
 
-          <div className="border-4 border-dashed border-brutal-black bg-white/60 p-6 shadow-brutal-sm backdrop-blur-sm md:col-span-4">
+          <div className="border-4 border-dashed border-brutal-black bg-white/60 p-6 shadow-brutal-sm backdrop-blur-sm dark:bg-zinc-900/70 md:col-span-4">
             <span className="material-symbols-outlined mb-4 block text-4xl">videogame_asset</span>
             <h3 className="mb-2 text-2xl font-black uppercase">Minijuegos</h3>
             <p className="font-mono text-xs uppercase">
