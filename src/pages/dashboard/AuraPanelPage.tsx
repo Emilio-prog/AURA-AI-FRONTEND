@@ -15,7 +15,7 @@ import {
 } from '@/services/diary';
 import { createMoodLog, listMoodLogs } from '@/services/mood';
 import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
-import { createChatSession, sendChatMessage } from '@/services/chatbot';
+import { createChatSession, deleteChatSession, getChatSession, listChatSessions, sendChatMessage } from '@/services/chatbot';
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -538,6 +538,12 @@ const backendChatToPanel = (message, index) => ({
 
 const panelMessagesFromChatSession = (session) =>
   (session?.messages ?? []).map(backendChatToPanel).filter((message) => message.text.trim());
+
+const chatSessionTime = (session) =>
+  new Date(session?.updatedAt || session?.startedAt || 0).getTime() || 0;
+
+const sortChatSessions = (sessions = []) =>
+  [...sessions].sort((a, b) => chatSessionTime(b) - chatSessionTime(a));
 
 const emptyAchievements = {
   total: 8,
@@ -2121,6 +2127,93 @@ function ChatbotView() {
   const isBusy = botStatus !== 'idle' || loadingSession;
   const CHIPS = ['ME_SIENTO_ANSIOSO', 'NO_PUEDO_DORMIR', 'TENGO_PÁNICO', 'ESTOY_BIEN'];
   const visibleMessages = msgs.length ? msgs : [welcomeMessage];
+  const activeChatStorageKey = `aura.chatbot.activeSessionId.${panelUser.id}`;
+  const [sessionTitle, setSessionTitle] = useState('');
+  const [chatSessions, setChatSessions] = useState([]);
+
+  const applySession = useCallback(
+    (session) => {
+      setSessionId(session.id);
+      setSessionTitle(session.title || 'Nueva conversación');
+      setMsgs(panelMessagesFromChatSession(session));
+      localStorage.setItem(activeChatStorageKey, session.id);
+    },
+    [activeChatStorageKey],
+  );
+
+  const refreshChatSessions = useCallback(async () => {
+    const page = await listChatSessions();
+    const sessions = sortChatSessions(page.content ?? []);
+    setChatSessions(sessions);
+    return sessions;
+  }, []);
+
+  const createFreshSession = useCallback(async () => {
+    setBotStatus('idle');
+    setError('');
+    setLoadingSession(true);
+    window.clearTimeout(thinkingRef.current);
+    window.clearInterval(streamRef.current);
+    try {
+      const session = await createChatSession();
+      applySession(session);
+      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
+      setInp('');
+    } catch (err) {
+      setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [applySession]);
+
+  const openChatSession = useCallback(
+    async (id) => {
+      if (!id || id === sessionId || isBusy) return;
+      setLoadingSession(true);
+      setError('');
+      window.clearTimeout(thinkingRef.current);
+      window.clearInterval(streamRef.current);
+      try {
+        const session = await getChatSession(id);
+        applySession(session);
+      } catch (err) {
+        localStorage.removeItem(activeChatStorageKey);
+        setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+      } finally {
+        setLoadingSession(false);
+      }
+    },
+    [activeChatStorageKey, applySession, isBusy, sessionId],
+  );
+
+  const deleteSelectedSession = useCallback(async () => {
+    if (!sessionId || isBusy) return;
+    const deletedSessionId = sessionId;
+    setLoadingSession(true);
+    setError('');
+    setInp('');
+    window.clearTimeout(thinkingRef.current);
+    window.clearInterval(streamRef.current);
+    try {
+      await deleteChatSession(deletedSessionId);
+      const remainingSessions = sortChatSessions(chatSessions.filter((session) => session.id !== deletedSessionId));
+      setChatSessions(remainingSessions);
+      localStorage.removeItem(activeChatStorageKey);
+      if (remainingSessions.length) {
+        const nextSession = await getChatSession(remainingSessions[0].id);
+        applySession(nextSession);
+        return;
+      }
+      const freshSession = await createChatSession();
+      applySession(freshSession);
+      setChatSessions([freshSession]);
+    } catch (err) {
+      setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [activeChatStorageKey, applySession, chatSessions, isBusy, sessionId]);
+
   const streamAssistantReply = (baseMessages, assistantMessage) => {
     const aiId = assistantMessage.id ?? `ai_${Date.now()}`;
     const reply = assistantMessage.text ?? '';
@@ -2153,6 +2246,9 @@ function ChatbotView() {
     try {
       const session = await sendChatMessage(sessionId, t);
       void refreshAchievementsForNotifications(startedAt);
+      setSessionTitle(session.title || 'Conversación guardada');
+      localStorage.setItem(activeChatStorageKey, session.id);
+      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
       const backendMessages = panelMessagesFromChatSession(session);
       const assistantIndex = backendMessages.map((message) => message.from).lastIndexOf('ai');
       if (assistantIndex >= 0) {
@@ -2172,18 +2268,41 @@ function ChatbotView() {
     let active = true;
     setLoadingSession(true);
     setError('');
-    createChatSession()
-      .then((session) => {
+    const loadPersistedSession = async () => {
+      try {
+        const storedSessionId = localStorage.getItem(activeChatStorageKey);
+        const sessions = await refreshChatSessions();
         if (!active) return;
-        setSessionId(session.id);
-        setMsgs(panelMessagesFromChatSession(session));
-      })
-      .catch((err) => active && setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`))
-      .finally(() => active && setLoadingSession(false));
+        if (storedSessionId) {
+          try {
+            const session = await getChatSession(storedSessionId);
+            if (!active) return;
+            applySession(session);
+            return;
+          } catch {
+            localStorage.removeItem(activeChatStorageKey);
+          }
+        }
+        const latestSession = sessions[0];
+        if (latestSession) {
+          applySession(latestSession);
+          return;
+        }
+        const session = await createChatSession();
+        if (!active) return;
+        applySession(session);
+        setChatSessions([session]);
+      } catch (err) {
+        if (active) setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
+      } finally {
+        if (active) setLoadingSession(false);
+      }
+    };
+    void loadPersistedSession();
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeChatStorageKey, applySession, refreshChatSessions]);
   useEffect(() => {
     botRef.current && (botRef.current.scrollTop = botRef.current.scrollHeight);
   }, [visibleMessages, botStatus]);
@@ -2241,10 +2360,24 @@ function ChatbotView() {
               AURA · ASISTENTE_IA
             </div>
             <div className="lbl lbl-turquesa" style={{ fontSize: 9 }}>
-              DISPONIBLE_24/7 · TCC_DIGITAL
+              {sessionTitle ? `SESIÓN_GUARDADA · ${sessionTitle}` : 'DISPONIBLE_24/7 · TCC_DIGITAL'}
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 18 }}>
+            <button
+              onClick={createFreshSession}
+              disabled={isBusy}
+              className="btn"
+              style={{
+                background: W,
+                color: K,
+                fontSize: 9,
+                padding: '8px 10px',
+                opacity: isBusy ? 0.55 : 1,
+              }}
+            >
+              NUEVA_CONVERSACIÓN
+            </button>
             <span
               style={{
                 width: 8,
@@ -2364,6 +2497,65 @@ function ChatbotView() {
         </div>
       </div>
       <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={{
+            border: BORDE,
+            background: W,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            boxShadow: SOMBRA_SM,
+          }}
+        >
+          <div className="lbl" style={{ fontSize: 9 }}>
+            HISTORIAL_GUARDADO
+          </div>
+          {loadingSession && !chatSessions.length ? (
+            <div className="chip">CARGANDO_SESIONES...</div>
+          ) : chatSessions.length ? (
+            chatSessions.slice(0, 6).map((session) => (
+              <button
+                key={session.id}
+                onClick={() => openChatSession(session.id)}
+                disabled={isBusy || session.id === sessionId}
+                style={{
+                  border: session.id === sessionId ? `3px solid ${M}` : '2px solid #000',
+                  padding: '8px 10px',
+                  background: session.id === sessionId ? ML : W,
+                  color: K,
+                  cursor: isBusy || session.id === sessionId ? 'default' : 'pointer',
+                  opacity: isBusy && session.id !== sessionId ? 0.55 : 1,
+                  textAlign: 'left',
+                  fontFamily: 'Space Mono, monospace',
+                  fontSize: 9,
+                  fontWeight: 800,
+                  lineHeight: 1.35,
+                }}
+              >
+                {(session.title || 'Nueva conversación').slice(0, 38)}
+                <span style={{ display: 'block', marginTop: 4, color: 'var(--aura-fg-soft)', fontSize: 8 }}>
+                  {(session.messages?.length ?? 0)} MENSAJES
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="chip">SIN_HISTORIAL</div>
+          )}
+          <button
+            onClick={deleteSelectedSession}
+            disabled={!sessionId || isBusy}
+            className="btn btn-coral"
+            style={{
+              marginTop: 2,
+              fontSize: 8,
+              padding: '8px 10px',
+              opacity: !sessionId || isBusy ? 0.55 : 1,
+            }}
+          >
+            ELIMINAR_SESIÓN_SELECCIONADA
+          </button>
+        </div>
         <div
           style={{
             border: BORDE,
