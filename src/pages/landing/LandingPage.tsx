@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
-import { BlobsBackground, CrisisFab } from '@/components/ui';
+import { CrisisFab } from '@/components/ui';
 import { LandingNavbar } from './components/LandingNavbar';
 import { HeroSection } from './components/HeroSection';
 import { StatsMarquee } from './components/StatsMarquee';
@@ -30,8 +30,7 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="landing-page relative min-h-screen bg-white font-sans text-ink antialiased transition-colors dark:bg-zinc-950 dark:text-white">
-      <BlobsBackground />
+    <div className="landing-page landing-page--reference-bg relative min-h-screen bg-white font-sans text-ink antialiased transition-colors dark:text-white">
       <LandingNavbar />
       <main>
         <HeroSection />

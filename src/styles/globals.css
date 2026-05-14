@@ -266,16 +266,6 @@ html.dark {
   }
 }
 
-@keyframes landing-orb-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
 .landing-ticker-container {
   display: flex;
   width: max-content;
@@ -291,15 +281,29 @@ html.dark {
   border-right: 4px solid rgba(255, 255, 255, 0.2);
 }
 
-.glowing-orb {
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 50% !important;
-  background: radial-gradient(circle, #ffffff 20%, #c5c8f5 60%, #dde0ff 100%);
-  filter: blur(8px);
-  opacity: 0.85;
-  animation: landing-orb-float 6s ease-in-out infinite;
+.landing-page--reference-bg {
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.74) 50%, rgba(255, 235, 238, 0.72) 100%),
+    radial-gradient(ellipse 85% 78% at 7% 22%, rgba(190, 249, 239, 0.82) 0%, rgba(225, 252, 248, 0.56) 36%, rgba(255, 255, 255, 0) 67%),
+    radial-gradient(ellipse 92% 88% at 88% 41%, rgba(224, 209, 255, 0.82) 0%, rgba(241, 234, 255, 0.58) 45%, rgba(255, 255, 255, 0) 74%),
+    radial-gradient(ellipse 85% 64% at 47% 106%, rgba(255, 210, 216, 0.78) 0%, rgba(255, 236, 238, 0.52) 44%, rgba(255, 255, 255, 0) 73%),
+    linear-gradient(100deg, #d7faf4 0%, #f8fffd 34%, #ffffff 49%, #f4edff 76%, #fbf8ff 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+html.dark .landing-page--reference-bg {
+  background:
+    radial-gradient(ellipse 42% 38% at 18% 26%, rgba(45, 212, 191, 0.11) 0%, rgba(45, 212, 191, 0.055) 34%, rgba(45, 212, 191, 0) 68%),
+    radial-gradient(ellipse 40% 42% at 84% 28%, rgba(168, 85, 247, 0.13) 0%, rgba(168, 85, 247, 0.06) 38%, rgba(168, 85, 247, 0) 72%),
+    radial-gradient(ellipse 44% 36% at 62% 86%, rgba(251, 113, 133, 0.105) 0%, rgba(251, 113, 133, 0.05) 36%, rgba(251, 113, 133, 0) 70%),
+    linear-gradient(120deg, #0d0d10 0%, #141417 48%, #101014 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 @media (max-width: 768px) {
