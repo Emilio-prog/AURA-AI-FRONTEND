@@ -35,9 +35,9 @@ export function TermsPage() {
 
       <LegalSection number="02" title="Edad mínima y requisitos">
         <p>
-          Para crear una cuenta debes tener al menos <strong>16 años</strong>. Al registrarte
-          declaras que cumples este requisito. Si descubrimos cuentas de menores sin
-          autorización parental, las eliminaremos.
+          Para crear una cuenta debes ser <strong>mayor de edad</strong> y tener al menos{' '}
+          <strong>18 años</strong>. Al registrarte declaras que cumples este requisito. Si
+          descubrimos cuentas de menores de edad, las eliminaremos.
         </p>
       </LegalSection>
 
