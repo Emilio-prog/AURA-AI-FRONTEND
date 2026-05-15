@@ -4,7 +4,6 @@ import { Mail, Lock, LogIn, RefreshCcw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { GoogleLogo } from '@/components/brand/GoogleLogo';
 import { useAuth } from '@/hooks/useAuth';
-import { DEMO_CREDENTIALS } from '@/data/users';
 import { AuthLayout } from './AuthLayout';
 
 interface LocationState {
@@ -52,11 +51,6 @@ export function LoginPage() {
       setGoogleError(err instanceof Error ? err.message : 'No se pudo iniciar sesion con Google.');
       setGoogleLoading(false);
     }
-  };
-
-  const fillDemo = () => {
-    setEmail(DEMO_CREDENTIALS.email);
-    setPassword(DEMO_CREDENTIALS.password);
   };
 
   const canResendVerification =
@@ -129,7 +123,7 @@ export function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           leftIcon={<Mail className="h-4 w-4" />}
-          placeholder="demo@aura.ai"
+          placeholder="tu@email.com"
         />
 
         <Input
@@ -184,13 +178,6 @@ export function LoginPage() {
         </Button>
 
         <div className="flex flex-col gap-3 border-t-2 border-dashed border-brutal-black pt-4">
-          <button
-            type="button"
-            onClick={fillDemo}
-            className="font-mono text-[10px] font-bold uppercase tracking-widest text-brutal-teal hover:underline"
-          >
-            ▸ USAR_CREDENCIALES_DEMO
-          </button>
           <Link
             to="/forgot-password"
             className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted hover:text-brutal-black"
