@@ -8,11 +8,11 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 | ------ | ------------------------------------------------ | ---------- |
 | Hito 1 | Scaffolding, providers, rutas base y tooling     | Completado |
 | Hito 2 | UI library brutalista y playground               | Completado |
-| Hito 3 | Landing pública completa                         | Completado |
-| Hito 4 | Auth mock, guards y panel interior               | Completado |
+| Hito 3 | Landing publica completa                         | Completado |
+| Hito 4 | Auth real, guards y panel interior               | Completado |
 | Hito 5 | Inicio, SOS 4-4-6 y chatbot streaming            | Completado |
 | Hito 6 | Minijuegos, sonidos muted, diario y mood tracker | Completado |
-| Hito 7 | Contactos, configuración, i18n, tests y Docker   | Completado |
+| Hito 7 | Contactos, configuracion, i18n, tests y Docker   | Completado |
 
 ## Stack
 
@@ -101,7 +101,7 @@ La sesion se guarda con JWT real en `localStorage` bajo `aura.token` y `aura.ref
 ## Puesta en marcha
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -161,7 +161,7 @@ Para parar los procesos:
 | `npm run typecheck` | TypeScript sin emitir |
 | `npm run lint`      | ESLint sin warnings   |
 | `npm run test:run`  | Vitest en CI          |
-| `npm run build`     | Build producción      |
+| `npm run build`     | Build produccion      |
 | `npm run preview`   | Preview del build     |
 
 ## Auth real
@@ -171,20 +171,22 @@ Para parar los procesos:
 - Login: llama a `POST /auth/login`, guarda `accessToken` y `refreshToken`.
 - Reenvio: login/verificacion permiten llamar a `POST /auth/resend-verification`.
 
-## Funcionalidad local del panel
+## Funcionalidad del panel
 
-- Panel: navegación persistida en `aura-section`.
-- Diario: CRUD en `aura.diary.entries`.
-- Contactos: CRUD en `aura.contacts`.
-- Configuración: perfil mock, idioma `es/en`, tema, exportación JSON, borrado de diario y logout.
-- Sonidos: UI funcional en modo muted, sin archivos de audio.
-- Mood tracker: dataset mock 30/60/90 días con bar chart y heatmap.
+- Panel: navegacion persistida en `aura-section`.
+- Diario: CRUD contra el backend mediante `src/services/diary.ts`.
+- Contactos: CRUD contra el backend mediante `src/services/contacts.ts`.
+- Configuracion: tema, idioma `es/en`, exportacion de datos, borrado de cuenta y logout.
+- Sonidos: ambientes sonoros funcionales desde el panel principal.
+- Mood tracker: registro y consulta contra el backend mediante `src/services/mood.ts`.
+- Chat IA: sesiones y mensajes contra el backend mediante `src/services/chatbot.ts`.
+- Facturacion: integracion con endpoints Stripe del backend mediante `src/services/billing.ts`.
 
 ## i18n
 
 Configurado en `src/i18n.ts`.
 
-Catálogos:
+Catalogos:
 
 - `src/i18n/locales/es.json`
 - `src/i18n/locales/en.json`
@@ -202,12 +204,12 @@ Cobertura funcional incluida:
 - Auth flow con backend mockeado en tests.
 - Registro pendiente y pantalla de verificacion.
 - Reenvio de email si login queda bloqueado por cuenta no verificada.
-- Guards privado/público.
-- Diario con persistencia local.
+- Guards privado/publico.
+- Diario con persistencia backend mockeada en tests.
 - Chatbot con typing/streaming.
-- Contactos CRUD local.
+- Contactos CRUD con API mockeada en tests.
 - Mood tracker 30/60/90.
-- Configuración: exportar datos y logout.
+- Configuracion: exportar datos, eliminar cuenta y logout.
 
 ## Docker
 
@@ -222,24 +224,24 @@ Abrir `http://localhost:8080/`.
 
 ```txt
 src/
-├── components/ui
-├── context
-├── data
-├── hooks
-├── i18n
-├── pages
-│   ├── auth
-│   ├── dashboard
-│   └── landing
-├── routes
-├── services
-├── styles
-├── test
-└── utils
+|-- components/ui
+|-- context
+|-- data
+|-- hooks
+|-- i18n
+|-- pages
+|   |-- auth
+|   |-- dashboard
+|   `-- landing
+|-- routes
+|-- services
+|-- styles
+|-- test
+`-- utils
 ```
 
 ## Notas
 
 Las carpetas `AURA AI - LandingPage/` y `AURA AI-Panel-Interior/` son referencias visuales originales y no forman parte del bundle.
 
-El almacenamiento local contiene datos sensibles solo para demo. En producción debe sustituirse por backend, cifrado y políticas de privacidad reales.
+El almacenamiento local se usa para preferencias de interfaz y tokens de sesion. Los datos funcionales principales se consumen desde el backend.
