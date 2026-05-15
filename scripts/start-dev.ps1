@@ -27,11 +27,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptPath = if ($PSCommandPath) { $PSCommandPath } else { $MyInvocation.MyCommand.Path }
+$scriptDir = Split-Path -Parent (Resolve-Path -LiteralPath $scriptPath).Path
 $root = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $beDir = Join-Path $root 'AURA-AI-BACKEND'
 $feDir = Join-Path $root 'AURA-AI-FRONTEND'
-$logDir = Join-Path $root '.dev-logs'
+$logDir = Join-Path ([System.IO.Path]::GetTempPath()) 'aura-ia-dev-logs'
 $backendOutLog = Join-Path $logDir 'backend-dev.out.log'
 $backendErrLog = Join-Path $logDir 'backend-dev.err.log'
 $frontendOutLog = Join-Path $logDir 'frontend-dev.out.log'
