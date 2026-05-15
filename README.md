@@ -28,7 +28,7 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 ## Backend
 
 ```txt
-VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1
+VITE_API_BASE_URL=http://localhost:8080/api/v1
 ```
 
 La sesion se guarda con JWT real en `localStorage` bajo `aura.token` y `aura.refreshToken`.
@@ -40,9 +40,53 @@ npm install
 npm run dev
 ```
 
-App local: `http://localhost:5173/` o `http://127.0.0.1:5173/`
+App local: `http://localhost:5173/`
 
 Panel: `http://localhost:5173/#/dashboard`
+
+### Arranque completo del entorno
+
+Desde la raiz del workspace `AURA-IA`, se puede arrancar backend y frontend con una sola accion.
+
+Windows:
+
+```powershell
+.\AURA-AI-FRONTEND\scripts\start-dev.ps1
+```
+
+macOS/Linux:
+
+```bash
+chmod +x AURA-AI-FRONTEND/scripts/start-dev.sh
+./AURA-AI-FRONTEND/scripts/start-dev.sh
+```
+
+Ambos scripts arrancan el backend en `http://localhost:8080`, Vite en `http://localhost:5173` y abren el navegador en `http://localhost:5173` cuando el frontend responde.
+
+Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, los scripts usan ese puerto real y muestran un aviso. En ese caso, alinea tambien `AURA-AI-FRONTEND/.env.local`:
+
+```txt
+VITE_API_BASE_URL=http://localhost:<SERVER_PORT>/api/v1
+```
+
+Para parar los procesos:
+
+```powershell
+.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -Stop
+```
+
+```bash
+./AURA-AI-FRONTEND/scripts/start-dev.sh stop
+```
+
+### Verificacion tras los cambios
+
+- El navegador debe abrir `http://localhost:5173`.
+- Vite debe anunciar `Local: http://localhost:5173/`.
+- El backend debe responder en `http://localhost:8080/actuator/health` con `{"status":"UP"}`. Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, usa ese puerto.
+- Las llamadas API del navegador deben ir a `http://localhost:8080/api/v1`.
+- Si sigue apareciendo `127.0.0.1`, revisar `AURA-AI-FRONTEND/.env.local` y cambiar `VITE_API_BASE_URL` a `http://localhost:<SERVER_PORT>/api/v1`.
+- En Windows, revisar las ventanas abiertas por `start-dev.ps1`; en macOS/Linux, revisar `.dev-logs/backend-dev.log` y `.dev-logs/frontend-dev.log`.
 
 ## Scripts
 
