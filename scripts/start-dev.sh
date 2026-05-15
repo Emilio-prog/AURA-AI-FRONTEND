@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/AURA-AI-BACKEND"
 FRONTEND_DIR="$ROOT_DIR/AURA-AI-FRONTEND"
-LOG_DIR="$ROOT_DIR/.dev-logs"
+LOG_DIR="${TMPDIR:-/tmp}/aura-ia-dev-logs"
 FRONTEND_URL="http://localhost:5173"
 PRODUCTION_BACKEND_URL="https://api.aura-ia.es"
 PRODUCTION_API_BASE_URL="$PRODUCTION_BACKEND_URL/api/v1"
