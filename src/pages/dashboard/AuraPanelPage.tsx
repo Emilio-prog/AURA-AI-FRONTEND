@@ -715,7 +715,7 @@ function StatsBar() {
     <div
       style={{
         background: DK,
-        color: W,
+        color: '#fff',
         height: 38,
         overflow: 'hidden',
         display: 'flex',
@@ -731,6 +731,7 @@ function StatsBar() {
             className="mono"
             style={{
               fontSize: 11,
+              color: '#fff',
               letterSpacing: '0.06em',
               padding: '0 32px',
               borderRight: '1px solid #333',
@@ -1350,6 +1351,9 @@ function StreakCard() {
 
 /* ── QUOTE CARD ── */
 function QuoteCard() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
     <div
       className="c6"
@@ -1364,21 +1368,21 @@ function QuoteCard() {
         gap: 16,
       }}
     >
-      <div className="lbl" style={{ color: 'var(--aura-fg-soft)', fontSize: 9 }}>
+      <div className="lbl" style={{ color: isDark ? '#fff' : 'var(--aura-fg-soft)', fontSize: 9 }}>
         FRASE_DEL_DÍA
       </div>
       <div
         style={{
           fontSize: 16,
           fontWeight: 700,
-          color: W,
+          color: isDark ? '#fff' : W,
           lineHeight: 1.45,
           letterSpacing: '-0.01em',
         }}
       >
         "LA ANSIEDAD ES LA EMOCIÓN DEL FUTURO IMAGINADO. VUELVE AL PRESENTE."
       </div>
-      <div className="mono" style={{ fontSize: 9, color: 'var(--aura-fg-muted)' }}>
+      <div className="mono" style={{ fontSize: 9, color: isDark ? '#fff' : 'var(--aura-fg-muted)' }}>
         — ADAPTADO_DE_CBT · FUENTE_CLÍNICA_VALIDADA
       </div>
     </div>
