@@ -72,6 +72,10 @@ secretos. El tutor debe rellenar al menos la conexion PostgreSQL del backend y
 mantener `VITE_API_BASE_URL=http://localhost:8080/api/v1` en el frontend si usa
 el puerto local por defecto.
 
+Si el script `start-dev.ps1` se ejecuta en un clon limpio sin `.env`, copiara
+los `.env.example` necesarios y se detendra con un mensaje indicando que falta
+rellenar la configuracion del backend.
+
 Arranque completo desde la carpeta `AURA-IA`:
 
 ```powershell
@@ -151,7 +155,8 @@ Para parar los procesos:
 - El backend debe responder en `http://localhost:8080/actuator/health` con `{"status":"UP"}`. Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, usa ese puerto.
 - Las llamadas API del navegador deben ir a `http://localhost:8080/api/v1`.
 - Si sigue apareciendo `127.0.0.1`, revisar `AURA-AI-FRONTEND/.env.local` y cambiar `VITE_API_BASE_URL` a `http://localhost:<SERVER_PORT>/api/v1`.
-- En Windows, revisar las ventanas abiertas por `start-dev.ps1`; en macOS/Linux, revisar `.dev-logs/backend-dev.log` y `.dev-logs/frontend-dev.log`.
+- En Windows, revisar `.dev-logs/backend-dev.err.log`, `.dev-logs/backend-dev.out.log`, `.dev-logs/frontend-dev.err.log` y `.dev-logs/frontend-dev.out.log`.
+- En macOS/Linux, revisar `.dev-logs/backend-dev.log` y `.dev-logs/frontend-dev.log`.
 
 ## Scripts
 
