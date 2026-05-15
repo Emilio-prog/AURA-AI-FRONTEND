@@ -5,6 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/AURA-AI-BACKEND"
 FRONTEND_DIR="$ROOT_DIR/AURA-AI-FRONTEND"
 LOG_DIR="$ROOT_DIR/.dev-logs"
+REAL_ENV=false
+
+if [[ "${1:-}" == "real-env" || "${1:-}" == "--real-env" ]]; then
+  REAL_ENV=true
+  shift || true
+fi
 
 env_file_value() {
   local path="$1"
@@ -37,6 +43,57 @@ BACKEND_HEALTH_URL="$BACKEND_URL/actuator/health"
 FRONTEND_URL="http://localhost:5173"
 
 mkdir -p "$LOG_DIR"
+
+ensure_command() {
+  local name="$1"
+  local hint="$2"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "Error: no se encontro '$name'. $hint" >&2
+    exit 1
+  fi
+}
+
+ensure_workspace_layout() {
+  [[ -d "$BACKEND_DIR" ]] || { echo "Error: no se encontro $BACKEND_DIR. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND." >&2; exit 1; }
+  [[ -d "$FRONTEND_DIR" ]] || { echo "Error: no se encontro $FRONTEND_DIR." >&2; exit 1; }
+  [[ -f "$BACKEND_DIR/mvnw" ]] || { echo "Error: no se encontro AURA-AI-BACKEND/mvnw." >&2; exit 1; }
+  [[ -f "$FRONTEND_DIR/package.json" ]] || { echo "Error: no se encontro AURA-AI-FRONTEND/package.json." >&2; exit 1; }
+}
+
+ensure_frontend_env() {
+  if [[ ! -f "$FRONTEND_DIR/.env.local" ]]; then
+    [[ -f "$FRONTEND_DIR/.env.example" ]] || { echo "Error: falta AURA-AI-FRONTEND/.env.example." >&2; exit 1; }
+    cp "$FRONTEND_DIR/.env.example" "$FRONTEND_DIR/.env.local"
+    echo "Created AURA-AI-FRONTEND/.env.local from .env.example"
+  fi
+}
+
+ensure_real_backend_env() {
+  [[ "$REAL_ENV" == true ]] || return 0
+  if [[ ! -f "$BACKEND_DIR/.env" ]]; then
+    [[ -f "$BACKEND_DIR/.env.example" ]] || { echo "Error: falta AURA-AI-BACKEND/.env.example." >&2; exit 1; }
+    cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
+    echo "Se ha creado AURA-AI-BACKEND/.env desde .env.example."
+    echo "Edita AURA-AI-BACKEND/.env antes de arrancar con real-env."
+    exit 1
+  fi
+}
+
+ensure_frontend_dependencies() {
+  if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
+    echo "node_modules no existe. Ejecutando npm ci en AURA-AI-FRONTEND..."
+    (cd "$FRONTEND_DIR" && npm ci)
+  fi
+}
+
+print_log_tail() {
+  local name="$1"
+  local path="$2"
+  [[ -f "$path" ]] || return 0
+  echo
+  echo "$name ($path):"
+  tail -n 40 "$path" || true
+}
 
 port_pids() {
   local port="$1"
@@ -123,10 +180,23 @@ case "${1:-start}" in
   start|"")
     ;;
   *)
-    echo "Usage: ./start-dev.sh [start|stop]"
+    echo "Usage: ./start-dev.sh [start|stop|real-env]"
     exit 2
     ;;
 esac
+
+ensure_workspace_layout
+ensure_frontend_env
+ensure_real_backend_env
+ensure_command java "Instala JDK 21."
+ensure_command npm "Instala Node.js 20 o superior."
+ensure_frontend_dependencies
+
+if [[ "$REAL_ENV" == false ]]; then
+  export SPRING_PROFILES_ACTIVE=evaluator
+  echo "Modo evaluador activo: backend con H2 en memoria, usuario demo e integraciones externas desactivadas."
+  echo "Credenciales demo: demo@aura.ai / StrongPassword123!"
+fi
 
 if [[ -z "$(port_pids "$BACKEND_PORT")" ]]; then
   if [[ "$BACKEND_PORT" != "8080" ]]; then
@@ -159,10 +229,14 @@ frontend_ready=false
 
 if wait_http_ready "Backend" "$BACKEND_HEALTH_URL" 90; then
   backend_ready=true
+else
+  print_log_tail "Backend log" "$LOG_DIR/backend-dev.log"
 fi
 
 if wait_http_ready "Frontend" "$FRONTEND_URL" 45; then
   frontend_ready=true
+else
+  print_log_tail "Frontend log" "$LOG_DIR/frontend-dev.log"
 fi
 
 if [[ "$frontend_ready" == true ]]; then

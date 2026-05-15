@@ -8,12 +8,14 @@
 .EXAMPLE
   .\start-dev.ps1
   .\start-dev.ps1 -StripeWebhook  # Tambien reenvia webhooks Stripe a local
+  .\start-dev.ps1 -RealEnv        # Usa AURA-AI-BACKEND\.env y PostgreSQL real
   .\start-dev.ps1 -Stop           # Detiene backend y frontend
 #>
 
 param(
     [switch]$Stop,
-    [switch]$StripeWebhook
+    [switch]$StripeWebhook,
+    [switch]$RealEnv
 )
 
 $ErrorActionPreference = 'Stop'
@@ -131,13 +133,13 @@ function Ensure-LocalEnvFiles() {
     $frontendEnv = Join-Path $feDir '.env.local'
     $frontendExample = Join-Path $feDir '.env.example'
 
-    if (-not (Test-Path $backendEnv)) {
+    if ($RealEnv -and -not (Test-Path $backendEnv)) {
         if (-not (Test-Path $backendExample)) {
             throw "Falta AURA-AI-BACKEND\.env y tambien falta .env.example."
         }
         Copy-Item -Path $backendExample -Destination $backendEnv
         Write-Warning "Se ha creado AURA-AI-BACKEND\.env desde .env.example."
-        throw "Edita AURA-AI-BACKEND\.env y rellena al menos SPRING_DATASOURCE_PASSWORD antes de arrancar."
+        throw "Edita AURA-AI-BACKEND\.env y rellena al menos SPRING_DATASOURCE_PASSWORD antes de arrancar con -RealEnv."
     }
 
     if (-not (Test-Path $frontendEnv)) {
@@ -222,7 +224,13 @@ function Initialize-DevEnvironment() {
     Ensure-LocalEnvFiles
     Assert-RequiredCommand 'npm.cmd' 'Instala Node.js 20 o superior.'
     Assert-JavaAvailable
-    Assert-BackendEnvReady
+    if ($RealEnv) {
+        Assert-BackendEnvReady
+    } else {
+        $env:SPRING_PROFILES_ACTIVE = 'evaluator'
+        Write-Host "Modo evaluador activo: backend con H2 en memoria, usuario demo e integraciones externas desactivadas." -ForegroundColor Green
+        Write-Host "Credenciales demo: demo@aura.ai / StrongPassword123!" -ForegroundColor Green
+    }
     Ensure-FrontendDependencies
 }
 

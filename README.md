@@ -53,28 +53,20 @@ Requisitos minimos:
 - PostgreSQL accesible. Puede ser Supabase o una instancia local si se ajusta
   `SPRING_DATASOURCE_URL`.
 
-Archivos que debe crear el evaluador despues de clonar:
+El arranque por defecto es autosuficiente para evaluacion: no requiere `.env`,
+credenciales externas ni PostgreSQL real. El script usa el perfil backend
+`evaluator`, con H2 en memoria, integraciones externas desactivadas y usuario
+demo creado automaticamente.
 
-```bash
-cp AURA-AI-BACKEND/.env.example AURA-AI-BACKEND/.env
-cp AURA-AI-FRONTEND/.env.example AURA-AI-FRONTEND/.env.local
+Credenciales demo:
+
+```text
+demo@aura.ai
+StrongPassword123!
 ```
 
-En Windows PowerShell:
-
-```powershell
-Copy-Item AURA-AI-BACKEND\.env.example AURA-AI-BACKEND\.env
-Copy-Item AURA-AI-FRONTEND\.env.example AURA-AI-FRONTEND\.env.local
-```
-
-Los archivos reales `.env` y `.env.local` no se versionan porque pueden contener
-secretos. El tutor debe rellenar al menos la conexion PostgreSQL del backend y
-mantener `VITE_API_BASE_URL=http://localhost:8080/api/v1` en el frontend si usa
-el puerto local por defecto.
-
-Si el script `start-dev.ps1` se ejecuta en un clon limpio sin `.env`, copiara
-los `.env.example` necesarios y se detendra con un mensaje indicando que falta
-rellenar la configuracion del backend.
+El script crea `AURA-AI-FRONTEND/.env.local` desde `.env.example` si falta. No
+crea ni exige `AURA-AI-BACKEND/.env` en modo evaluador.
 
 Arranque completo desde la carpeta `AURA-IA`:
 
@@ -146,6 +138,18 @@ Para parar los procesos:
 
 ```bash
 ./AURA-AI-FRONTEND/scripts/start-dev.sh stop
+```
+
+Para arrancar contra una base PostgreSQL/Supabase real, usar el modo avanzado
+`-RealEnv` en Windows o `real-env` en macOS/Linux. En ese caso si se requiere
+`AURA-AI-BACKEND/.env` con credenciales:
+
+```powershell
+.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -RealEnv
+```
+
+```bash
+./AURA-AI-FRONTEND/scripts/start-dev.sh real-env
 ```
 
 ### Verificacion tras los cambios
