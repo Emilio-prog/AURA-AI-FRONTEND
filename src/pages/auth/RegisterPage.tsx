@@ -54,11 +54,6 @@ export function RegisterPage() {
       setError('Debes aceptar la política de privacidad y los términos de uso.');
       return;
     }
-    if (turnstileEnabled && !captchaToken) {
-      setError('Completa la verificación anti-bot antes de continuar.');
-      return;
-    }
-
     setLoading(true);
     try {
       const result = await register({ name, email, password, captchaToken: captchaToken ?? undefined });

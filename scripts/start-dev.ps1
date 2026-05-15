@@ -521,18 +521,18 @@ if ($useLocalBackend) {
 
 $fePid = Get-PortOwner 5173
 if ($fePid) {
-    Write-Host "Vite already running on :5173 (PID $fePid)" -ForegroundColor Green
-    Write-Host "Si ese Vite se arranco antes de este script, ejecuta .\start-dev.ps1 -Stop y vuelve a iniciar para cargar el proxy tutor." -ForegroundColor DarkYellow
-} else {
-    Write-Host "Starting Frontend (Vite)..." -ForegroundColor Cyan
-    Remove-Item -LiteralPath $frontendOutLog, $frontendErrLog -Force -ErrorAction SilentlyContinue
-    Start-Process -FilePath 'npm.cmd' `
-        -ArgumentList 'run', 'dev', '--', '--host', 'localhost', '--port', '5173', '--strictPort' `
-        -WorkingDirectory $feDir `
-        -RedirectStandardOutput $frontendOutLog `
-        -RedirectStandardError $frontendErrLog `
-        -WindowStyle Hidden
+    Write-Host "Restarting Vite on :5173 (PID $fePid) to load current env/code..." -ForegroundColor Yellow
+    Stop-Port 5173 'Vite'
 }
+
+Write-Host "Starting Frontend (Vite)..." -ForegroundColor Cyan
+Remove-Item -LiteralPath $frontendOutLog, $frontendErrLog -Force -ErrorAction SilentlyContinue
+Start-Process -FilePath 'npm.cmd' `
+    -ArgumentList 'run', 'dev', '--', '--host', 'localhost', '--port', '5173', '--strictPort' `
+    -WorkingDirectory $feDir `
+    -RedirectStandardOutput $frontendOutLog `
+    -RedirectStandardError $frontendErrLog `
+    -WindowStyle Hidden
 
 if ($StripeWebhook -and $stripeRunner) {
     Start-StripeWebhookForwarder $stripeRunner
