@@ -5,7 +5,7 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 ## Estado actual en GitHub
 
 - Rama estable: `main`.
-- Version actual del frontend: `v0.2.17`.
+- Version actual del frontend: `v0.2.19`.
 - Flujo de ramas: `feature` -> `develop` -> `release` -> `main`; `hotfix` queda alineada con `main`.
 - El README esta orientado al tutor/evaluador y al despliegue publico actual.
 - El login no incluye credenciales demo.
@@ -21,6 +21,22 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 - `react-i18next`
 - Vitest + React Testing Library
 - Docker multi-stage: Node build -> nginx alpine
+
+## Estructura del repositorio
+
+```text
+AURA-AI-FRONTEND/
+|-- src/                 # Codigo fuente React, rutas, paginas, servicios y estilos
+|-- public/              # Assets publicos servidos por Vite/nginx
+|-- scripts/             # Arranque local Windows y macOS/Linux
+|-- deploy/              # Compose y plantilla de entorno para Dokploy
+|-- docs/design/         # Prototipos visuales y documentacion de diseno
+|-- .github/workflows/   # CI y release hacia GHCR/Dokploy
+|-- Dockerfile           # Build multi-stage Node -> nginx
+`-- nginx.conf           # Configuracion nginx de produccion
+```
+
+Los artefactos generados (`dist/`, `.vite/`, logs y `*.tsbuildinfo`) no se versionan.
 
 ## Despliegue y acceso publico
 
