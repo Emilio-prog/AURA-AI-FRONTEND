@@ -21,6 +21,11 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $beDir = Join-Path $root 'AURA-AI-BACKEND'
 $feDir = Join-Path $root 'AURA-AI-FRONTEND'
+$logDir = Join-Path $root '.dev-logs'
+$backendOutLog = Join-Path $logDir 'backend-dev.out.log'
+$backendErrLog = Join-Path $logDir 'backend-dev.err.log'
+$frontendOutLog = Join-Path $logDir 'frontend-dev.out.log'
+$frontendErrLog = Join-Path $logDir 'frontend-dev.err.log'
 $frontendUrl = 'http://localhost:5173'
 $stripeWebhookEvents = 'checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed'
 $stripeWebhookPath = '/api/v1/webhooks/stripe'
@@ -103,6 +108,122 @@ function Get-CommandSource($name) {
     $cmd = Get-Command $name -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     return $null
+}
+
+function Ensure-WorkspaceLayout() {
+    if (-not (Test-Path $beDir)) {
+        throw "No se encontro $beDir. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND."
+    }
+    if (-not (Test-Path $feDir)) {
+        throw "No se encontro $feDir. Ejecuta el script desde el repo frontend clonado dentro del workspace AURA-IA."
+    }
+    if (-not (Test-Path (Join-Path $beDir 'mvnw.cmd'))) {
+        throw "No se encontro AURA-AI-BACKEND\mvnw.cmd. El repositorio backend parece incompleto."
+    }
+    if (-not (Test-Path (Join-Path $feDir 'package.json'))) {
+        throw "No se encontro AURA-AI-FRONTEND\package.json. El repositorio frontend parece incompleto."
+    }
+}
+
+function Ensure-LocalEnvFiles() {
+    $backendEnv = Join-Path $beDir '.env'
+    $backendExample = Join-Path $beDir '.env.example'
+    $frontendEnv = Join-Path $feDir '.env.local'
+    $frontendExample = Join-Path $feDir '.env.example'
+
+    if (-not (Test-Path $backendEnv)) {
+        if (-not (Test-Path $backendExample)) {
+            throw "Falta AURA-AI-BACKEND\.env y tambien falta .env.example."
+        }
+        Copy-Item -Path $backendExample -Destination $backendEnv
+        Write-Warning "Se ha creado AURA-AI-BACKEND\.env desde .env.example."
+        throw "Edita AURA-AI-BACKEND\.env y rellena al menos SPRING_DATASOURCE_PASSWORD antes de arrancar."
+    }
+
+    if (-not (Test-Path $frontendEnv)) {
+        if (-not (Test-Path $frontendExample)) {
+            throw "Falta AURA-AI-FRONTEND\.env.local y tambien falta .env.example."
+        }
+        Copy-Item -Path $frontendExample -Destination $frontendEnv
+        Write-Host "Created AURA-AI-FRONTEND\.env.local from .env.example" -ForegroundColor Green
+    }
+}
+
+function Assert-RequiredCommand($name, $hint) {
+    if (-not (Get-CommandSource $name)) {
+        throw "No se encontro '$name' en PATH. $hint"
+    }
+}
+
+function Assert-JavaAvailable() {
+    $javaPath = Get-CommandSource 'java'
+    if ($javaPath) { return }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+        $candidate = Join-Path $env:JAVA_HOME 'bin\java.exe'
+        if (Test-Path $candidate) {
+            $env:PATH = "$(Split-Path -Parent $candidate);$env:PATH"
+            return
+        }
+    }
+
+    throw "No se encontro Java en PATH/JAVA_HOME. Instala JDK 21 y vuelve a abrir la terminal."
+}
+
+function Assert-BackendEnvReady() {
+    Import-EnvFile (Join-Path $beDir '.env')
+
+    $required = @('SPRING_DATASOURCE_URL', 'SPRING_DATASOURCE_USERNAME', 'SPRING_DATASOURCE_PASSWORD', 'JWT_SECRET')
+    $missing = @()
+    foreach ($key in $required) {
+        $value = Get-EnvValue $key
+        if ([string]::IsNullOrWhiteSpace($value) -or $value -match '^<.*>$') {
+            $missing += $key
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        throw "AURA-AI-BACKEND\.env no esta listo. Rellena estas variables: $($missing -join ', ')"
+    }
+
+    if ((Get-EnvValue 'EMAIL_ENABLED') -eq 'true') {
+        $smtpPassword = Get-EnvValue 'SMTP_PASSWORD'
+        if ([string]::IsNullOrWhiteSpace($smtpPassword) -or $smtpPassword -match '^<.*>$') {
+            Write-Warning "EMAIL_ENABLED=true pero SMTP_PASSWORD parece placeholder. El backend puede arrancar, pero el registro con email fallara."
+        }
+    }
+}
+
+function Ensure-FrontendDependencies() {
+    if (Test-Path (Join-Path $feDir 'node_modules')) { return }
+
+    Write-Host "node_modules no existe. Ejecutando npm ci en AURA-AI-FRONTEND..." -ForegroundColor Cyan
+    Push-Location $feDir
+    try {
+        & npm.cmd ci
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm ci fallo con codigo $LASTEXITCODE."
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+function Show-LogTail($name, $path) {
+    if (-not (Test-Path $path)) { return }
+    Write-Host ""
+    Write-Host "$name ($path):" -ForegroundColor DarkYellow
+    Get-Content -Path $path -Tail 40 -ErrorAction SilentlyContinue
+}
+
+function Initialize-DevEnvironment() {
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    Ensure-WorkspaceLayout
+    Ensure-LocalEnvFiles
+    Assert-RequiredCommand 'npm.cmd' 'Instala Node.js 20 o superior.'
+    Assert-JavaAvailable
+    Assert-BackendEnvReady
+    Ensure-FrontendDependencies
 }
 
 function Test-HttpReady($url) {
@@ -320,12 +441,22 @@ if ($Stop) {
     return
 }
 
+try {
+    Initialize-DevEnvironment
+} catch {
+    Write-Host ""
+    Write-Error $_.Exception.Message
+    exit 1
+}
+$backendPort = Resolve-BackendPort
+$backendUrl = "http://localhost:$backendPort"
+$backendHealthUrl = "$backendUrl/actuator/health"
+
 $stripeRunner = $null
 if ($StripeWebhook) {
     $stripeRunner = Enable-StripeWebhookLocal
 }
 
-Import-EnvFile (Join-Path $beDir '.env')
 if ((Get-EnvValue 'SOS_SMS_ENABLED') -eq 'true') {
     $twilioMissing = @('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER') |
         Where-Object { [string]::IsNullOrWhiteSpace((Get-EnvValue $_)) }
@@ -346,10 +477,13 @@ if ($bePid) {
         Write-Warning "AURA-AI-BACKEND\.env configura SERVER_PORT=$backendPort. El backend usara $backendUrl. Para usar el default documentado, cambia SERVER_PORT=8080 o elimina esa linea."
     }
     Write-Host "Starting Backend (Spring Boot)..." -ForegroundColor Cyan
+    Remove-Item -LiteralPath $backendOutLog, $backendErrLog -Force -ErrorAction SilentlyContinue
     Start-Process -FilePath "$beDir\mvnw.cmd" `
         -ArgumentList 'spring-boot:run' `
         -WorkingDirectory $beDir `
-        -WindowStyle Normal
+        -RedirectStandardOutput $backendOutLog `
+        -RedirectStandardError $backendErrLog `
+        -WindowStyle Hidden
 }
 
 # Frontend
@@ -358,10 +492,13 @@ if ($fePid) {
     Write-Host "Vite already running on :5173 (PID $fePid)" -ForegroundColor Green
 } else {
     Write-Host "Starting Frontend (Vite)..." -ForegroundColor Cyan
+    Remove-Item -LiteralPath $frontendOutLog, $frontendErrLog -Force -ErrorAction SilentlyContinue
     Start-Process -FilePath 'npm.cmd' `
         -ArgumentList 'run', 'dev', '--', '--host', 'localhost', '--port', '5173', '--strictPort' `
         -WorkingDirectory $feDir `
-        -WindowStyle Normal
+        -RedirectStandardOutput $frontendOutLog `
+        -RedirectStandardError $frontendErrLog `
+        -WindowStyle Hidden
 }
 
 if ($StripeWebhook -and $stripeRunner) {
@@ -370,15 +507,24 @@ if ($StripeWebhook -and $stripeRunner) {
 
 $backendReady = Wait-HttpReady 'Backend' $backendHealthUrl 90
 $frontendReady = Wait-HttpReady 'Frontend' $frontendUrl 45
+if (-not $backendReady) {
+    Show-LogTail 'Backend stderr' $backendErrLog
+    Show-LogTail 'Backend stdout' $backendOutLog
+}
+if (-not $frontendReady) {
+    Show-LogTail 'Frontend stderr' $frontendErrLog
+    Show-LogTail 'Frontend stdout' $frontendOutLog
+}
 if ($frontendReady) {
     Open-DevBrowser $frontendUrl
 } elseif ($backendReady) {
-    Write-Host "Backend is ready, but Vite is not. Check the frontend terminal output." -ForegroundColor DarkYellow
+    Write-Host "Backend is ready, but Vite is not. Check $frontendErrLog and $frontendOutLog." -ForegroundColor DarkYellow
 }
 
 Write-Host ""
 Write-Host "Backend  -> $backendUrl  (health: /actuator/health)" -ForegroundColor Green
 Write-Host "Frontend -> $frontendUrl" -ForegroundColor Green
+Write-Host "Logs     -> $logDir" -ForegroundColor Green
 if ($StripeWebhook) {
     Write-Host "Stripe   -> forwarding to $backendUrl$stripeWebhookPath" -ForegroundColor Green
 }
