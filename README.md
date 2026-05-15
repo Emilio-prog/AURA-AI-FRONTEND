@@ -2,19 +2,6 @@
 
 Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La autenticacion y las funcionalidades principales consumen el backend Spring Boot real.
 
-## Estado
-
-| Hito   | Alcance                                          | Estado     |
-| ------ | ------------------------------------------------ | ---------- |
-| Hito 1 | Scaffolding, providers, rutas base y tooling     | Completado |
-| Hito 2 | UI library brutalista y playground               | Completado |
-| Hito 3 | Landing publica completa                         | Completado |
-| Hito 4 | Auth real, guards y panel interior               | Completado |
-| Hito 5 | Inicio, SOS 4-4-6 y chatbot streaming            | Completado |
-| Hito 6 | Minijuegos, sonidos muted, diario y mood tracker | Completado |
-| Hito 7 | Contactos, configuracion, i18n, tests y Docker   | Completado |
-| Hito 8 | Modo tutor, despliegue Dokploy y auth sin demo   | Completado |
-
 ## Estado actual en GitHub
 
 - Rama estable: `main`.
