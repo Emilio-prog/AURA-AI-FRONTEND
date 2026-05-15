@@ -10,13 +10,30 @@ export interface GoogleOAuthStatus {
   linkedAt?: string | null;
 }
 
+const frontendBaseHeaders = (): Record<string, string> => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  return {
+    'X-Aura-Frontend-Base-Url': window.location.origin,
+  };
+};
+
 export const startGoogleLogin = async (): Promise<string> => {
-  const { data } = await httpClient.post<GoogleOAuthStartResponse>('/auth/oauth/google/start');
+  const { data } = await httpClient.post<GoogleOAuthStartResponse>(
+    '/auth/oauth/google/start',
+    undefined,
+    { headers: frontendBaseHeaders() },
+  );
   return data.authorizationUrl;
 };
 
 export const startGoogleLink = async (): Promise<string> => {
-  const { data } = await httpClient.post<GoogleOAuthStartResponse>('/auth/oauth/google/link/start');
+  const { data } = await httpClient.post<GoogleOAuthStartResponse>(
+    '/auth/oauth/google/link/start',
+    undefined,
+    { headers: frontendBaseHeaders() },
+  );
   return data.authorizationUrl;
 };
 
