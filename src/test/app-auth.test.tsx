@@ -90,6 +90,7 @@ describe('auth flow y guards', () => {
     await waitFor(() => expect(window.location.hash).toContain('/dashboard'));
     expect(localStorage.getItem('aura.token')).toBe(authResponse.accessToken);
     expect(localStorage.getItem('aura.refreshToken')).toBe(authResponse.refreshToken);
+    expect(screen.queryByRole('button', { name: /USAR_CREDENCIALES_DEMO/i })).not.toBeInTheDocument();
   });
 
   it('redirige dashboard privado a login si no hay sesion', async () => {
@@ -238,6 +239,32 @@ describe('auth flow y guards', () => {
       email: 'nueva@example.com',
       password: 'StrongPassword123!',
     });
+  });
+
+  it('muestra aviso si el email ya esta registrado', async () => {
+    httpMock.post.mockRejectedValueOnce({
+      response: {
+        data: {
+          message: 'No te puedes registrar con el mismo correo.',
+        },
+      },
+    });
+    const user = userEvent.setup();
+    window.location.hash = '#/register';
+
+    render(<App />);
+
+    await user.type(await screen.findByLabelText('NOMBRE_COMPLETO'), 'Usuario Repetido');
+    await user.type(screen.getByLabelText('EMAIL_USUARIO'), 'repetido@example.com');
+    await user.type(screen.getByLabelText('CONTRASENA'), 'StrongPassword123!');
+    await user.type(screen.getByLabelText('CONFIRMAR_CONTRASENA'), 'StrongPassword123!');
+    for (const checkbox of screen.getAllByRole('checkbox')) {
+      await user.click(checkbox);
+    }
+    await user.click(screen.getByRole('button', { name: /CREAR_CUENTA/i }));
+
+    expect(await screen.findByText(/No te puedes registrar con el mismo correo./i)).toBeInTheDocument();
+    expect(window.location.hash).toContain('/register');
   });
 
   it('verifica email desde token de la URL', async () => {
