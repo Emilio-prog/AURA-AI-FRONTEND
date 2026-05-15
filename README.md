@@ -1,6 +1,6 @@
 # AURA IA Frontend
 
-Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La autenticacion consume el backend Spring Boot real y el panel queda preparado para servicios Python/FastAPI.
+Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, Vite, TypeScript y Tailwind CSS. La autenticacion y las funcionalidades principales consumen el backend Spring Boot real.
 
 ## Estado
 
@@ -24,6 +24,71 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 - `react-i18next`
 - Vitest + React Testing Library
 - Docker multi-stage: Node build -> nginx alpine
+
+## Instalacion local limpia para evaluador
+
+El proyecto esta dividido en dos repositorios Git independientes. Para que los
+scripts de arranque funcionen sin cambios, clona ambos repos como carpetas
+hermanas dentro de una misma carpeta de trabajo:
+
+```text
+AURA-IA/
+|-- AURA-AI-BACKEND/
+`-- AURA-AI-FRONTEND/
+```
+
+Clonado recomendado:
+
+```bash
+mkdir AURA-IA
+cd AURA-IA
+git clone https://github.com/Emilio-prog/AURA-AI-BACKEND.git
+git clone https://github.com/Emilio-prog/AURA-AI-FRONTEND.git
+```
+
+Requisitos minimos:
+
+- JDK 21 para el backend.
+- Node.js 20 o superior para el frontend.
+- PostgreSQL accesible. Puede ser Supabase o una instancia local si se ajusta
+  `SPRING_DATASOURCE_URL`.
+
+Archivos que debe crear el evaluador despues de clonar:
+
+```bash
+cp AURA-AI-BACKEND/.env.example AURA-AI-BACKEND/.env
+cp AURA-AI-FRONTEND/.env.example AURA-AI-FRONTEND/.env.local
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item AURA-AI-BACKEND\.env.example AURA-AI-BACKEND\.env
+Copy-Item AURA-AI-FRONTEND\.env.example AURA-AI-FRONTEND\.env.local
+```
+
+Los archivos reales `.env` y `.env.local` no se versionan porque pueden contener
+secretos. El tutor debe rellenar al menos la conexion PostgreSQL del backend y
+mantener `VITE_API_BASE_URL=http://localhost:8080/api/v1` en el frontend si usa
+el puerto local por defecto.
+
+Arranque completo desde la carpeta `AURA-IA`:
+
+```powershell
+.\AURA-AI-FRONTEND\scripts\start-dev.ps1
+```
+
+```bash
+chmod +x AURA-AI-FRONTEND/scripts/start-dev.sh
+./AURA-AI-FRONTEND/scripts/start-dev.sh
+```
+
+Verificacion rapida:
+
+- El navegador abre `http://localhost:5173`.
+- El backend responde `GET http://localhost:8080/actuator/health` con
+  `{"status":"UP"}`.
+- Vite muestra `Local: http://localhost:5173/`.
 
 ## Backend
 
