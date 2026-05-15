@@ -48,25 +48,15 @@ git clone https://github.com/Emilio-prog/AURA-AI-FRONTEND.git
 
 Requisitos minimos:
 
-- JDK 21 para el backend.
 - Node.js 20 o superior para el frontend.
-- PostgreSQL accesible. Puede ser Supabase o una instancia local si se ajusta
-  `SPRING_DATASOURCE_URL`.
+- JDK 21 solo si se quiere arrancar tambien el backend local.
 
-El arranque por defecto es autosuficiente para evaluacion: no requiere `.env`,
-credenciales externas ni PostgreSQL real. El script usa el perfil backend
-`evaluator`, con H2 en memoria, integraciones externas desactivadas y usuario
-demo creado automaticamente.
-
-Credenciales demo:
-
-```text
-demo@aura.ai
-StrongPassword123!
-```
-
-El script crea `AURA-AI-FRONTEND/.env.local` desde `.env.example` si falta. No
-crea ni exige `AURA-AI-BACKEND/.env` en modo evaluador.
+El arranque por defecto esta pensado para el tutor/evaluador: no requiere
+`.env`, credenciales externas, PostgreSQL local, H2 ni usuarios demo. El script
+arranca Vite en `http://localhost:5173` y configura un proxy de desarrollo para
+que `/api/v1` consuma el backend real desplegado en `https://api.aura-ia.es`.
+De esta forma la aplicacion que se ve es la real, sin commitear secretos ni
+pedir datos manuales.
 
 Arranque completo desde la carpeta `AURA-IA`:
 
@@ -82,11 +72,15 @@ chmod +x AURA-AI-FRONTEND/scripts/start-dev.sh
 Verificacion rapida:
 
 - El navegador abre `http://localhost:5173`.
-- El backend responde `GET http://localhost:8080/actuator/health` con
-  `{"status":"UP"}`.
+- Las llamadas a `http://localhost:5173/api/v1/*` llegan al backend real
+  `https://api.aura-ia.es/api/v1/*` mediante el proxy de Vite.
 - Vite muestra `Local: http://localhost:5173/`.
 
-## Backend
+## Backend local manual
+
+El modo tutor del script no usa este valor, porque configura `VITE_API_BASE_URL=/api/v1`
+en el proceso de Vite y lo proxifica a `https://api.aura-ia.es`. Si se arranca
+el frontend manualmente contra un backend local, usar:
 
 ```txt
 VITE_API_BASE_URL=http://localhost:8080/api/v1
@@ -107,7 +101,9 @@ Panel: `http://localhost:5173/#/dashboard`
 
 ### Arranque completo del entorno
 
-Desde la raiz del workspace `AURA-IA`, se puede arrancar backend y frontend con una sola accion.
+Desde la raiz del workspace `AURA-IA`, se puede arrancar la aplicacion visible
+con una sola accion. Por defecto se arranca el frontend local y se usa el
+backend real desplegado mediante proxy de Vite.
 
 Windows:
 
@@ -122,13 +118,9 @@ chmod +x AURA-AI-FRONTEND/scripts/start-dev.sh
 ./AURA-AI-FRONTEND/scripts/start-dev.sh
 ```
 
-Ambos scripts arrancan el backend en `http://localhost:8080`, Vite en `http://localhost:5173` y abren el navegador en `http://localhost:5173` cuando el frontend responde.
-
-Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, los scripts usan ese puerto real y muestran un aviso. En ese caso, alinea tambien `AURA-AI-FRONTEND/.env.local`:
-
-```txt
-VITE_API_BASE_URL=http://localhost:<SERVER_PORT>/api/v1
-```
+Ambos scripts arrancan Vite en `http://localhost:5173`, configuran
+`VITE_API_BASE_URL=/api/v1`, proxifican esas llamadas al backend real
+`https://api.aura-ia.es` y abren el navegador cuando el frontend responde.
 
 Para parar los procesos:
 
@@ -140,25 +132,29 @@ Para parar los procesos:
 ./AURA-AI-FRONTEND/scripts/start-dev.sh stop
 ```
 
-Para arrancar contra una base PostgreSQL/Supabase real, usar el modo avanzado
-`-RealEnv` en Windows o `real-env` en macOS/Linux. En ese caso si se requiere
-`AURA-AI-BACKEND/.env` con credenciales:
+Para arrancar tambien el backend local contra PostgreSQL/Supabase real, usar el
+modo avanzado `-LocalBackend` en Windows o `local-backend` en macOS/Linux. En
+ese caso si se requiere `AURA-AI-BACKEND/.env` con credenciales reales:
 
 ```powershell
-.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -RealEnv
+.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -LocalBackend
 ```
 
 ```bash
-./AURA-AI-FRONTEND/scripts/start-dev.sh real-env
+./AURA-AI-FRONTEND/scripts/start-dev.sh local-backend
 ```
+
+`-RealEnv` y `real-env` siguen aceptados como alias compatibles del modo
+backend local.
 
 ### Verificacion tras los cambios
 
 - El navegador debe abrir `http://localhost:5173`.
 - Vite debe anunciar `Local: http://localhost:5173/`.
-- El backend debe responder en `http://localhost:8080/actuator/health` con `{"status":"UP"}`. Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, usa ese puerto.
-- Las llamadas API del navegador deben ir a `http://localhost:8080/api/v1`.
-- Si sigue apareciendo `127.0.0.1`, revisar `AURA-AI-FRONTEND/.env.local` y cambiar `VITE_API_BASE_URL` a `http://localhost:<SERVER_PORT>/api/v1`.
+- Las llamadas API del navegador deben ir a `http://localhost:5173/api/v1` y Vite las debe proxificar a `https://api.aura-ia.es/api/v1`.
+- En modo tutor, una llamada sin token a `http://localhost:5173/api/v1/auth/me` debe devolver `401`, lo que confirma que el proxy alcanza el backend real.
+- En modo backend local, el backend debe responder en `http://localhost:8080/actuator/health` con `{"status":"UP"}`. Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, usa ese puerto.
+- Si sigue apareciendo `127.0.0.1`, revisar que no haya un Vite antiguo abierto y ejecutar `.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -Stop` antes de arrancar de nuevo.
 - En Windows, revisar `.dev-logs/backend-dev.err.log`, `.dev-logs/backend-dev.out.log`, `.dev-logs/frontend-dev.err.log` y `.dev-logs/frontend-dev.out.log`.
 - En macOS/Linux, revisar `.dev-logs/backend-dev.log` y `.dev-logs/frontend-dev.log`.
 

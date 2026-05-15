@@ -1,21 +1,29 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  Arranca backend (Spring Boot, SERVER_PORT o :8080) y frontend (Vite, :5173) en ventanas separadas.
-  Espera a que respondan y abre el navegador en http://localhost:5173.
-  Si alguno ya está corriendo lo detecta y no lo duplica.
+  Arranca AURA IA para desarrollo o evaluacion local.
+
+.DESCRIPTION
+  Modo por defecto: arranca solo el frontend en http://localhost:5173 y lo
+  conecta al backend real de produccion mediante el proxy de Vite. No requiere
+  .env, credenciales, PostgreSQL local, H2 ni usuarios demo.
+
+  Modo backend local: arranca tambien Spring Boot en localhost usando
+  AURA-AI-BACKEND\.env y PostgreSQL/Supabase real.
 
 .EXAMPLE
   .\start-dev.ps1
-  .\start-dev.ps1 -StripeWebhook  # Tambien reenvia webhooks Stripe a local
-  .\start-dev.ps1 -RealEnv        # Usa AURA-AI-BACKEND\.env y PostgreSQL real
-  .\start-dev.ps1 -Stop           # Detiene backend y frontend
+  .\start-dev.ps1 -LocalBackend
+  .\start-dev.ps1 -RealEnv        # alias compatible de -LocalBackend
+  .\start-dev.ps1 -StripeWebhook  # implica -LocalBackend
+  .\start-dev.ps1 -Stop
 #>
 
 param(
     [switch]$Stop,
     [switch]$StripeWebhook,
-    [switch]$RealEnv
+    [switch]$RealEnv,
+    [switch]$LocalBackend
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +37,9 @@ $backendErrLog = Join-Path $logDir 'backend-dev.err.log'
 $frontendOutLog = Join-Path $logDir 'frontend-dev.out.log'
 $frontendErrLog = Join-Path $logDir 'frontend-dev.err.log'
 $frontendUrl = 'http://localhost:5173'
+$productionBackendUrl = 'https://api.aura-ia.es'
+$productionApiBaseUrl = "$productionBackendUrl/api/v1"
+$useLocalBackend = [bool]($LocalBackend -or $RealEnv -or $StripeWebhook)
 $stripeWebhookEvents = 'checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed'
 $stripeWebhookPath = '/api/v1/webhooks/stripe'
 $stripeDockerName = 'aura-stripe-listener'
@@ -112,42 +123,21 @@ function Get-CommandSource($name) {
     return $null
 }
 
-function Ensure-WorkspaceLayout() {
-    if (-not (Test-Path $beDir)) {
-        throw "No se encontro $beDir. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND."
-    }
+function Ensure-FrontendLayout() {
     if (-not (Test-Path $feDir)) {
         throw "No se encontro $feDir. Ejecuta el script desde el repo frontend clonado dentro del workspace AURA-IA."
-    }
-    if (-not (Test-Path (Join-Path $beDir 'mvnw.cmd'))) {
-        throw "No se encontro AURA-AI-BACKEND\mvnw.cmd. El repositorio backend parece incompleto."
     }
     if (-not (Test-Path (Join-Path $feDir 'package.json'))) {
         throw "No se encontro AURA-AI-FRONTEND\package.json. El repositorio frontend parece incompleto."
     }
 }
 
-function Ensure-LocalEnvFiles() {
-    $backendEnv = Join-Path $beDir '.env'
-    $backendExample = Join-Path $beDir '.env.example'
-    $frontendEnv = Join-Path $feDir '.env.local'
-    $frontendExample = Join-Path $feDir '.env.example'
-
-    if ($RealEnv -and -not (Test-Path $backendEnv)) {
-        if (-not (Test-Path $backendExample)) {
-            throw "Falta AURA-AI-BACKEND\.env y tambien falta .env.example."
-        }
-        Copy-Item -Path $backendExample -Destination $backendEnv
-        Write-Warning "Se ha creado AURA-AI-BACKEND\.env desde .env.example."
-        throw "Edita AURA-AI-BACKEND\.env y rellena al menos SPRING_DATASOURCE_PASSWORD antes de arrancar con -RealEnv."
+function Ensure-BackendLayout() {
+    if (-not (Test-Path $beDir)) {
+        throw "No se encontro $beDir. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND."
     }
-
-    if (-not (Test-Path $frontendEnv)) {
-        if (-not (Test-Path $frontendExample)) {
-            throw "Falta AURA-AI-FRONTEND\.env.local y tambien falta .env.example."
-        }
-        Copy-Item -Path $frontendExample -Destination $frontendEnv
-        Write-Host "Created AURA-AI-FRONTEND\.env.local from .env.example" -ForegroundColor Green
+    if (-not (Test-Path (Join-Path $beDir 'mvnw.cmd'))) {
+        throw "No se encontro AURA-AI-BACKEND\mvnw.cmd. El repositorio backend parece incompleto."
     }
 }
 
@@ -173,7 +163,18 @@ function Assert-JavaAvailable() {
 }
 
 function Assert-BackendEnvReady() {
-    Import-EnvFile (Join-Path $beDir '.env')
+    $backendEnv = Join-Path $beDir '.env'
+    $backendExample = Join-Path $beDir '.env.example'
+
+    if (-not (Test-Path $backendEnv)) {
+        if (Test-Path $backendExample) {
+            Copy-Item -Path $backendExample -Destination $backendEnv
+            Write-Warning "Se ha creado AURA-AI-BACKEND\.env desde .env.example."
+        }
+        throw "El modo backend local necesita AURA-AI-BACKEND\.env con credenciales reales de PostgreSQL/Supabase."
+    }
+
+    Import-EnvFile $backendEnv
 
     $required = @('SPRING_DATASOURCE_URL', 'SPRING_DATASOURCE_USERNAME', 'SPRING_DATASOURCE_PASSWORD', 'JWT_SECRET')
     $missing = @()
@@ -211,6 +212,23 @@ function Ensure-FrontendDependencies() {
     }
 }
 
+function Configure-FrontendEnvironment($backendPort) {
+    if ($useLocalBackend) {
+        [Environment]::SetEnvironmentVariable('VITE_API_BASE_URL', "http://localhost:$backendPort/api/v1", 'Process')
+        Remove-Item Env:\VITE_DEV_API_PROXY_TARGET -ErrorAction SilentlyContinue
+        Write-Host "Frontend conectado al backend local: http://localhost:$backendPort/api/v1" -ForegroundColor Green
+    } else {
+        [Environment]::SetEnvironmentVariable('VITE_API_BASE_URL', '/api/v1', 'Process')
+        [Environment]::SetEnvironmentVariable('VITE_DEV_API_PROXY_TARGET', $productionBackendUrl, 'Process')
+        [Environment]::SetEnvironmentVariable('VITE_DEV_MODE', 'false', 'Process')
+        Write-Host "Modo tutor: frontend local con proxy Vite hacia $productionApiBaseUrl" -ForegroundColor Green
+    }
+
+    if ([string]::IsNullOrWhiteSpace($env:VITE_DEFAULT_LOCALE)) {
+        [Environment]::SetEnvironmentVariable('VITE_DEFAULT_LOCALE', 'es', 'Process')
+    }
+}
+
 function Show-LogTail($name, $path) {
     if (-not (Test-Path $path)) { return }
     Write-Host ""
@@ -220,17 +238,15 @@ function Show-LogTail($name, $path) {
 
 function Initialize-DevEnvironment() {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    Ensure-WorkspaceLayout
-    Ensure-LocalEnvFiles
+    Ensure-FrontendLayout
     Assert-RequiredCommand 'npm.cmd' 'Instala Node.js 20 o superior.'
-    Assert-JavaAvailable
-    if ($RealEnv) {
+
+    if ($useLocalBackend) {
+        Ensure-BackendLayout
+        Assert-JavaAvailable
         Assert-BackendEnvReady
-    } else {
-        $env:SPRING_PROFILES_ACTIVE = 'evaluator'
-        Write-Host "Modo evaluador activo: backend con H2 en memoria, usuario demo e integraciones externas desactivadas." -ForegroundColor Green
-        Write-Host "Credenciales demo: demo@aura.ai / StrongPassword123!" -ForegroundColor Green
     }
+
     Ensure-FrontendDependencies
 }
 
@@ -435,8 +451,6 @@ function Enable-StripeWebhookLocal() {
 }
 
 $backendPort = Resolve-BackendPort
-$backendUrl = "http://localhost:$backendPort"
-$backendHealthUrl = "$backendUrl/actuator/health"
 
 if ($Stop) {
     Stop-Port $backendPort 'Backend'
@@ -456,16 +470,24 @@ try {
     Write-Error $_.Exception.Message
     exit 1
 }
+
 $backendPort = Resolve-BackendPort
-$backendUrl = "http://localhost:$backendPort"
-$backendHealthUrl = "$backendUrl/actuator/health"
+if ($useLocalBackend) {
+    $backendUrl = "http://localhost:$backendPort"
+    $backendHealthUrl = "$backendUrl/actuator/health"
+} else {
+    $backendUrl = $productionBackendUrl
+    $backendHealthUrl = "$productionBackendUrl/actuator/health"
+}
+
+Configure-FrontendEnvironment $backendPort
 
 $stripeRunner = $null
 if ($StripeWebhook) {
     $stripeRunner = Enable-StripeWebhookLocal
 }
 
-if ((Get-EnvValue 'SOS_SMS_ENABLED') -eq 'true') {
+if ($useLocalBackend -and (Get-EnvValue 'SOS_SMS_ENABLED') -eq 'true') {
     $twilioMissing = @('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER') |
         Where-Object { [string]::IsNullOrWhiteSpace((Get-EnvValue $_)) }
     if ($twilioMissing.Count -gt 0) {
@@ -473,31 +495,34 @@ if ((Get-EnvValue 'SOS_SMS_ENABLED') -eq 'true') {
     }
 }
 
-# Backend
-$bePid = Get-PortOwner $backendPort
-if ($bePid) {
-    Write-Host "Backend already running on :$backendPort (PID $bePid)" -ForegroundColor Green
-    if ($StripeWebhook) {
-        Write-Host "Reinicia el backend con .\start-dev.ps1 -Stop y luego .\start-dev.ps1 -StripeWebhook para que cargue el whsec local." -ForegroundColor DarkYellow
+if ($useLocalBackend) {
+    $bePid = Get-PortOwner $backendPort
+    if ($bePid) {
+        Write-Host "Backend already running on :$backendPort (PID $bePid)" -ForegroundColor Green
+        if ($StripeWebhook) {
+            Write-Host "Reinicia el backend con .\start-dev.ps1 -Stop y luego .\start-dev.ps1 -StripeWebhook para que cargue el whsec local." -ForegroundColor DarkYellow
+        }
+    } else {
+        if ($backendPort -ne 8080) {
+            Write-Warning "AURA-AI-BACKEND\.env configura SERVER_PORT=$backendPort. El backend usara $backendUrl. Para usar el default documentado, cambia SERVER_PORT=8080 o elimina esa linea."
+        }
+        Write-Host "Starting Backend (Spring Boot)..." -ForegroundColor Cyan
+        Remove-Item -LiteralPath $backendOutLog, $backendErrLog -Force -ErrorAction SilentlyContinue
+        Start-Process -FilePath "$beDir\mvnw.cmd" `
+            -ArgumentList 'spring-boot:run' `
+            -WorkingDirectory $beDir `
+            -RedirectStandardOutput $backendOutLog `
+            -RedirectStandardError $backendErrLog `
+            -WindowStyle Hidden
     }
 } else {
-    if ($backendPort -ne 8080) {
-        Write-Warning "AURA-AI-BACKEND\.env configura SERVER_PORT=$backendPort. El backend usara $backendUrl. Para usar el default documentado, cambia SERVER_PORT=8080 o elimina esa linea."
-    }
-    Write-Host "Starting Backend (Spring Boot)..." -ForegroundColor Cyan
-    Remove-Item -LiteralPath $backendOutLog, $backendErrLog -Force -ErrorAction SilentlyContinue
-    Start-Process -FilePath "$beDir\mvnw.cmd" `
-        -ArgumentList 'spring-boot:run' `
-        -WorkingDirectory $beDir `
-        -RedirectStandardOutput $backendOutLog `
-        -RedirectStandardError $backendErrLog `
-        -WindowStyle Hidden
+    Write-Host "Backend local no arrancado; se usa el backend real $productionBackendUrl mediante proxy." -ForegroundColor Cyan
 }
 
-# Frontend
 $fePid = Get-PortOwner 5173
 if ($fePid) {
     Write-Host "Vite already running on :5173 (PID $fePid)" -ForegroundColor Green
+    Write-Host "Si ese Vite se arranco antes de este script, ejecuta .\start-dev.ps1 -Stop y vuelve a iniciar para cargar el proxy tutor." -ForegroundColor DarkYellow
 } else {
     Write-Host "Starting Frontend (Vite)..." -ForegroundColor Cyan
     Remove-Item -LiteralPath $frontendOutLog, $frontendErrLog -Force -ErrorAction SilentlyContinue
@@ -513,9 +538,14 @@ if ($StripeWebhook -and $stripeRunner) {
     Start-StripeWebhookForwarder $stripeRunner
 }
 
-$backendReady = Wait-HttpReady 'Backend' $backendHealthUrl 90
+if ($useLocalBackend) {
+    $backendReady = Wait-HttpReady 'Backend' $backendHealthUrl 90
+} else {
+    $backendReady = $true
+    Write-Host "Backend real configurado como proxy target: $productionBackendUrl" -ForegroundColor Green
+}
 $frontendReady = Wait-HttpReady 'Frontend' $frontendUrl 45
-if (-not $backendReady) {
+if ($useLocalBackend -and -not $backendReady) {
     Show-LogTail 'Backend stderr' $backendErrLog
     Show-LogTail 'Backend stdout' $backendOutLog
 }
@@ -532,6 +562,9 @@ if ($frontendReady) {
 Write-Host ""
 Write-Host "Backend  -> $backendUrl  (health: /actuator/health)" -ForegroundColor Green
 Write-Host "Frontend -> $frontendUrl" -ForegroundColor Green
+if (-not $useLocalBackend) {
+    Write-Host "API      -> $frontendUrl/api/v1/* proxy -> $productionApiBaseUrl/*" -ForegroundColor Green
+}
 Write-Host "Logs     -> $logDir" -ForegroundColor Green
 if ($StripeWebhook) {
     Write-Host "Stripe   -> forwarding to $backendUrl$stripeWebhookPath" -ForegroundColor Green
