@@ -5,7 +5,7 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 ## Estado actual en GitHub
 
 - Rama estable: `main`.
-- Version actual del frontend: `v0.2.19`.
+- Version actual del frontend: `v0.2.20`.
 - Flujo de ramas: `feature` -> `develop` -> `release` -> `main`; `hotfix` queda alineada con `main`.
 - El README esta orientado al tutor/evaluador y al despliegue publico actual.
 - El login no incluye credenciales demo.
@@ -266,33 +266,48 @@ Build local manual:
 
 ```bash
 docker build -t aura-ai-frontend .
-docker run --rm -p 8080:80 aura-ai-frontend
+docker run --rm -p 8082:80 aura-ai-frontend
 ```
 
-Abrir `http://localhost:8080/`.
+Abrir `http://localhost:8082/`.
+
+Se usa el puerto `8082` en el ejemplo para no colisionar con el backend local,
+que normalmente escucha en `http://localhost:8080`.
 
 ## Estructura principal
 
 ```txt
 src/
-|-- components/ui
-|-- context
-|-- data
-|-- hooks
-|-- i18n
+|-- assets/landing
+|-- components/
+|   |-- brand
+|   |-- layout
+|   `-- ui
+|-- context/
+|-- data/
+|-- hooks/
+|-- i18n/
 |-- pages
 |   |-- auth
 |   |-- dashboard
-|   `-- landing
-|-- routes
-|-- services
-|-- styles
-|-- test
-`-- utils
+|   |-- emergency
+|   |-- landing
+|   |-- legal
+|   `-- onboarding
+|-- routes/
+|-- services/
+|-- styles/
+|-- test/
+`-- utils/
 ```
 
 ## Notas
 
-Las carpetas `AURA AI - LandingPage/` y `AURA AI-Panel-Interior/` son referencias visuales originales y no forman parte del bundle.
+Los prototipos visuales originales se conservan en `docs/design/landing-page/`
+y `docs/design/panel-interior/`. Sirven como referencia de diseno y no forman
+parte del bundle de produccion.
+
+Las carpetas y archivos generados (`dist/`, `.vite/`, logs y `*.tsbuildinfo`)
+estan ignorados para mantener el repositorio limpio.
 
 El almacenamiento local se usa para preferencias de interfaz y tokens de sesion. Los datos funcionales principales se consumen desde el backend.
