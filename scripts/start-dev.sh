@@ -235,16 +235,18 @@ else
 fi
 
 if [[ -z "$(port_pids 5173)" ]]; then
-  echo "Starting Frontend (Vite)..."
-  (
-    cd "$FRONTEND_DIR"
-    npm run dev -- --host localhost --port 5173 --strictPort
-  ) >"$LOG_DIR/frontend-dev.log" 2>&1 &
-  echo $! >"$LOG_DIR/frontend.pid"
+  :
 else
-  echo "Vite already running on :5173"
-  echo "Si ese Vite se arranco antes de este script, ejecuta ./start-dev.sh stop y vuelve a iniciar para cargar el proxy tutor."
+  echo "Restarting Vite on :5173 to load current env/code..."
+  stop_port 5173 "Vite"
 fi
+
+echo "Starting Frontend (Vite)..."
+(
+  cd "$FRONTEND_DIR"
+  npm run dev -- --host localhost --port 5173 --strictPort
+) >"$LOG_DIR/frontend-dev.log" 2>&1 &
+echo $! >"$LOG_DIR/frontend.pid"
 
 backend_ready=false
 frontend_ready=false
