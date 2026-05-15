@@ -13,6 +13,16 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 | Hito 5 | Inicio, SOS 4-4-6 y chatbot streaming            | Completado |
 | Hito 6 | Minijuegos, sonidos muted, diario y mood tracker | Completado |
 | Hito 7 | Contactos, configuracion, i18n, tests y Docker   | Completado |
+| Hito 8 | Modo tutor, despliegue Dokploy y auth sin demo   | Completado |
+
+## Estado actual en GitHub
+
+- Rama estable: `main`.
+- Version actual del frontend: `v0.2.17`.
+- Flujo de ramas: `feature` -> `develop` -> `release` -> `main`; `hotfix` queda alineada con `main`.
+- El README esta orientado al tutor/evaluador y al despliegue publico actual.
+- El login no incluye credenciales demo.
+- El registro muestra un aviso si se intenta usar un email ya existente.
 
 ## Stack
 
@@ -36,6 +46,11 @@ sirve con nginx.
 - Backend API: `https://api.aura-ia.es`
 - Imagen frontend: `ghcr.io/emilio-prog/aura-ai-frontend`
 - Imagen backend consumida: `ghcr.io/emilio-prog/aura-ai-backend`
+
+El workflow de release de GitHub Actions se ejecuta en `main` y en tags
+`v*.*.*`: instala dependencias, ejecuta lint/typecheck/tests, construye la
+imagen Docker, publica `latest`, `sha-*` y tags semver en GHCR, y dispara el
+deploy de Dokploy mediante `POST /api/compose.deploy`.
 
 En local, el modo tutor usa `http://localhost:5173` y proxifica `/api/v1` al
 backend real `https://api.aura-ia.es/api/v1`.
@@ -237,6 +252,14 @@ Cobertura funcional incluida:
 - Configuracion: exportar datos, eliminar cuenta y logout.
 
 ## Docker
+
+Imagen de produccion publicada por el pipeline:
+
+```bash
+docker pull ghcr.io/emilio-prog/aura-ai-frontend:latest
+```
+
+Build local manual:
 
 ```bash
 docker build -t aura-ai-frontend .
