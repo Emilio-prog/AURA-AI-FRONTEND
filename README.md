@@ -25,6 +25,21 @@ Frontend completo de **AURA IA**, SaaS de apoyo emocional construido con React, 
 - Vitest + React Testing Library
 - Docker multi-stage: Node build -> nginx alpine
 
+## Despliegue y acceso publico
+
+La aplicacion esta preparada para produccion con Dokploy sobre el VPS de
+Hostinger. El frontend se publica como imagen Docker en GHCR y Dokploy la
+sirve con nginx.
+
+- Sitio web: `https://aura-ia.es`
+- Alias: `https://www.aura-ia.es`
+- Backend API: `https://api.aura-ia.es`
+- Imagen frontend: `ghcr.io/emilio-prog/aura-ai-frontend`
+- Imagen backend consumida: `ghcr.io/emilio-prog/aura-ai-backend`
+
+En local, el modo tutor usa `http://localhost:5173` y proxifica `/api/v1` al
+backend real `https://api.aura-ia.es/api/v1`.
+
 ## Instalacion local limpia para evaluador
 
 El proyecto esta dividido en dos repositorios Git independientes. Para que los
@@ -172,8 +187,11 @@ backend local.
 ## Auth real
 
 - Registro: llama a `POST /auth/register` y muestra `#/verify-email`.
+- Si el email ya existe, la interfaz muestra el aviso `No te puedes registrar con el mismo correo.` y permanece en registro.
 - Verificacion: `#/verify-email?token=...` llama a `POST /auth/verify-email?token=...`.
 - Login: llama a `POST /auth/login`, guarda `accessToken` y `refreshToken`.
+- El login no muestra credenciales demo; se debe usar una cuenta real registrada/verificada.
+- Google OAuth inicia sesion mediante `POST /auth/oauth/google/start`.
 - Reenvio: login/verificacion permiten llamar a `POST /auth/resend-verification`.
 
 ## Funcionalidad del panel
@@ -208,6 +226,8 @@ Cobertura funcional incluida:
 
 - Auth flow con backend mockeado en tests.
 - Registro pendiente y pantalla de verificacion.
+- Aviso de email ya registrado.
+- Login sin boton de credenciales demo.
 - Reenvio de email si login queda bloqueado por cuenta no verificada.
 - Guards privado/publico.
 - Diario con persistencia backend mockeada en tests.
