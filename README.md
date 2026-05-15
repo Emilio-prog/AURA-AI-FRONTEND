@@ -155,8 +155,8 @@ backend local.
 - En modo tutor, una llamada sin token a `http://localhost:5173/api/v1/auth/me` debe devolver `401`, lo que confirma que el proxy alcanza el backend real.
 - En modo backend local, el backend debe responder en `http://localhost:8080/actuator/health` con `{"status":"UP"}`. Si `AURA-AI-BACKEND/.env` define `SERVER_PORT`, usa ese puerto.
 - Si sigue apareciendo `127.0.0.1`, revisar que no haya un Vite antiguo abierto y ejecutar `.\AURA-AI-FRONTEND\scripts\start-dev.ps1 -Stop` antes de arrancar de nuevo.
-- En Windows, revisar `.dev-logs/backend-dev.err.log`, `.dev-logs/backend-dev.out.log`, `.dev-logs/frontend-dev.err.log` y `.dev-logs/frontend-dev.out.log`.
-- En macOS/Linux, revisar `.dev-logs/backend-dev.log` y `.dev-logs/frontend-dev.log`.
+- En Windows, revisar `%TEMP%\aura-ia-dev-logs\backend-dev.err.log`, `%TEMP%\aura-ia-dev-logs\backend-dev.out.log`, `%TEMP%\aura-ia-dev-logs\frontend-dev.err.log` y `%TEMP%\aura-ia-dev-logs\frontend-dev.out.log`.
+- En macOS/Linux, revisar `${TMPDIR:-/tmp}/aura-ia-dev-logs/backend-dev.log` y `${TMPDIR:-/tmp}/aura-ia-dev-logs/frontend-dev.log`.
 
 ## Scripts
 
