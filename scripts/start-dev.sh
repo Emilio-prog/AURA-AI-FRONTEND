@@ -5,12 +5,17 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/AURA-AI-BACKEND"
 FRONTEND_DIR="$ROOT_DIR/AURA-AI-FRONTEND"
 LOG_DIR="$ROOT_DIR/.dev-logs"
-REAL_ENV=false
+FRONTEND_URL="http://localhost:5173"
+PRODUCTION_BACKEND_URL="https://api.aura-ia.es"
+PRODUCTION_API_BASE_URL="$PRODUCTION_BACKEND_URL/api/v1"
+LOCAL_BACKEND=false
 
-if [[ "${1:-}" == "real-env" || "${1:-}" == "--real-env" ]]; then
-  REAL_ENV=true
-  shift || true
-fi
+case "${1:-start}" in
+  local-backend|--local-backend|real-env|--real-env)
+    LOCAL_BACKEND=true
+    shift || true
+    ;;
+esac
 
 env_file_value() {
   local path="$1"
@@ -40,7 +45,10 @@ BACKEND_PORT="${SERVER_PORT:-$(env_file_value "$BACKEND_DIR/.env" "SERVER_PORT")
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 BACKEND_URL="http://localhost:$BACKEND_PORT"
 BACKEND_HEALTH_URL="$BACKEND_URL/actuator/health"
-FRONTEND_URL="http://localhost:5173"
+if [[ "$LOCAL_BACKEND" == false ]]; then
+  BACKEND_URL="$PRODUCTION_BACKEND_URL"
+  BACKEND_HEALTH_URL="$PRODUCTION_BACKEND_URL/actuator/health"
+fi
 
 mkdir -p "$LOG_DIR"
 
@@ -53,28 +61,24 @@ ensure_command() {
   fi
 }
 
-ensure_workspace_layout() {
-  [[ -d "$BACKEND_DIR" ]] || { echo "Error: no se encontro $BACKEND_DIR. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND." >&2; exit 1; }
+ensure_frontend_layout() {
   [[ -d "$FRONTEND_DIR" ]] || { echo "Error: no se encontro $FRONTEND_DIR." >&2; exit 1; }
-  [[ -f "$BACKEND_DIR/mvnw" ]] || { echo "Error: no se encontro AURA-AI-BACKEND/mvnw." >&2; exit 1; }
   [[ -f "$FRONTEND_DIR/package.json" ]] || { echo "Error: no se encontro AURA-AI-FRONTEND/package.json." >&2; exit 1; }
 }
 
-ensure_frontend_env() {
-  if [[ ! -f "$FRONTEND_DIR/.env.local" ]]; then
-    [[ -f "$FRONTEND_DIR/.env.example" ]] || { echo "Error: falta AURA-AI-FRONTEND/.env.example." >&2; exit 1; }
-    cp "$FRONTEND_DIR/.env.example" "$FRONTEND_DIR/.env.local"
-    echo "Created AURA-AI-FRONTEND/.env.local from .env.example"
-  fi
+ensure_backend_layout() {
+  [[ -d "$BACKEND_DIR" ]] || { echo "Error: no se encontro $BACKEND_DIR. Clona AURA-AI-BACKEND como carpeta hermana de AURA-AI-FRONTEND." >&2; exit 1; }
+  [[ -f "$BACKEND_DIR/mvnw" ]] || { echo "Error: no se encontro AURA-AI-BACKEND/mvnw." >&2; exit 1; }
 }
 
-ensure_real_backend_env() {
-  [[ "$REAL_ENV" == true ]] || return 0
+ensure_local_backend_env() {
+  [[ "$LOCAL_BACKEND" == true ]] || return 0
   if [[ ! -f "$BACKEND_DIR/.env" ]]; then
-    [[ -f "$BACKEND_DIR/.env.example" ]] || { echo "Error: falta AURA-AI-BACKEND/.env.example." >&2; exit 1; }
-    cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
-    echo "Se ha creado AURA-AI-BACKEND/.env desde .env.example."
-    echo "Edita AURA-AI-BACKEND/.env antes de arrancar con real-env."
+    if [[ -f "$BACKEND_DIR/.env.example" ]]; then
+      cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
+      echo "Se ha creado AURA-AI-BACKEND/.env desde .env.example."
+    fi
+    echo "Error: el modo backend local necesita AURA-AI-BACKEND/.env con credenciales reales de PostgreSQL/Supabase." >&2
     exit 1
   fi
 }
@@ -84,6 +88,20 @@ ensure_frontend_dependencies() {
     echo "node_modules no existe. Ejecutando npm ci en AURA-AI-FRONTEND..."
     (cd "$FRONTEND_DIR" && npm ci)
   fi
+}
+
+configure_frontend_environment() {
+  if [[ "$LOCAL_BACKEND" == true ]]; then
+    export VITE_API_BASE_URL="http://localhost:$BACKEND_PORT/api/v1"
+    unset VITE_DEV_API_PROXY_TARGET || true
+    echo "Frontend conectado al backend local: $VITE_API_BASE_URL"
+  else
+    export VITE_API_BASE_URL="/api/v1"
+    export VITE_DEV_API_PROXY_TARGET="$PRODUCTION_BACKEND_URL"
+    export VITE_DEV_MODE=false
+    echo "Modo tutor: frontend local con proxy Vite hacia $PRODUCTION_API_BASE_URL"
+  fi
+  export VITE_DEFAULT_LOCALE="${VITE_DEFAULT_LOCALE:-es}"
 }
 
 print_log_tail() {
@@ -180,37 +198,40 @@ case "${1:-start}" in
   start|"")
     ;;
   *)
-    echo "Usage: ./start-dev.sh [start|stop|real-env]"
+    echo "Usage: ./start-dev.sh [start|stop|local-backend|real-env]"
     exit 2
     ;;
 esac
 
-ensure_workspace_layout
-ensure_frontend_env
-ensure_real_backend_env
-ensure_command java "Instala JDK 21."
+ensure_frontend_layout
 ensure_command npm "Instala Node.js 20 o superior."
-ensure_frontend_dependencies
 
-if [[ "$REAL_ENV" == false ]]; then
-  export SPRING_PROFILES_ACTIVE=evaluator
-  echo "Modo evaluador activo: backend con H2 en memoria, usuario demo e integraciones externas desactivadas."
-  echo "Credenciales demo: demo@aura.ai / StrongPassword123!"
+if [[ "$LOCAL_BACKEND" == true ]]; then
+  ensure_backend_layout
+  ensure_local_backend_env
+  ensure_command java "Instala JDK 21."
 fi
 
-if [[ -z "$(port_pids "$BACKEND_PORT")" ]]; then
-  if [[ "$BACKEND_PORT" != "8080" ]]; then
-    echo "Warning: AURA-AI-BACKEND/.env sets SERVER_PORT=$BACKEND_PORT. Backend will use $BACKEND_URL."
-    echo "To use the documented default, set SERVER_PORT=8080 or remove that line."
+ensure_frontend_dependencies
+configure_frontend_environment
+
+if [[ "$LOCAL_BACKEND" == true ]]; then
+  if [[ -z "$(port_pids "$BACKEND_PORT")" ]]; then
+    if [[ "$BACKEND_PORT" != "8080" ]]; then
+      echo "Warning: AURA-AI-BACKEND/.env sets SERVER_PORT=$BACKEND_PORT. Backend will use $BACKEND_URL."
+      echo "To use the documented default, set SERVER_PORT=8080 or remove that line."
+    fi
+    echo "Starting Backend (Spring Boot)..."
+    (
+      cd "$BACKEND_DIR"
+      ./mvnw spring-boot:run
+    ) >"$LOG_DIR/backend-dev.log" 2>&1 &
+    echo $! >"$LOG_DIR/backend.pid"
+  else
+    echo "Backend already running on :$BACKEND_PORT"
   fi
-  echo "Starting Backend (Spring Boot)..."
-  (
-    cd "$BACKEND_DIR"
-    ./mvnw spring-boot:run
-  ) >"$LOG_DIR/backend-dev.log" 2>&1 &
-  echo $! >"$LOG_DIR/backend.pid"
 else
-  echo "Backend already running on :$BACKEND_PORT"
+  echo "Backend local no arrancado; se usa el backend real $PRODUCTION_BACKEND_URL mediante proxy."
 fi
 
 if [[ -z "$(port_pids 5173)" ]]; then
@@ -222,15 +243,21 @@ if [[ -z "$(port_pids 5173)" ]]; then
   echo $! >"$LOG_DIR/frontend.pid"
 else
   echo "Vite already running on :5173"
+  echo "Si ese Vite se arranco antes de este script, ejecuta ./start-dev.sh stop y vuelve a iniciar para cargar el proxy tutor."
 fi
 
 backend_ready=false
 frontend_ready=false
 
-if wait_http_ready "Backend" "$BACKEND_HEALTH_URL" 90; then
-  backend_ready=true
+if [[ "$LOCAL_BACKEND" == true ]]; then
+  if wait_http_ready "Backend" "$BACKEND_HEALTH_URL" 90; then
+    backend_ready=true
+  else
+    print_log_tail "Backend log" "$LOG_DIR/backend-dev.log"
+  fi
 else
-  print_log_tail "Backend log" "$LOG_DIR/backend-dev.log"
+  backend_ready=true
+  echo "Backend real configurado como proxy target: $PRODUCTION_BACKEND_URL"
 fi
 
 if wait_http_ready "Frontend" "$FRONTEND_URL" 45; then
@@ -248,6 +275,9 @@ fi
 echo
 echo "Backend  -> $BACKEND_URL  (health: /actuator/health)"
 echo "Frontend -> $FRONTEND_URL"
+if [[ "$LOCAL_BACKEND" == false ]]; then
+  echo "API      -> $FRONTEND_URL/api/v1/* proxy -> $PRODUCTION_API_BASE_URL/*"
+fi
 echo "Logs     -> $LOG_DIR"
 echo
 echo "Para parar todo: ./start-dev.sh stop"
