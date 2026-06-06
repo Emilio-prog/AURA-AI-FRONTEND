@@ -24,6 +24,21 @@ export interface MoodLogFilters {
   to?: string;
 }
 
+export interface MoodStats {
+  from: string;
+  to: string;
+  count: number;
+  averageBefore: number;
+  averageAfter: number;
+  improvementPercentage: number;
+  trend: string;
+  mediaAnterior?: number;
+  mediaReciente?: number;
+  diferenciaTendencia?: number;
+  alertaCaida?: boolean;
+  tendencia?: string;
+}
+
 export async function listMoodLogs(filters: number | MoodLogFilters = 100) {
   const params =
     typeof filters === 'number'
@@ -35,6 +50,16 @@ export async function listMoodLogs(filters: number | MoodLogFilters = 100) {
         };
   const { data } = await httpClient.get<PageResponse<MoodLog>>('/mood', {
     params,
+  });
+  return data;
+}
+
+export async function getMoodStats(filters: MoodLogFilters = {}) {
+  const { data } = await httpClient.get<MoodStats>('/mood/stats', {
+    params: {
+      from: filters.from,
+      to: filters.to,
+    },
   });
   return data;
 }

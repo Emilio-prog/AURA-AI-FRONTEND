@@ -13,9 +13,20 @@ import {
   listDiaryEntries,
   updateDiaryEntry,
 } from '@/services/diary';
-import { createMoodLog, listMoodLogs } from '@/services/mood';
-import { createContact, deleteContact as deleteContactApi, listContacts, updateContact } from '@/services/contacts';
-import { createChatSession, deleteChatSession, getChatSession, listChatSessions, sendChatMessage } from '@/services/chatbot';
+import { createMoodLog, getMoodStats, listMoodLogs } from '@/services/mood';
+import {
+  createContact,
+  deleteContact as deleteContactApi,
+  listContacts,
+  updateContact,
+} from '@/services/contacts';
+import {
+  createChatSession,
+  deleteChatSession,
+  getChatSession,
+  listChatSessions,
+  sendChatMessage,
+} from '@/services/chatbot';
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -24,11 +35,7 @@ import {
   isPushSupported,
   sendPushTest,
 } from '@/services/pushNotifications';
-import {
-  getGoogleOAuthStatus,
-  startGoogleLink,
-  unlinkGoogleOAuth,
-} from '@/services/googleAuth';
+import { getGoogleOAuthStatus, startGoogleLink, unlinkGoogleOAuth } from '@/services/googleAuth';
 import { triggerPanic } from '@/services/panic';
 import { deleteCurrentAccount, exportUserDataJson, exportUserDataPdf } from '@/services/users';
 import i18n from '@/i18n';
@@ -146,6 +153,14 @@ const MOOD_OPTIONS = [
   { emoji: '😤', label: 'FRUSTRACIÓN', score: 4, color: '#f59e0b' },
   { emoji: '🥺', label: 'VULNERABLE', score: 5, color: M },
   { emoji: '😐', label: 'NEUTRAL', score: 6, color: '#94a3b8' },
+];
+
+const MOOD_CHECKIN_OPTIONS = [
+  { e: '😰', l: 'MUY_MAL', c: CR, nivel: 9 },
+  { e: '😔', l: 'MAL', c: '#fb923c', nivel: 7 },
+  { e: '😐', l: 'REGULAR', c: '#facc15', nivel: 5 },
+  { e: '😊', l: 'BIEN', c: T, nivel: 3 },
+  { e: '🤩', l: 'GENIAL', c: M, nivel: 1 },
 ];
 
 const DIARY_TAG_SUGGESTIONS = [
@@ -380,13 +395,15 @@ const notifyAchievementUnlocks = (achievements, unlockedAfter) => {
     fresh.length === 1
       ? `Enhorabuena, has desbloqueado: ${fresh[0].title}.`
       : `Enhorabuena, has desbloqueado ${fresh.length} logros nuevos.`;
-  window.dispatchEvent(new CustomEvent('aura-achievement-unlocked', {
-    detail: {
-      title: 'LOGRO_DESBLOQUEADO',
-      body,
-      achievements: fresh,
-    },
-  }));
+  window.dispatchEvent(
+    new CustomEvent('aura-achievement-unlocked', {
+      detail: {
+        title: 'LOGRO_DESBLOQUEADO',
+        body,
+        achievements: fresh,
+      },
+    }),
+  );
   if (getPushPermissionState() !== 'granted') return;
   try {
     const options = {
@@ -416,7 +433,11 @@ const syncAchievementUnlockState = (data, { notify = false, unlockedAfter = 0 } 
         return new Date(achievement.unlockedAt).getTime() >= unlockedAfter;
       })
     : [];
-  const notifyTargets = [...new Map([...newlyUnlocked, ...recentlyUnlocked].map((achievement) => [achievement.code, achievement])).values()];
+  const notifyTargets = [
+    ...new Map(
+      [...newlyUnlocked, ...recentlyUnlocked].map((achievement) => [achievement.code, achievement]),
+    ).values(),
+  ];
   unlocked.forEach((achievement) => seen.add(achievement.code));
   writeSeenAchievementCodes(seen);
   if (notify) notifyAchievementUnlocks(notifyTargets, unlockedAfter);
@@ -442,7 +463,8 @@ const fireAchievementEvent = (type, metadata = {}) => {
 };
 
 const moodByLabel = (label) =>
-  MOOD_OPTIONS.find((item) => item.label === label) ?? MOOD_OPTIONS.find((item) => item.label === 'NEUTRAL');
+  MOOD_OPTIONS.find((item) => item.label === label) ??
+  MOOD_OPTIONS.find((item) => item.label === 'NEUTRAL');
 
 const backendDiaryToPanel = (entry, fallbackDate = new Date().toISOString()) => {
   const moodScore = entry?.moodScore ?? entry?.mood_score ?? null;
@@ -471,6 +493,36 @@ const backendMoodToPanel = (log) => ({
   after: log.afterLevel,
   mood: Math.round((log.beforeLevel + log.afterLevel) / 2),
 });
+
+const formatoMood = (value) => {
+  const numero = Number(value);
+  if (!Number.isFinite(numero)) return '0';
+  return numero.toFixed(1).replace(/\.0$/, '');
+};
+
+const etiquetaTendenciaMood = (estadisticas) => {
+  const valor = String(estadisticas?.tendencia ?? estadisticas?.trend ?? 'estable').toLowerCase();
+  if (valor === 'mejorando' || valor === 'improving') return 'MEJORANDO';
+  if (valor === 'empeorando' || valor === 'declining') return 'EMPEORANDO';
+  return 'ESTABLE';
+};
+
+const colorTendenciaMood = (estadisticas) => {
+  const etiqueta = etiquetaTendenciaMood(estadisticas);
+  if (etiqueta === 'MEJORANDO') return T;
+  if (etiqueta === 'EMPEORANDO') return CR;
+  return M;
+};
+
+const fechasRangoMood = (dias) => {
+  const hasta = new Date();
+  const desde = new Date(hasta);
+  desde.setDate(hasta.getDate() - dias + 1);
+  return {
+    from: desde.toISOString(),
+    to: hasta.toISOString(),
+  };
+};
 
 const backendContactToPanel = (contact) => ({
   id: contact.id,
@@ -508,7 +560,9 @@ const buildManualSosLinks = (phone, message = SOS_MANUAL_MESSAGE) => {
   const whatsappPhone = normalizePhoneForWhatsapp(phone);
   return {
     sms: smsPhone ? `sms:${smsPhone}` : '',
-    whatsapp: whatsappPhone ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}` : '',
+    whatsapp: whatsappPhone
+      ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+      : '',
   };
 };
 
@@ -701,11 +755,28 @@ function Sidebar({ active, set }) {
 function StatsBar() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
+  const [estadisticas, setEstadisticas] = useState(null);
+
+  const cargarEstadisticas = useCallback(() => {
+    getMoodStats(fechasRangoMood(30))
+      .then((datos) => setEstadisticas(datos))
+      .catch(() => setEstadisticas(null));
+  }, []);
+
+  useEffect(() => {
+    cargarEstadisticas();
+    window.addEventListener('aura-mood-updated', cargarEstadisticas);
+    return () => window.removeEventListener('aura-mood-updated', cargarEstadisticas);
+  }, [cargarEstadisticas]);
+
+  const tieneMood = estadisticas?.count > 0;
+  const ansiedadPromedio = tieneMood ? `${formatoMood(estadisticas.averageAfter)}/10` : 'SIN_DATOS';
+  const tendencia = tieneMood ? etiquetaTendenciaMood(estadisticas) : 'SIN_DATOS';
   const items = [
     'SESIONES_HOY: 3',
     'RACHA: DÍA_07_CONSECUTIVO',
-    'ANSIEDAD_PROMEDIO: 4.2/10',
-    'MOOD_HOY: BIEN',
+    `ANSIEDAD_PROMEDIO: ${ansiedadPromedio}`,
+    `TENDENCIA_ANIMO: ${tendencia}`,
     'EJERCICIOS_RESPIRACIÓN: 12',
     'BURBUJAS_EXPLOTADAS: 847',
     'TIEMPO_APP: 23MIN',
@@ -874,18 +945,32 @@ function HeroBentoCard() {
   const { user } = useAuth();
   const panelUser = user ?? DEFAULT_PANEL_USER;
   const [mood, setMood] = useState(() => localStorage.getItem(todayMoodKey()));
-  const moods = [
-    { e: '😰', l: 'MUY_MAL', c: CR },
-    { e: '😔', l: 'MAL', c: '#fb923c' },
-    { e: '😐', l: 'REGULAR', c: '#facc15' },
-    { e: '😊', l: 'BIEN', c: T },
-    { e: '🤩', l: 'GENIAL', c: M },
-  ];
+  const [guardando, setGuardando] = useState(false);
+  const [errorMood, setErrorMood] = useState('');
   const h = new Date().getHours();
   const greet = h < 12 ? 'BUENOS_DÍAS_' : h < 18 ? 'BUENAS_TARDES_' : 'BUENAS_NOCHES_';
-  const registerMood = (value) => {
-    setMood(value);
-    localStorage.setItem(todayMoodKey(), value);
+  const registerMood = async (value) => {
+    const opcion = MOOD_CHECKIN_OPTIONS.find((item) => item.l === value);
+    if (!opcion || guardando) return;
+    const startedAt = Date.now() - 1000;
+    setGuardando(true);
+    setErrorMood('');
+    try {
+      await createMoodLog({
+        beforeLevel: opcion.nivel,
+        afterLevel: opcion.nivel,
+        note: null,
+        loggedAt: new Date().toISOString(),
+      });
+      setMood(value);
+      localStorage.setItem(todayMoodKey(), value);
+      window.dispatchEvent(new CustomEvent('aura-mood-updated'));
+      void refreshAchievementsForNotifications(startedAt);
+    } catch (err) {
+      setErrorMood(`ERR_MOOD: ${backendErrorMessage(err)}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
@@ -903,10 +988,11 @@ function HeroBentoCard() {
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        {moods.map(({ e, l, c }) => (
+        {MOOD_CHECKIN_OPTIONS.map(({ e, l, c }) => (
           <button
             key={l}
             onClick={() => registerMood(l)}
+            disabled={guardando}
             style={{
               flex: 1,
               display: 'flex',
@@ -916,7 +1002,8 @@ function HeroBentoCard() {
               padding: '12px 6px',
               border: `3px solid ${mood === l ? c : K}`,
               background: mood === l ? c + '22' : W,
-              cursor: 'pointer',
+              cursor: guardando ? 'wait' : 'pointer',
+              opacity: guardando ? 0.65 : 1,
               transition: 'all .15s',
             }}
           >
@@ -930,6 +1017,19 @@ function HeroBentoCard() {
           </button>
         ))}
       </div>
+      {guardando && (
+        <span className="chip chip-negro" style={{ alignSelf: 'flex-start', fontSize: 9 }}>
+          GUARDANDO_MOOD
+        </span>
+      )}
+      {errorMood && (
+        <div
+          className="mono"
+          style={{ border: `3px solid ${CR}`, background: CL, padding: 10, fontSize: 9 }}
+        >
+          {errorMood}
+        </div>
+      )}
       {mood && (
         <div
           style={{
@@ -957,17 +1057,55 @@ function HeroBentoCard() {
 /* ── MOOD CHART CARD ── */
 function MoodChartCard() {
   const [hov, setHov] = useState(null);
-  const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-  const before = [6, 5, 7, 4, 6, 7, 5];
-  const after = [8, 7, 9, 7, 8, 9, 7];
+  const [historial, setHistorial] = useState([]);
+  const [estadisticas, setEstadisticas] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [errorMood, setErrorMood] = useState('');
+
+  const cargarMoodInicio = useCallback(() => {
+    const rango = fechasRangoMood(7);
+    setCargando(true);
+    setErrorMood('');
+    Promise.all([listMoodLogs({ size: 7, from: rango.from, to: rango.to }), getMoodStats(rango)])
+      .then(([page, datos]) => {
+        setHistorial(
+          (page.content ?? [])
+            .map(backendMoodToPanel)
+            .sort((a, b) => new Date(a.date) - new Date(b.date)),
+        );
+        setEstadisticas(datos);
+      })
+      .catch((err) => setErrorMood(`ERR_MOOD: ${backendErrorMessage(err)}`))
+      .finally(() => setCargando(false));
+  }, []);
+
+  useEffect(() => {
+    cargarMoodInicio();
+    window.addEventListener('aura-mood-updated', cargarMoodInicio);
+    return () => window.removeEventListener('aura-mood-updated', cargarMoodInicio);
+  }, [cargarMoodInicio]);
+
+  const datos = historial.slice(-7);
+  const tieneDatos = datos.length > 0;
+  const days = datos.map((item) => diaryDateLabel(item.date).charAt(0) || '?');
+  const before = datos.map((item) => item.before);
+  const after = datos.map((item) => item.after);
   const W2 = 320,
     H2 = 100,
     pad = 10,
     max = 10;
-  const toX = (i) => pad + (i / (days.length - 1)) * (W2 - pad * 2);
+  const toX = (i) => pad + (i / Math.max(days.length - 1, 1)) * (W2 - pad * 2);
   const toY = (v) => H2 - pad - (v / max) * (H2 - pad * 2);
   const pathBefore = before.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(v)}`).join(' ');
   const pathAfter = after.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(v)}`).join(' ');
+  const avgBefore = tieneDatos ? before.reduce((sum, value) => sum + value, 0) / before.length : 0;
+  const avgAfter = tieneDatos ? after.reduce((sum, value) => sum + value, 0) / after.length : 0;
+  const mejora = estadisticas?.count
+    ? estadisticas.improvementPercentage
+    : avgBefore
+      ? ((avgBefore - avgAfter) / avgBefore) * 100
+      : 0;
+  const tendencia = tieneDatos ? etiquetaTendenciaMood(estadisticas) : 'SIN_DATOS';
   return (
     <div className="bc c8" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -976,95 +1114,134 @@ function MoodChartCard() {
             LOG_DIARIO_ESTADO_EMOCIONAL
           </div>
           <div className="lbl" style={{ marginTop: 3 }}>
-            ÚLTIMOS_7_DÍAS · ANTES/DESPUÉS_DE_AURA
+            ULTIMOS_7_DIAS · DATOS_REALES_BACKEND
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {[
-            { c: 'var(--aura-border-subtle)', l: 'ANTES' },
-            { c: M, l: 'DESPUÉS' },
-          ].map(({ c, l }) => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="lbl">
-              <div style={{ width: 16, height: 3, background: c, border: '1px solid #000' }} />
-              {l}
-            </div>
-          ))}
-        </div>
+        <span className="chip chip-morado" style={{ fontSize: 9 }}>
+          {tieneDatos ? `MEJORA_${Math.round(mejora)}%` : 'SIN_DATOS_REALES'}
+        </span>
       </div>
-      <div style={{ position: 'relative' }}>
-        <svg width="100%" viewBox={`0 0 ${W2} ${H2 + 20}`} style={{ overflow: 'visible' }}>
-          {[2, 4, 6, 8, 10].map((v) => (
-            <line
-              key={v}
-              x1={pad}
-              y1={toY(v)}
-              x2={W2 - pad}
-              y2={toY(v)}
-              stroke="#e5e5e5"
-              strokeWidth="1"
-              strokeDasharray="3,3"
-            />
-          ))}
-          <path d={pathBefore} fill="none" stroke="#ccc" strokeWidth="2" strokeLinejoin="round" />
-          <path d={pathAfter} fill="none" stroke={M} strokeWidth="2.5" strokeLinejoin="round" />
-          {after.map((v, i) => (
-            <g
-              key={i}
-              onMouseEnter={() => setHov(i)}
-              onMouseLeave={() => setHov(null)}
-              style={{ cursor: 'pointer' }}
-            >
-              <circle
-                cx={toX(i)}
-                cy={toY(v)}
-                r={hov === i ? 7 : 5}
-                fill={M}
-                stroke={K}
+      {cargando && (
+        <span className="chip chip-negro" style={{ alignSelf: 'flex-start', fontSize: 9 }}>
+          CARGANDO_MOOD
+        </span>
+      )}
+      {errorMood && (
+        <div
+          className="mono"
+          style={{ border: `3px solid ${CR}`, background: CL, padding: 10, fontSize: 9 }}
+        >
+          {errorMood}
+        </div>
+      )}
+      {!tieneDatos ? (
+        <div
+          className="mono"
+          style={{ border: '3px solid #000', padding: 18, fontSize: 10, background: TL }}
+        >
+          SIN_DATOS_REALES · REGISTRA_TU_ESTADO_PARA_VER_TENDENCIA
+        </div>
+      ) : (
+        <>
+          <div style={{ position: 'relative' }}>
+            <svg width="100%" viewBox={`0 0 ${W2} ${H2 + 20}`} style={{ overflow: 'visible' }}>
+              {[2, 4, 6, 8, 10].map((v) => (
+                <line
+                  key={v}
+                  x1={pad}
+                  y1={toY(v)}
+                  x2={W2 - pad}
+                  y2={toY(v)}
+                  stroke="#e5e5e5"
+                  strokeWidth="1"
+                  strokeDasharray="3,3"
+                />
+              ))}
+              <path
+                d={pathBefore}
+                fill="none"
+                stroke="#ccc"
                 strokeWidth="2"
+                strokeLinejoin="round"
               />
-              {hov === i && (
-                <g>
-                  <rect x={toX(i) - 40} y={toY(v) - 34} width="80" height="22" fill={K} />
+              <path d={pathAfter} fill="none" stroke={M} strokeWidth="2.5" strokeLinejoin="round" />
+              {after.map((v, i) => (
+                <g
+                  key={i}
+                  onMouseEnter={() => setHov(i)}
+                  onMouseLeave={() => setHov(null)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <circle
+                    cx={toX(i)}
+                    cy={toY(v)}
+                    r={hov === i ? 7 : 5}
+                    fill={M}
+                    stroke={K}
+                    strokeWidth="2"
+                  />
+                  {hov === i && (
+                    <g>
+                      <rect x={toX(i) - 40} y={toY(v) - 34} width="80" height="22" fill={K} />
+                      <text
+                        x={toX(i)}
+                        y={toY(v) - 18}
+                        textAnchor="middle"
+                        fill={W}
+                        fontSize="9"
+                        fontFamily="Space Mono"
+                      >{`${before[i]}->${v}`}</text>
+                    </g>
+                  )}
                   <text
                     x={toX(i)}
-                    y={toY(v) - 18}
+                    y={H2 + 16}
                     textAnchor="middle"
-                    fill={W}
-                    fontSize="9"
+                    fill="#555"
+                    fontSize="10"
                     fontFamily="Space Mono"
-                  >{`${before[i]}→${v} (+${v - before[i]})`}</text>
+                  >
+                    {days[i]}
+                  </text>
                 </g>
-              )}
-              <text
-                x={toX(i)}
-                y={H2 + 16}
-                textAnchor="middle"
-                fill="#555"
-                fontSize="10"
-                fontFamily="Space Mono"
+              ))}
+            </svg>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+            {[
+              { l: 'PROM_ANTES', v: formatoMood(avgBefore), c: 'var(--aura-border-subtle)' },
+              { l: 'PROM_DESPUES', v: formatoMood(avgAfter), c: M },
+              { l: 'TENDENCIA', v: tendencia, c: colorTendenciaMood(estadisticas) },
+            ].map(({ l, v, c }) => (
+              <div
+                key={l}
+                style={{
+                  border: `3px solid ${K}`,
+                  padding: '10px 12px',
+                  borderLeft: `6px solid ${c}`,
+                }}
               >
-                {days[i]}
-              </text>
-            </g>
-          ))}
-        </svg>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                <div className="lbl" style={{ fontSize: 8 }}>
+                  {l}
+                </div>
+                <div
+                  style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.02em', marginTop: 2 }}
+                >
+                  {v}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <div style={{ display: 'flex', gap: 10 }}>
         {[
-          { l: 'PROM_ANTES', v: '5.9', c: 'var(--aura-border-subtle)' },
-          { l: 'PROM_DESPUÉS', v: '7.9', c: M },
-          { l: 'MEJORA_TOTAL', v: '+34%', c: T },
-        ].map(({ l, v, c }) => (
-          <div
-            key={l}
-            style={{ border: `3px solid ${K}`, padding: '10px 12px', borderLeft: `6px solid ${c}` }}
-          >
-            <div className="lbl" style={{ fontSize: 8 }}>
-              {l}
-            </div>
-            <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.02em', marginTop: 2 }}>
-              {v}
-            </div>
+          { c: 'var(--aura-border-subtle)', l: 'ANTES' },
+          { c: M, l: 'DESPUES' },
+        ].map(({ c, l }) => (
+          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="lbl">
+            <div style={{ width: 16, height: 3, background: c, border: '1px solid #000' }} />
+            {l}
           </div>
         ))}
       </div>
@@ -1103,7 +1280,12 @@ function SoundPlayerCard() {
   const toggleSound = (id) => {
     setPlaying((current) => {
       const next = current === id ? null : id;
-      if (next) fireAchievementEvent('SOUNDSCAPE_PLAYED', { soundscape: id, mode: 'FOCO', source: 'dashboard_home' });
+      if (next)
+        fireAchievementEvent('SOUNDSCAPE_PLAYED', {
+          soundscape: id,
+          mode: 'FOCO',
+          source: 'dashboard_home',
+        });
       return next;
     });
   };
@@ -1382,7 +1564,10 @@ function QuoteCard() {
       >
         "LA ANSIEDAD ES LA EMOCIÓN DEL FUTURO IMAGINADO. VUELVE AL PRESENTE."
       </div>
-      <div className="mono" style={{ fontSize: 9, color: isDark ? '#fff' : 'var(--aura-fg-muted)' }}>
+      <div
+        className="mono"
+        style={{ fontSize: 9, color: isDark ? '#fff' : 'var(--aura-fg-muted)' }}
+      >
         — ADAPTADO_DE_CBT · FUENTE_CLÍNICA_VALIDADA
       </div>
     </div>
@@ -1451,7 +1636,9 @@ function AchievementsSummaryCard({ setSection }) {
           SISTEMA_LOGROS · SERVER_SIDE
         </div>
         <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: '-0.03em' }}>
-          {loading ? 'SINCRONIZANDO_LOGROS...' : `${data.unlocked}/${data.total} LOGROS_DESBLOQUEADOS`}
+          {loading
+            ? 'SINCRONIZANDO_LOGROS...'
+            : `${data.unlocked}/${data.total} LOGROS_DESBLOQUEADOS`}
         </div>
         <div style={{ border: '3px solid #000', height: 18, background: 'var(--aura-bg-muted)' }}>
           <div
@@ -1464,12 +1651,16 @@ function AchievementsSummaryCard({ setSection }) {
           />
         </div>
         {error ? (
-          <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 10, fontSize: 10 }}>
+          <div
+            className="mono"
+            style={{ border: `3px solid ${CR}`, background: CL, padding: 10, fontSize: 10 }}
+          >
             {error}
           </div>
         ) : (
           <div className="lbl" style={{ fontSize: 9 }}>
-            SIGUIENTE: {next ? `${next.title.toUpperCase()} · ${next.progressLabel}` : 'CATALOGO_COMPLETADO'}
+            SIGUIENTE:{' '}
+            {next ? `${next.title.toUpperCase()} · ${next.progressLabel}` : 'CATALOGO_COMPLETADO'}
           </div>
         )}
       </div>
@@ -1488,12 +1679,19 @@ function AchievementsView() {
   const { data, loading, error, refresh } = useAchievementsData();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, animation: 'fadeUp .3s ease' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', gap: 18, animation: 'fadeUp .3s ease' }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 16,
+        }}
+      >
         <div>
-          <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: '-0.04em' }}>
-            LOGROS_AURA
-          </div>
+          <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: '-0.04em' }}>LOGROS_AURA</div>
           <div className="lbl" style={{ marginTop: 4, fontSize: 9 }}>
             DESBLOQUEOS_MOTIVACIONALES · {data.unlocked}/{data.total}
           </div>
@@ -1504,19 +1702,40 @@ function AchievementsView() {
       </div>
 
       {error && (
-        <div className="mono" style={{ border: `4px solid ${K}`, boxShadow: SOMBRA_SM, background: CL, padding: 14, fontSize: 11 }}>
+        <div
+          className="mono"
+          style={{
+            border: `4px solid ${K}`,
+            boxShadow: SOMBRA_SM,
+            background: CL,
+            padding: 14,
+            fontSize: 11,
+          }}
+        >
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="bc" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+        <div
+          className="bc"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}
+        >
           {Array.from({ length: 8 }, (_, index) => (
-            <div key={index} style={{ border: '3px solid #000', height: 120, background: 'var(--aura-bg-muted)' }} />
+            <div
+              key={index}
+              style={{ border: '3px solid #000', height: 120, background: 'var(--aura-bg-muted)' }}
+            />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 14 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
+            gap: 14,
+          }}
+        >
           {data.achievements.map((achievement) => (
             <div
               key={achievement.code}
@@ -1532,10 +1751,22 @@ function AchievementsView() {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span className="chip" style={{ borderColor: K, background: achievement.accent, color: achievement.unlocked ? W : K }}>
+                <span
+                  className="chip"
+                  style={{
+                    borderColor: K,
+                    background: achievement.accent,
+                    color: achievement.unlocked ? W : K,
+                  }}
+                >
                   {achievement.category.toUpperCase()}
                 </span>
-                <span className="icon" style={{ color: achievement.unlocked ? achievement.accent : 'var(--aura-fg-muted)' }}>
+                <span
+                  className="icon"
+                  style={{
+                    color: achievement.unlocked ? achievement.accent : 'var(--aura-fg-muted)',
+                  }}
+                >
                   {achievement.unlocked ? 'workspace_premium' : 'lock'}
                 </span>
               </div>
@@ -1545,7 +1776,9 @@ function AchievementsView() {
               <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--aura-fg-muted)' }}>
                 {achievement.description}
               </div>
-              <div style={{ border: '2px solid #000', height: 12, background: 'var(--aura-bg-muted)' }}>
+              <div
+                style={{ border: '2px solid #000', height: 12, background: 'var(--aura-bg-muted)' }}
+              >
                 <div
                   style={{
                     width: `${Math.min(100, Math.round((achievement.progress / achievement.target) * 100))}%`,
@@ -1784,7 +2017,9 @@ function SOSView({ openBreathing }) {
       const notification = alert.notifications?.find((item) => item.contactId === contact.id);
       if (notification?.status === 'FAILED') {
         setSent((current) => ({ ...current, [contact.id]: 'MANUAL_READY' }));
-        setSosError(`ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`);
+        setSosError(
+          `ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`,
+        );
         return;
       }
       setSent((current) => ({
@@ -1876,7 +2111,10 @@ function SOSView({ openBreathing }) {
             gap: 24,
           }}
         >
-          <div className="mono" style={{ fontSize: 12, color: 'var(--aura-fg-muted)', letterSpacing: '0.08em' }}>
+          <div
+            className="mono"
+            style={{ fontSize: 12, color: 'var(--aura-fg-muted)', letterSpacing: '0.08em' }}
+          >
             PRESIONA PARA ACTIVAR RESPIRACIÓN GUIADA 4-4-6
           </div>
           <div
@@ -2007,7 +2245,11 @@ function SOSView({ openBreathing }) {
           CONTACTOS_DE_CONFIANZA
         </div>
         {loadingContacts && <div className="chip">CARGANDO_CONTACTOS...</div>}
-        {sosError && <div className="chip chip-coral" style={{ marginBottom: 10 }}>{sosError}</div>}
+        {sosError && (
+          <div className="chip chip-coral" style={{ marginBottom: 10 }}>
+            {sosError}
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {!loadingContacts && contacts.length === 0 && (
             <div className="bc" style={{ padding: 16 }}>
@@ -2055,7 +2297,9 @@ function SOSView({ openBreathing }) {
                   <span>{phone}</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}
+              >
                 <div
                   style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
                 >
@@ -2088,7 +2332,9 @@ function SOSView({ openBreathing }) {
                   </button>
                 </div>
                 {sent[id] === 'MANUAL_READY' && (
-                  <ManualSosFallback contact={{ id, name, role, emoji, available, phone, sosAuto }} />
+                  <ManualSosFallback
+                    contact={{ id, name, role, emoji, available, phone, sosAuto }}
+                  />
                 )}
               </div>
             </div>
@@ -2122,7 +2368,10 @@ function SOSView({ openBreathing }) {
                 </span>
               </div>
               <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: '-0.02em' }}>{title}</div>
-              <div className="lbl" style={{ fontSize: 9, lineHeight: 1.6, color: 'var(--aura-fg-muted)' }}>
+              <div
+                className="lbl"
+                style={{ fontSize: 9, lineHeight: 1.6, color: 'var(--aura-fg-muted)' }}
+              >
                 {text}
               </div>
             </div>
@@ -2203,7 +2452,9 @@ function ChatbotView() {
     try {
       const session = await createChatSession();
       applySession(session);
-      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
+      setChatSessions((current) =>
+        sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]),
+      );
       setInp('');
     } catch (err) {
       setError(`ERR_CHATBOT: ${backendErrorMessage(err)}`);
@@ -2242,7 +2493,9 @@ function ChatbotView() {
     window.clearInterval(streamRef.current);
     try {
       await deleteChatSession(deletedSessionId);
-      const remainingSessions = sortChatSessions(chatSessions.filter((session) => session.id !== deletedSessionId));
+      const remainingSessions = sortChatSessions(
+        chatSessions.filter((session) => session.id !== deletedSessionId),
+      );
       setChatSessions(remainingSessions);
       localStorage.removeItem(activeChatStorageKey);
       if (remainingSessions.length) {
@@ -2294,12 +2547,17 @@ function ChatbotView() {
       void refreshAchievementsForNotifications(startedAt);
       setSessionTitle(session.title || 'Conversación guardada');
       localStorage.setItem(activeChatStorageKey, session.id);
-      setChatSessions((current) => sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]));
+      setChatSessions((current) =>
+        sortChatSessions([session, ...current.filter((item) => item.id !== session.id)]),
+      );
       const backendMessages = panelMessagesFromChatSession(session);
       const assistantIndex = backendMessages.map((message) => message.from).lastIndexOf('ai');
       if (assistantIndex >= 0) {
         thinkingRef.current = window.setTimeout(() => {
-          streamAssistantReply(backendMessages.slice(0, assistantIndex), backendMessages[assistantIndex]);
+          streamAssistantReply(
+            backendMessages.slice(0, assistantIndex),
+            backendMessages[assistantIndex],
+          );
         }, 220);
       } else {
         setMsgs(backendMessages.length ? backendMessages : optimisticMessages);
@@ -2439,7 +2697,16 @@ function ChatbotView() {
           </div>
         </div>
         {error && (
-          <div className="mono" style={{ borderBottom: BORDE, background: CL, color: K, padding: '10px 16px', fontSize: 10 }}>
+          <div
+            className="mono"
+            style={{
+              borderBottom: BORDE,
+              background: CL,
+              color: K,
+              padding: '10px 16px',
+              fontSize: 10,
+            }}
+          >
             {error}
           </div>
         )}
@@ -2580,8 +2847,15 @@ function ChatbotView() {
                 }}
               >
                 {(session.title || 'Nueva conversación').slice(0, 38)}
-                <span style={{ display: 'block', marginTop: 4, color: 'var(--aura-fg-soft)', fontSize: 8 }}>
-                  {(session.messages?.length ?? 0)} MENSAJES
+                <span
+                  style={{
+                    display: 'block',
+                    marginTop: 4,
+                    color: 'var(--aura-fg-soft)',
+                    fontSize: 8,
+                  }}
+                >
+                  {session.messages?.length ?? 0} MENSAJES
                 </span>
               </button>
             ))
@@ -2642,7 +2916,10 @@ function ChatbotView() {
           ))}
         </div>
         <div style={{ border: BORDE, background: DK, padding: 14, boxShadow: SOMBRA_SM }}>
-          <div className="mono" style={{ fontSize: 9, color: 'var(--aura-fg-soft)', lineHeight: 1.6 }}>
+          <div
+            className="mono"
+            style={{ fontSize: 9, color: 'var(--aura-fg-soft)', lineHeight: 1.6 }}
+          >
             AURA_AI_NO_SUSTITUYE ATENCIÓN_PROFESIONAL. EN_CRISIS_LLAMA_AL{' '}
             <span style={{ color: CR }}>024</span>.
           </div>
@@ -2659,6 +2936,7 @@ function MoodTrackerView() {
   const [range, setRange] = useState(90);
   const [sessionSaved, setSessionSaved] = useState(false);
   const [history, setHistory] = useState([]);
+  const [estadisticas, setEstadisticas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const weeks = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -2681,25 +2959,37 @@ function MoodTrackerView() {
   const avgAfter = data.length
     ? Math.round((data.reduce((sum, d) => sum + d.after, 0) / data.length) * 10) / 10
     : 0;
-  const improvement = avgBefore ? Math.round(((avgAfter - avgBefore) / avgBefore) * 100) : 0;
-  const getColor = (v) => (v <= 3 ? CL : v <= 5 ? 'rgba(251,191,36,0.24)' : v <= 7 ? TL : ML);
+  const improvement = estadisticas?.count
+    ? Math.round(estadisticas.improvementPercentage)
+    : avgBefore
+      ? Math.round(((avgBefore - avgAfter) / avgBefore) * 100)
+      : 0;
+  const tendencia = data.length ? etiquetaTendenciaMood(estadisticas) : 'SIN_DATOS';
+  const colorTendencia = colorTendenciaMood(estadisticas);
+  const getColor = (v) => (v <= 3 ? TL : v <= 5 ? 'rgba(251,191,36,0.24)' : v <= 7 ? ML : CL);
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
-    const to = new Date();
-    const from = new Date(to);
-    from.setDate(to.getDate() - range + 1);
-    listMoodLogs({
-      size: range,
-      from: from.toISOString(),
-      to: to.toISOString(),
-    })
-      .then((page) => {
+    const rango = fechasRangoMood(range);
+    Promise.all([
+      listMoodLogs({
+        size: range,
+        from: rango.from,
+        to: rango.to,
+      }),
+      getMoodStats(rango),
+    ])
+      .then(([page, datos]) => {
         if (!active) return;
-        setHistory((page.content ?? []).map(backendMoodToPanel).sort((a, b) => new Date(a.date) - new Date(b.date)));
+        setHistory(
+          (page.content ?? [])
+            .map(backendMoodToPanel)
+            .sort((a, b) => new Date(a.date) - new Date(b.date)),
+        );
+        setEstadisticas(datos);
       })
-      .catch((err) => active && setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`))
+      .catch((err) => active && setError(`ERR_MOOD: ${backendErrorMessage(err)}`))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -2717,12 +3007,18 @@ function MoodTrackerView() {
         loggedAt: today.toISOString(),
       });
       const next = backendMoodToPanel(savedLog);
-      setHistory((items) => [...items, next].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-120));
+      setHistory((items) =>
+        [...items, next].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-120),
+      );
+      getMoodStats(fechasRangoMood(range))
+        .then(setEstadisticas)
+        .catch(() => null);
+      window.dispatchEvent(new CustomEvent('aura-mood-updated'));
       setSessionSaved(true);
       void refreshAchievementsForNotifications(startedAt);
       setTimeout(() => setSessionSaved(false), 1800);
     } catch (err) {
-      setError(`ERR_ACHIEVEMENTS: ${backendErrorMessage(err)}`);
+      setError(`ERR_MOOD: ${backendErrorMessage(err)}`);
     }
   };
 
@@ -2737,6 +3033,17 @@ function MoodTrackerView() {
           </div>
           <div className="lbl" style={{ fontSize: 9, marginTop: 4 }}>
             BACKEND_DATASET · {range}_DÍAS · BAR_CHART + HEATMAP
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <span
+              className="chip"
+              style={{ fontSize: 9, borderColor: colorTendencia, color: colorTendencia }}
+            >
+              TENDENCIA_{tendencia}
+            </span>
+            <span className="chip chip-turquesa" style={{ fontSize: 9 }}>
+              MEDIA_RECIENTE_{formatoMood(estadisticas?.mediaReciente ?? avgAfter)}/10
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 0, border: BORDE }}>
@@ -2771,7 +3078,7 @@ function MoodTrackerView() {
               fontWeight: 900,
               fontSize: 36,
               letterSpacing: '-0.03em',
-              color: val <= 3 ? CR : val <= 6 ? '#fb923c' : T,
+              color: val <= 3 ? T : val <= 6 ? '#fb923c' : CR,
             }}
           >
             {val}
@@ -2798,7 +3105,7 @@ function MoodTrackerView() {
               fontWeight: 900,
               fontSize: 36,
               letterSpacing: '-0.03em',
-              color: after <= 3 ? CR : after <= 6 ? '#fb923c' : T,
+              color: after <= 3 ? T : after <= 6 ? '#fb923c' : CR,
             }}
           >
             {after}
@@ -2824,7 +3131,11 @@ function MoodTrackerView() {
         <div className="lbl" style={{ flex: 1, fontSize: 9, lineHeight: 1.5 }}>
           Guarda el estado de hoy en el backend. Los logros se recalculan desde datos persistidos.
         </div>
-        {loading && <span className="chip chip-negro" style={{ fontSize: 9 }}>CARGANDO</span>}
+        {loading && (
+          <span className="chip chip-negro" style={{ fontSize: 9 }}>
+            CARGANDO
+          </span>
+        )}
         {sessionSaved && (
           <span className="chip chip-turquesa" style={{ fontSize: 9 }}>
             SESIÓN_ACTUALIZADA
@@ -2832,7 +3143,10 @@ function MoodTrackerView() {
         )}
       </div>
       {error && (
-        <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+        <div
+          className="mono"
+          style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}
+        >
           {error}
         </div>
       )}
@@ -2846,10 +3160,18 @@ function MoodTrackerView() {
               PROMEDIOS_ANTES/DESPUÉS · ÚLTIMAS_{weekBars.length}_SEMANAS
             </div>
           </div>
-          <span className="chip chip-morado" style={{ fontSize: 9 }}>
-            MEJORA_{improvement >= 0 ? '+' : ''}
-            {improvement}%
-          </span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span
+              className="chip"
+              style={{ fontSize: 9, borderColor: colorTendencia, color: colorTendencia }}
+            >
+              {tendencia}
+            </span>
+            <span className="chip chip-morado" style={{ fontSize: 9 }}>
+              MEJORA_{improvement >= 0 ? '+' : ''}
+              {improvement}%
+            </span>
+          </div>
         </div>
         <div
           style={{
@@ -2976,10 +3298,28 @@ function MoodTrackerView() {
       </div>
       <div className="bc" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {[
-          { l: 'TUS_PEORES_DÍAS_SON', v: 'LUNES', c: CR },
-          { l: 'MEJOR_TÉCNICA_PARA_TI', v: 'BURBUJAS', c: T },
-          { l: 'REDUCCIÓN_ANSIEDAD', v: '-38%', c: M },
-          { l: 'RACHA_ACTUAL', v: '7 DÍAS', c: '#fb923c' },
+          {
+            l: 'MEDIA_ANTERIOR',
+            v: data.length ? `${formatoMood(estadisticas?.mediaAnterior ?? avgAfter)}/10` : '--',
+            c: 'var(--aura-border-subtle)',
+          },
+          {
+            l: 'MEDIA_RECIENTE',
+            v: data.length ? `${formatoMood(estadisticas?.mediaReciente ?? avgAfter)}/10` : '--',
+            c: M,
+          },
+          {
+            l: 'DIFERENCIA_ANSIEDAD',
+            v: data.length
+              ? `${Number(estadisticas?.diferenciaTendencia ?? 0) >= 0 ? '+' : ''}${formatoMood(estadisticas?.diferenciaTendencia ?? 0)}`
+              : '--',
+            c: Number(estadisticas?.diferenciaTendencia ?? 0) > 0 ? CR : T,
+          },
+          {
+            l: 'ALERTA_CAIDA',
+            v: estadisticas?.alertaCaida ? 'SI' : 'NO',
+            c: estadisticas?.alertaCaida ? CR : T,
+          },
         ].map(({ l, v, c }) => (
           <div
             key={l}
@@ -3410,7 +3750,13 @@ function MinijuegosView() {
           REFUGIO_LÚDICO<span style={{ color: M }}>.</span>
         </div>
         <div
-          style={{ fontSize: 14, color: 'var(--aura-fg-muted)', marginTop: 10, maxWidth: 520, lineHeight: 1.75 }}
+          style={{
+            fontSize: 14,
+            color: 'var(--aura-fg-muted)',
+            marginTop: 10,
+            maxWidth: 520,
+            lineHeight: 1.75,
+          }}
         >
           Ejercicios interactivos diseñados para reducir la carga cognitiva y promover la calma
           activa. Sin puntuaciones. Sin presión.
@@ -3494,7 +3840,11 @@ function MinijuegosView() {
                 {title}
               </div>
               {/* Desc */}
-              <div style={{ fontSize: 13, color: 'var(--aura-fg-muted)', lineHeight: 1.75, flex: 1 }}>{desc}</div>
+              <div
+                style={{ fontSize: 13, color: 'var(--aura-fg-muted)', lineHeight: 1.75, flex: 1 }}
+              >
+                {desc}
+              </div>
               {/* CTA */}
               <button
                 onClick={() => {
@@ -3826,7 +4176,10 @@ function GameArena() {
           LIENZO_INFINITO · SIN_ERRORES
         </div>
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
+      <div
+        className="lbl"
+        style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}
+      >
         Dibuja libremente. No hay manera de hacerlo mal.
       </div>
     </div>
@@ -4010,7 +4363,10 @@ function GameCromatica() {
           }}
         />
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
+      <div
+        className="lbl"
+        style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}
+      >
         No hay puntuación. Solo la satisfacción de ver el arco iris ordenarse.
       </div>
     </div>
@@ -4172,7 +4528,10 @@ function GameBurbujas() {
           SIN_GAME_OVER · INFINITO
         </div>
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
+      <div
+        className="lbl"
+        style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}
+      >
         Las burbujas siempre vuelven. No hay manera de perder.
       </div>
     </div>
@@ -4375,7 +4734,10 @@ function GameMemoria() {
           </div>
         ))}
       </div>
-      <div className="lbl" style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}>
+      <div
+        className="lbl"
+        style={{ fontSize: 9, color: 'var(--aura-fg-subtle)', textAlign: 'center' }}
+      >
         Sin timer. Sin presión. El cerebro encuentra los pares cuando está en calma.
       </div>
     </div>
@@ -4434,7 +4796,12 @@ function startGeneratedSound(soundId, mode, volume) {
   if (!AudioCtx) {
     return { stop: () => undefined, setVolume: () => undefined };
   }
-  const ctx = new AudioCtx();
+  let ctx;
+  try {
+    ctx = AudioCtx();
+  } catch {
+    ctx = new AudioCtx();
+  }
   if (typeof ctx.resume === 'function') {
     ctx.resume().catch(() => undefined);
   }
@@ -4481,7 +4848,11 @@ function startGeneratedSound(soundId, mode, volume) {
 
   return {
     setVolume: (nextVolume) => {
-      master.gain.setTargetAtTime(Math.max(0, Math.min(1, nextVolume / 100)) * soundModeGain(mode) * 0.24, ctx.currentTime, 0.05);
+      master.gain.setTargetAtTime(
+        Math.max(0, Math.min(1, nextVolume / 100)) * soundModeGain(mode) * 0.24,
+        ctx.currentTime,
+        0.05,
+      );
     },
     stop: () => {
       nodes.forEach((node) => {
@@ -4628,7 +4999,10 @@ function SonidosView() {
             <div className="mono" style={{ fontSize: 11, color: T, fontWeight: 700 }}>
               {ambientes.find((a) => a.id === playing)?.l}
             </div>
-            <div className="lbl" style={{ color: 'var(--aura-fg-soft)', fontSize: 9, marginTop: 2 }}>
+            <div
+              className="lbl"
+              style={{ color: 'var(--aura-fg-soft)', fontSize: 9, marginTop: 2 }}
+            >
               MODO_{modo} · AUDIO_GENERADO_EN_TU_NAVEGADOR
             </div>
           </div>
@@ -4713,11 +5087,7 @@ function DiarioView() {
   const moodColor = (emoji) =>
     MOOD_OPTIONS.find((item) => item.emoji === emoji)?.color ?? 'var(--aura-bg-muted)';
   const normalizePanelTag = (value) =>
-    value
-      .trim()
-      .replace(/^#+/, '')
-      .replace(/\s+/g, '-')
-      .toLowerCase();
+    value.trim().replace(/^#+/, '').replace(/\s+/g, '-').toLowerCase();
   const addEntryTag = (value) => {
     const tag = normalizePanelTag(value);
     if (!tag || tag.length < 2 || tag.length > 32) return;
@@ -4727,7 +5097,11 @@ function DiarioView() {
   const removeEntryTag = (tag) => setEntryTags((items) => items.filter((item) => item !== tag));
   const toggleEntryTag = (tag) =>
     setEntryTags((items) =>
-      items.includes(tag) ? items.filter((item) => item !== tag) : items.length >= 12 ? items : [...items, tag],
+      items.includes(tag)
+        ? items.filter((item) => item !== tag)
+        : items.length >= 12
+          ? items
+          : [...items, tag],
     );
   const toggleFilterTag = (tag) =>
     setActiveFilterTags((items) =>
@@ -4840,7 +5214,10 @@ function DiarioView() {
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           DIARIO_EMOCIONAL
         </div>
-        <div className="bc" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div
+          className="bc"
+          style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
           <div className="lbl" style={{ fontSize: 9 }}>
             BUSCAR_Y_FILTRAR_DIARIO
           </div>
@@ -4899,7 +5276,10 @@ function DiarioView() {
           </div>
         </div>
         {error && (
-          <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+          <div
+            className="mono"
+            style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}
+          >
             {error}
           </div>
         )}
@@ -5090,7 +5470,9 @@ function DiarioView() {
         </div>
         {loading && (
           <div className="bc" style={{ padding: 16, background: 'var(--aura-bg-muted)' }}>
-            <div className="lbl" style={{ fontSize: 9 }}>CARGANDO_DIARIO_BACKEND</div>
+            <div className="lbl" style={{ fontSize: 9 }}>
+              CARGANDO_DIARIO_BACKEND
+            </div>
           </div>
         )}
         {sortedEntries.map((entry) => (
@@ -5331,7 +5713,9 @@ function ContactosView() {
     try {
       const startedAt = Date.now() - 1000;
       const savedContact = await updateContact(id, panelContactToRequest(next, next.priority));
-      setContacts((items) => items.map((contact) => (contact.id === id ? backendContactToPanel(savedContact) : contact)));
+      setContacts((items) =>
+        items.map((contact) => (contact.id === id ? backendContactToPanel(savedContact) : contact)),
+      );
       if (next.available && next.sosAuto) {
         void refreshAchievementsForNotifications(startedAt);
       }
@@ -5352,7 +5736,9 @@ function ContactosView() {
       const notification = alert.notifications?.find((item) => item.contactId === contact.id);
       if (notification?.status === 'FAILED') {
         setSent((current) => ({ ...current, [contact.id]: 'MANUAL_READY' }));
-        setError(`ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`);
+        setError(
+          `ERR_SOS: ${notification.details || 'No se pudo enviar el SMS automatico. Usa el aviso manual.'}`,
+        );
         return;
       }
       setSent((current) => ({
@@ -5382,13 +5768,18 @@ function ContactosView() {
         </button>
       </div>
       {error && (
-        <div className="mono" style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}>
+        <div
+          className="mono"
+          style={{ border: `3px solid ${CR}`, background: CL, padding: 12, fontSize: 10 }}
+        >
           {error}
         </div>
       )}
       {loading && (
         <div className="bc" style={{ padding: 16, background: 'var(--aura-bg-muted)' }}>
-          <div className="lbl" style={{ fontSize: 9 }}>CARGANDO_CONTACTOS_BACKEND</div>
+          <div className="lbl" style={{ fontSize: 9 }}>
+            CARGANDO_CONTACTOS_BACKEND
+          </div>
         </div>
       )}
       {formOpen && (
@@ -5563,7 +5954,7 @@ function ContactosView() {
                     ? `✓ ${sent[id]}`
                     : sent[id] === 'MANUAL_READY'
                       ? 'ENVIAR_SOS'
-                    : 'ENVIAR_SOS'}
+                      : 'ENVIAR_SOS'}
               </button>
               <button
                 onClick={() => startEdit({ id, name, role, emoji, phone, available, sosAuto })}
@@ -5632,8 +6023,7 @@ function ConfigView() {
     NOTIFICACIONES:
       'Recordatorios privados de mood, diario y logros. El texto del diario y el estado emocional no aparecen en la notificación.',
     PLAN_SUSCRIPCIÓN: `Plan ${planLabel(profile.plan ?? panelUser.plan)}: activo · Renovación: 27 Mayo 2026 · Incluye: Chatbot IA ilimitado + todos los ambientes`,
-    EXPORTAR_DATOS:
-      'Descarga una copia de tus datos personales. Puedes elegir JSON o PDF.',
+    EXPORTAR_DATOS: 'Descarga una copia de tus datos personales. Puedes elegir JSON o PDF.',
     ELIMINAR_CUENTA:
       'Elimina tu cuenta y todos tus datos de forma definitiva. Esta acción no se puede deshacer.',
     SESIÓN: 'Cierra tu sesión en este dispositivo. Podrás volver a entrar cuando quieras.',
@@ -5688,7 +6078,11 @@ function ConfigView() {
     setSettingsError('');
     try {
       const blob = await exportUserDataPdf();
-      downloadBlob(blob, `aura-export-${new Date().toISOString().slice(0, 10)}.pdf`, 'application/pdf');
+      downloadBlob(
+        blob,
+        `aura-export-${new Date().toISOString().slice(0, 10)}.pdf`,
+        'application/pdf',
+      );
       setDataMessage('EXPORT_PDF_COMPLETADO');
     } catch (err) {
       setSettingsError(`ERR_EXPORT: ${backendErrorMessage(err)}`);
@@ -5873,7 +6267,9 @@ function ConfigView() {
                     className="btn btn-coral"
                     style={{ fontSize: 10, opacity: deleteReady ? 1 : 0.55 }}
                   >
-                    {busySettings === 'delete-account' ? 'ELIMINANDO_CUENTA...' : 'ELIMINAR_CUENTA_DEFINITIVAMENTE'}
+                    {busySettings === 'delete-account'
+                      ? 'ELIMINANDO_CUENTA...'
+                      : 'ELIMINAR_CUENTA_DEFINITIVAMENTE'}
                   </button>
                 </div>
               )}
@@ -5996,7 +6392,11 @@ function GoogleAccountSettings() {
         className={status.linked ? 'chip chip-turquesa' : 'chip'}
         style={{ width: 'fit-content' }}
       >
-        {loading ? 'GOOGLE_VERIFICANDO' : status.linked ? 'GOOGLE_CONECTADO' : 'GOOGLE_NO_CONECTADO'}
+        {loading
+          ? 'GOOGLE_VERIFICANDO'
+          : status.linked
+            ? 'GOOGLE_CONECTADO'
+            : 'GOOGLE_NO_CONECTADO'}
       </div>
 
       {status.linked && (
@@ -6183,24 +6583,24 @@ function BreathingModal({ onClose }) {
             const isActive = i === pi;
             const displaySeconds = isActive ? count : dur;
             return (
-            <div
-              key={name}
-              style={{
-                border: `3px solid ${isActive ? CR : K}`,
-                padding: '8px',
-                background: isActive ? CL : W,
-              }}
-            >
               <div
-                className="mono"
-                style={{ fontSize: 9, fontWeight: 700, color: isActive ? CR : K }}
+                key={name}
+                style={{
+                  border: `3px solid ${isActive ? CR : K}`,
+                  padding: '8px',
+                  background: isActive ? CL : W,
+                }}
               >
-                {name}
+                <div
+                  className="mono"
+                  style={{ fontSize: 9, fontWeight: 700, color: isActive ? CR : K }}
+                >
+                  {name}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: isActive ? CR : K }}>
+                  {displaySeconds}s
+                </div>
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: isActive ? CR : K }}>
-                {displaySeconds}s
-              </div>
-            </div>
             );
           })}
         </div>
@@ -6458,7 +6858,10 @@ function AuraPanelApp() {
           <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
             {achievementToast.body}
           </div>
-          <div className="mono" style={{ marginTop: 7, fontSize: 8, color: 'var(--aura-fg-muted)' }}>
+          <div
+            className="mono"
+            style={{ marginTop: 7, fontSize: 8, color: 'var(--aura-fg-muted)' }}
+          >
             CLIC_PARA_VER_LOGROS
           </div>
         </button>
