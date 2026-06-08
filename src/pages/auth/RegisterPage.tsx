@@ -8,8 +8,6 @@ import { AuthLayout } from './AuthLayout';
 
 const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
-const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
-
 export function RegisterPage() {
   const { register, startGoogleLogin } = useAuth();
   const navigate = useNavigate();
@@ -34,14 +32,6 @@ export function RegisterPage() {
     setError(null);
     setGoogleError(null);
 
-    if (name.trim().length < 2) {
-      setError('Nombre demasiado corto.');
-      return;
-    }
-    if (!PASSWORD_POLICY.test(password)) {
-      setError('La contrasena debe tener 12 caracteres, mayuscula, minuscula, numero y simbolo.');
-      return;
-    }
     if (password !== confirm) {
       setError('Las contrasenas no coinciden.');
       return;
@@ -56,7 +46,12 @@ export function RegisterPage() {
     }
     setLoading(true);
     try {
-      const result = await register({ name, email, password, captchaToken: captchaToken ?? undefined });
+      const result = await register({
+        name,
+        email,
+        password,
+        captchaToken: captchaToken ?? undefined,
+      });
       navigate('/verify-email', {
         replace: true,
         state: {
@@ -217,8 +212,8 @@ export function RegisterPage() {
             </div>
             <span className="font-mono text-[11px] font-bold uppercase leading-relaxed tracking-wider text-ink">
               Entiendo que AURA IA ofrece apoyo emocional y{' '}
-              <span className="text-brutal-coral">no sustituye ayuda psicológica profesional</span>
-              . He leído y acepto la{' '}
+              <span className="text-brutal-coral">no sustituye ayuda psicológica profesional</span>.
+              He leído y acepto la{' '}
               <Link
                 to="/privacy"
                 onClick={(e) => e.stopPropagation()}

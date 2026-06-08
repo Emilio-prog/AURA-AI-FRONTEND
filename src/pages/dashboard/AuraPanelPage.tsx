@@ -249,8 +249,19 @@ const emptyContact = {
   sosAuto: false,
 };
 
-const backendErrorMessage = (error) =>
-  error?.response?.data?.message || error?.message || 'No se pudo completar la operacion.';
+const backendErrorMessage = (error) => {
+  const errores = error?.response?.data?.fieldErrors;
+  if (errores) {
+    const campos = Object.keys(errores);
+    const campo = campos[0];
+
+    if (campo) {
+      return errores[campo];
+    }
+  }
+
+  return error?.response?.data?.message || error?.message || 'No se pudo completar la operacion.';
+};
 
 function usePushNotificationState() {
   const [supported, setSupported] = useState(false);
@@ -2531,8 +2542,8 @@ function ChatbotView() {
     }, 24);
   };
   const send = async (text) => {
-    const t = (text || inp).trim();
-    if (!t || isBusy || !sessionId) return;
+    const t = (text ?? inp).trim();
+    if (isBusy || !sessionId) return;
     const startedAt = Date.now() - 1000;
     const userId = `user_${Date.now()}`;
     const optimisticMessages = [...msgs, { id: userId, from: 'user', text: t, riskLevel: 'low' }];
@@ -5139,11 +5150,10 @@ function DiarioView() {
     loadEntries();
   }, [loadEntries]);
   const saveEntry = async () => {
-    if (!text.trim() && !mood) return;
     const startedAt = Date.now() - 1000;
     const payload = {
       title: null,
-      content: text.trim() || selectedMood?.label || 'Registro emocional',
+      content: text.trim(),
       moodScore: selectedMood?.score ?? null,
       moodLabel: selectedMood?.label ?? 'NEUTRAL',
       tags: entryTags,
@@ -5658,7 +5668,6 @@ function ContactosView() {
     loadContacts();
   }, [loadContacts]);
   const saveContact = async () => {
-    if (!form.name.trim() || !form.phone.trim()) return;
     const startedAt = Date.now() - 1000;
     const next = {
       id: editingId ?? `contact_${Date.now().toString(36)}`,
@@ -6263,9 +6272,9 @@ function ConfigView() {
                   )}
                   <button
                     onClick={deleteAccount}
-                    disabled={!deleteReady || busySettings === 'delete-account'}
+                    disabled={busySettings === 'delete-account'}
                     className="btn btn-coral"
-                    style={{ fontSize: 10, opacity: deleteReady ? 1 : 0.55 }}
+                    style={{ fontSize: 10 }}
                   >
                     {busySettings === 'delete-account'
                       ? 'ELIMINANDO_CUENTA...'
@@ -6326,8 +6335,19 @@ function GoogleAccountSettings() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
-  const errorMessage = (err, fallback) =>
-    err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback;
+  const errorMessage = (err, fallback) => {
+    const errores = err?.response?.data?.fieldErrors;
+    if (errores) {
+      const campos = Object.keys(errores);
+      const campo = campos[0];
+
+      if (campo) {
+        return errores[campo];
+      }
+    }
+
+    return err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback;
+  };
 
   const loadStatus = useCallback(async () => {
     setLoading(true);

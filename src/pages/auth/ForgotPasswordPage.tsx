@@ -9,8 +9,22 @@ const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 const getApiErrorMessage = (error: unknown, fallback: string): string => {
   if (typeof error === 'object' && error !== null && 'response' in error) {
-    const response = (error as { response?: { data?: { message?: string; error?: string } } })
-      .response;
+    const response = (
+      error as {
+        response?: {
+          data?: { message?: string; error?: string; fieldErrors?: { [campo: string]: string } };
+        };
+      }
+    ).response;
+    const errores = response?.data?.fieldErrors;
+    if (errores) {
+      const campos = Object.keys(errores);
+      const campo = campos[0];
+
+      if (campo) {
+        return errores[campo];
+      }
+    }
     return response?.data?.message ?? response?.data?.error ?? fallback;
   }
   return error instanceof Error ? error.message : fallback;

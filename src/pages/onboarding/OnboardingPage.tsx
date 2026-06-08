@@ -182,9 +182,6 @@ export function OnboardingPage() {
   };
 
   const skipQuestion = () => {
-    if (screen === 1 && !preferredName.trim()) {
-      setPreferredName(fallbackName);
-    }
     goNext();
   };
 
@@ -197,22 +194,12 @@ export function OnboardingPage() {
       return;
     }
 
-    const normalizedName = displayName.trim();
-    if (normalizedName.length < 2) {
-      setScreen(1);
-      setError('El nombre debe tener al menos 2 caracteres.');
-      return;
-    }
-
-    const hasPartialContact = contactEnabled && [contactName, contactPhone, contactRelationship].some((value) => value.trim());
-    if (hasPartialContact && (!contactName.trim() || !contactPhone.trim())) {
-      setScreen(6);
-      setError('Completa nombre y teléfono del contacto o elimina el contacto.');
-      return;
-    }
+    const hasPartialContact =
+      contactEnabled &&
+      [contactName, contactPhone, contactRelationship].some((value) => value.trim());
 
     const payload: CompleteOnboardingPayload = {
-      preferredName: normalizedName,
+      preferredName: preferredName.trim(),
       language: 'es',
       timezone,
       privacyAccepted: CONSENT_GRANTED,
@@ -228,10 +215,7 @@ export function OnboardingPage() {
       toolPreferences,
       notifications: {
         enabled:
-          moodReminderEnabled ||
-          quickMeditationEnabled ||
-          streakEnabled ||
-          weeklyCheckinEnabled,
+          moodReminderEnabled || quickMeditationEnabled || streakEnabled || weeklyCheckinEnabled,
         dailyReminderTime,
         timezone,
         moodReminderEnabled,
@@ -242,14 +226,13 @@ export function OnboardingPage() {
         weeklyCheckinDay: 'sunday',
         weeklyCheckinTime: '19:00',
       },
-      trustedContact:
-        contactEnabled && contactName.trim() && contactPhone.trim()
-          ? {
-              name: contactName.trim(),
-              phone: contactPhone.trim(),
-              relationship: contactRelationship.trim() || undefined,
-            }
-          : undefined,
+      trustedContact: hasPartialContact
+        ? {
+            name: contactName.trim(),
+            phone: contactPhone.trim(),
+            relationship: contactRelationship.trim() || undefined,
+          }
+        : undefined,
     };
 
     setLoading(true);
@@ -257,7 +240,19 @@ export function OnboardingPage() {
       await completeOnboarding(payload);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo completar el onboarding.');
+      if (err instanceof Error) {
+        const mensaje = err.message;
+
+        setError(mensaje);
+
+        if (mensaje.includes('preferredName') || mensaje.toLowerCase().includes('nombre')) {
+          setScreen(1);
+        }
+
+        if (mensaje.includes('trustedContact') || mensaje.includes('phone')) {
+          setScreen(6);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -290,12 +285,7 @@ export function OnboardingPage() {
               </div>
             )}
           </main>
-          <Footer
-            activeStep={screen}
-            final={isFinal}
-            loading={loading}
-            onBack={goBack}
-          />
+          <Footer activeStep={screen} final={isFinal} loading={loading} onBack={goBack} />
         </>
       )}
     </form>
@@ -379,7 +369,10 @@ export function OnboardingPage() {
                     )}
                   >
                     {active && (
-                      <Check className="absolute right-3 top-3 h-6 w-6 text-[#FB7185]" strokeWidth={3} />
+                      <Check
+                        className="absolute right-3 top-3 h-6 w-6 text-[#FB7185]"
+                        strokeWidth={3}
+                      />
                     )}
                     <span className="text-3xl">{option.icon}</span>
                     <span className="mt-4 break-words text-center font-mono text-[11px] font-black uppercase tracking-[0.08em]">
@@ -437,7 +430,7 @@ export function OnboardingPage() {
                   className={cn(
                     'flex h-16 w-16 items-center justify-center bg-white text-3xl transition-transform',
                     moodLabel === option.id
-                      ? 'translate-x-1 -translate-y-2 bg-[#ddb7ff] shadow-[8px_8px_0_#000]'
+                      ? '-translate-y-2 translate-x-1 bg-[#ddb7ff] shadow-[8px_8px_0_#000]'
                       : 'hover:-translate-y-1',
                   )}
                 >
@@ -454,9 +447,7 @@ export function OnboardingPage() {
       case 4:
         return (
           <section className="aura-screen">
-            <h1 className="aura-onboarding-title max-w-[1500px]">
-              ¿CUÁNDO_APARECE_LA_ANSIEDAD?
-            </h1>
+            <h1 className="aura-onboarding-title max-w-[1500px]">¿CUÁNDO_APARECE_LA_ANSIEDAD?</h1>
             <p className="aura-screen-copy mt-5">
               Nos ayuda a estar disponibles cuando más nos necesites.
             </p>
@@ -653,8 +644,7 @@ export function OnboardingPage() {
                     aria-expanded={contactEnabled}
                     className="flex min-h-32 w-full flex-col items-center justify-center gap-3 border-4 border-dashed border-black bg-[#eeeeee] font-mono text-xs font-black uppercase tracking-[0.12em] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0_#000]"
                   >
-                    <Plus className="h-9 w-9" />
-                    + AÑADIR_CONTACTO
+                    <Plus className="h-9 w-9" />+ AÑADIR_CONTACTO
                   </button>
                 )}
               </div>
@@ -699,9 +689,7 @@ export function OnboardingPage() {
         return (
           <section className="aura-screen max-w-[940px]">
             <h1 className="aura-onboarding-title">¿CUÁNDO_TE_RECORDAMOS?</h1>
-            <p className="aura-screen-copy mt-5">
-              Sin spam. Solo cuando elijas.
-            </p>
+            <p className="aura-screen-copy mt-5">Sin spam. Solo cuando elijas.</p>
 
             <div className="mt-5 border-0 bg-[#e2e2e2] px-5 py-4 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[6px_6px_0_#000]">
               <Info className="mr-3 inline h-7 w-7" strokeWidth={3} />
@@ -771,29 +759,18 @@ export function OnboardingPage() {
             <h1 className="aura-onboarding-title text-[clamp(1.8rem,3.4vw,3.2rem)]">
               LISTO, {displayName.toUpperCase()}_
             </h1>
-            <p className="aura-screen-copy mt-3">
-              Tu refugio digital está preparado.
-            </p>
+            <p className="aura-screen-copy mt-3">Tu refugio digital está preparado.</p>
 
             <div className="mt-4 border-4 border-black bg-[#080808] p-4 text-white shadow-[8px_8px_0_#A855F7] md:p-5">
               <div className="grid gap-4 md:grid-cols-[1fr_1px_1fr]">
                 <div className="space-y-3">
-                  <SummaryBlock
-                    label="OBJETIVOS_PRIORITARIOS"
-                    value={summaryGoals()}
-                  />
+                  <SummaryBlock label="OBJETIVOS_PRIORITARIOS" value={summaryGoals()} />
                   <SummaryBlock
                     label="ENERGÍA_INICIAL"
                     value={moodOptions.find((item) => item.id === moodLabel)?.emoji ?? '🙂'}
                   />
-                  <SummaryBlock
-                    label="FRECUENCIA_DE_CRISIS"
-                    value={capitalize(frequency)}
-                  />
-                  <SummaryBlock
-                    label="CONTACTOS_SOS"
-                    value={summaryContact()}
-                  />
+                  <SummaryBlock label="FRECUENCIA_DE_CRISIS" value={capitalize(frequency)} />
+                  <SummaryBlock label="CONTACTOS_SOS" value={summaryContact()} />
                 </div>
                 <div className="hidden bg-white/30 md:block" />
                 <div className="space-y-3">
@@ -830,14 +807,14 @@ export function OnboardingPage() {
   function summaryGoals(): string {
     const labels = goals
       .map((id) => goalOptions.find((option) => option.id === id)?.label.replaceAll('_', ' '))
-      .filter(Boolean)
+      .filter(Boolean);
     return labels.length ? labels.join(', ') : 'Sin prioridad';
   }
 
   function summaryTriggers(): string {
     const labels = anxietyTriggers
       .map((id) => triggerOptions.find((option) => option.id === id)?.label.replaceAll('_', ' '))
-      .filter(Boolean)
+      .filter(Boolean);
     return labels.length ? labels.join(', ') : 'Sin momentos críticos';
   }
 
@@ -897,9 +874,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           <div className="mb-4 mt-6 bg-[#2DD4BF] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#00574d]">
             DURACIÓN_ESTIMADA: DOS_MINUTOS
           </div>
-          <h1 className="aura-onboarding-title">
-            BIENVENIDO_A_TU_REFUGIO
-          </h1>
+          <h1 className="aura-onboarding-title">BIENVENIDO_A_TU_REFUGIO</h1>
           <p className="aura-screen-copy mx-auto mt-5 max-w-3xl">
             Vamos a conocerte en 2 minutos. Sin prisas. Sin juicios.
           </p>
@@ -1079,11 +1054,14 @@ function NotificationCard({
         <div className="flex items-start gap-4">
           {icon}
           <h2 className="break-words font-headline text-xl font-black uppercase leading-none">
-            {title.replace('_', '_\n').split('\n').map((part) => (
-              <span key={part} className="block">
-                {part}
-              </span>
-            ))}
+            {title
+              .replace('_', '_\n')
+              .split('\n')
+              .map((part) => (
+                <span key={part} className="block">
+                  {part}
+                </span>
+              ))}
           </h2>
         </div>
         <button
