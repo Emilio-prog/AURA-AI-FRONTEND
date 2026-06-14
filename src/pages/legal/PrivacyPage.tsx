@@ -157,6 +157,13 @@ export function PrivacyPage() {
           seguimiento ni publicidad. Puedes borrar este almacenamiento en cualquier momento
           desde tu navegador.
         </p>
+        <p>
+          Puedes consultar y cambiar tus preferencias en la{' '}
+          <a className="font-bold text-brutal-purple hover:underline" href="/#/cookies">
+            politica de cookies
+          </a>
+          .
+        </p>
       </LegalSection>
 
       <LegalSection number="09" title="Cambios en esta política">

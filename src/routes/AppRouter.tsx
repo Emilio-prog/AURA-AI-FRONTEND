@@ -27,6 +27,7 @@ const AuraPanelPage = lazy(() =>
 );
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage').then((module) => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import('@/pages/legal/TermsPage').then((module) => ({ default: module.TermsPage })));
+const CookiesPage = lazy(() => import('@/pages/legal/CookiesPage').then((module) => ({ default: module.CookiesPage })));
 const EmergencyPage = lazy(() =>
   import('@/pages/emergency/EmergencyPage').then((module) => ({ default: module.EmergencyPage })),
 );
@@ -48,6 +49,7 @@ export function AppRouter() {
 
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
           <Route path="/emergencia" element={<EmergencyPage />} />
           <Route path="/auth/google/callback" element={<GoogleOAuthCallbackPage />} />
 

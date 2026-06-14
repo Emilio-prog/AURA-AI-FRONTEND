@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './i18n';
+import 'vanilla-cookieconsent/dist/cookieconsent.css';
 import './styles/globals.css';
 
 const rootEl = document.getElementById('root');

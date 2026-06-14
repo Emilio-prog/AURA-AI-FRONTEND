@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 const footerLinks = [
   { label: 'Privacidad_Data', to: '/privacy' },
   { label: 'Términos_Legales', to: '/terms' },
+  { label: 'Politica_Cookies', to: '/cookies' },
   { label: 'Contacto_Soporte', to: '/terms#12' },
 ];
 

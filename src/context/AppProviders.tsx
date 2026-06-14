@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { iniciarCookieConsent } from '@/cookies/cookieConsent';
 import { ThemeProvider } from './ThemeContext';
 import { AuthProvider } from './AuthContext';
 
@@ -11,6 +12,10 @@ interface AppProvidersProps {
  * Hitos siguientes lo poblarán con auth real (mock), tema y router.
  */
 export function AppProviders({ children }: AppProvidersProps) {
+  useEffect(() => {
+    iniciarCookieConsent();
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>{children}</AuthProvider>

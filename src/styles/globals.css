@@ -745,3 +745,108 @@ html.dark .bc {
     transform: scale(1);
   }
 }
+
+#cc-main {
+  --cc-font-family: 'Space Mono', monospace;
+  --cc-modal-border-radius: 0;
+  --cc-btn-border-radius: 0;
+  --cc-modal-margin: 1rem;
+  --cc-z-index: 90;
+  --cc-bg: #fff;
+  --cc-primary-color: #000;
+  --cc-secondary-color: #555;
+  --cc-btn-primary-bg: #a855f7;
+  --cc-btn-primary-color: #fff;
+  --cc-btn-primary-border-color: #000;
+  --cc-btn-primary-hover-bg: #000;
+  --cc-btn-primary-hover-color: #fff;
+  --cc-btn-primary-hover-border-color: #000;
+  --cc-btn-secondary-bg: #fff;
+  --cc-btn-secondary-color: #000;
+  --cc-btn-secondary-border-color: #000;
+  --cc-btn-secondary-hover-bg: #2dd4bf;
+  --cc-btn-secondary-hover-color: #000;
+  --cc-btn-secondary-hover-border-color: #000;
+  --cc-toggle-on-bg: #a855f7;
+  --cc-toggle-off-bg: #fff;
+  --cc-toggle-on-knob-bg: #fff;
+  --cc-toggle-off-knob-bg: #000;
+  --cc-toggle-readonly-bg: #2dd4bf;
+  --cc-cookie-category-block-bg: #f7f4ef;
+  --cc-cookie-category-block-border: #000;
+  color: #000;
+}
+
+#cc-main .cm,
+#cc-main .pm {
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0 #000;
+}
+
+#cc-main .cm__title,
+#cc-main .pm__title,
+#cc-main .pm__section-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+#cc-main .cm__desc,
+#cc-main .pm__section-desc {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+#cc-main .cm__btn,
+#cc-main .pm__btn {
+  border: 3px solid #000;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  box-shadow: 4px 4px 0 #000;
+}
+
+#cc-main .cm__btn:active,
+#cc-main .pm__btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+#cc-main .cm__link-group a {
+  color: #a855f7;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#cc-main .section__toggle {
+  border: 2px solid #000;
+}
+
+#cc-main .pm__section {
+  border: 2px solid #000;
+}
+
+html.dark #cc-main {
+  --cc-bg: #18181b;
+  --cc-primary-color: #fafafa;
+  --cc-secondary-color: #d4d4d8;
+  --cc-btn-secondary-bg: #18181b;
+  --cc-btn-secondary-color: #fafafa;
+  --cc-cookie-category-block-bg: #27272a;
+  color: #fafafa;
+}
+
+html.dark #cc-main .cm,
+html.dark #cc-main .pm {
+  border-color: #fafafa;
+  box-shadow: 6px 6px 0 #fafafa;
+}
+
+html.dark #cc-main .cm__btn,
+html.dark #cc-main .pm__btn {
+  border-color: #fafafa;
+  box-shadow: 4px 4px 0 #fafafa;
+}

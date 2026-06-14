@@ -61,6 +61,9 @@ export function LegalLayout({ badge, title, subtitle, lastUpdated, children }: L
             <Link to="/terms" className="hover:text-brutal-purple">
               → TÉRMINOS
             </Link>
+            <Link to="/cookies" className="hover:text-brutal-purple">
+              -&gt; COOKIES
+            </Link>
             <Link to="/emergencia" className="hover:text-brutal-coral">
               → EMERGENCIA_24H
             </Link>
