@@ -1,9 +1,10 @@
-import { useCallback, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus, Check } from 'lucide-react';
 import { Button, Input, TurnstileWidget } from '@/components/ui';
 import { GoogleLogo } from '@/components/brand/GoogleLogo';
 import { useAuth } from '@/hooks/useAuth';
+import { guardarPlanPendiente, planDePago } from '@/services/billing';
 import { AuthLayout } from './AuthLayout';
 
 const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
@@ -11,6 +12,8 @@ const turnstileEnabled = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 export function RegisterPage() {
   const { register, startGoogleLogin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const planUrl = planDePago(searchParams.get('plan'));
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,6 +29,12 @@ export function RegisterPage() {
 
   const handleCaptchaVerify = useCallback((token: string) => setCaptchaToken(token), []);
   const handleCaptchaExpire = useCallback(() => setCaptchaToken(null), []);
+
+  useEffect(() => {
+    if (planUrl) {
+      guardarPlanPendiente(planUrl);
+    }
+  }, [planUrl]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { createCheckoutSession, type BillingPlan } from '@/services/billing';
+import {
+  createCheckoutSession,
+  guardarPlanPendiente,
+  type BillingPlan,
+  type PaidBillingPlan,
+} from '@/services/billing';
 
 const plans = [
   {
@@ -66,7 +71,7 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 
 export function PricingSection() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [pendingPlan, setPendingPlan] = useState<BillingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,17 +83,13 @@ export function PricingSection() {
       return;
     }
 
+    const paidPlan = plan.planKey as PaidBillingPlan;
     if (!isAuthenticated) {
-      navigate(`/register?plan=${plan.planKey.toLowerCase()}`);
+      guardarPlanPendiente(paidPlan);
+      navigate(`/login?plan=${paidPlan.toLowerCase()}`);
       return;
     }
 
-    if (user?.onboardedAt === null) {
-      navigate('/onboarding');
-      return;
-    }
-
-    const paidPlan = plan.planKey as Exclude<BillingPlan, 'FREE'>;
     setPendingPlan(plan.planKey);
     try {
       window.location.href = await createCheckoutSession(paidPlan);

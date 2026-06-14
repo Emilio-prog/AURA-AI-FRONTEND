@@ -1,9 +1,16 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, LogIn, RefreshCcw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { GoogleLogo } from '@/components/brand/GoogleLogo';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  createCheckoutSession,
+  guardarPlanPendiente,
+  limpiarPlanPendiente,
+  obtenerPlanPendiente,
+  planDePago,
+} from '@/services/billing';
 import { AuthLayout } from './AuthLayout';
 
 interface LocationState {
@@ -14,7 +21,9 @@ export function LoginPage() {
   const { login, resendVerification, startGoogleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = (location.state as LocationState | null)?.from ?? '/dashboard';
+  const planUrl = planDePago(searchParams.get('plan'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +34,12 @@ export function LoginPage() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
+  useEffect(() => {
+    if (planUrl) {
+      guardarPlanPendiente(planUrl);
+    }
+  }, [planUrl]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -33,6 +48,13 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      const planPendiente = obtenerPlanPendiente();
+      if (planPendiente) {
+        const checkoutUrl = await createCheckoutSession(planPendiente);
+        limpiarPlanPendiente();
+        window.location.href = checkoutUrl;
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión.');
@@ -79,7 +101,10 @@ export function LoginPage() {
       footer={
         <p className="font-mono text-xs font-bold uppercase tracking-wider text-ink-muted">
           ¿Sin cuenta?{' '}
-          <Link to="/register" className="text-brutal-purple hover:underline">
+          <Link
+            to={planUrl ? `/register?plan=${planUrl.toLowerCase()}` : '/register'}
+            className="text-brutal-purple hover:underline"
+          >
             CREAR_NUEVA →
           </Link>
         </p>

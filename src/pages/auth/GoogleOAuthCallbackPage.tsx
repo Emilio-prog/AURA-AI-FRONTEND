@@ -3,6 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  createCheckoutSession,
+  limpiarPlanPendiente,
+  obtenerPlanPendiente,
+} from '@/services/billing';
 import { AuthLayout } from './AuthLayout';
 
 export function GoogleOAuthCallbackPage() {
@@ -29,6 +34,13 @@ export function GoogleOAuthCallbackPage() {
       try {
         const user = await completeGoogleOAuth(code);
         if (!mounted) return;
+        const planPendiente = obtenerPlanPendiente();
+        if (planPendiente) {
+          const checkoutUrl = await createCheckoutSession(planPendiente);
+          limpiarPlanPendiente();
+          window.location.href = checkoutUrl;
+          return;
+        }
         navigate(user.onboardedAt === null ? '/onboarding' : '/dashboard', { replace: true });
       } catch (err) {
         if (!mounted) return;
