@@ -40,9 +40,8 @@ html.dark {
 }
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
-  }
+  /* scroll-behavior: smooth se omite a propósito: Lenis controla el scroll
+     de la landing page y ambos compitiendo producen jank en desktop. */
 
   body {
     @apply bg-surface font-sans text-ink antialiased transition-colors duration-150;
@@ -98,6 +97,105 @@ html.dark {
   .brutal-btn-purple {
     @apply brutal-btn bg-brutal-purple text-white;
   }
+
+  /* Dashboard Responsive Classes */
+  .dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  
+  @media (min-width: 768px) {
+    .dashboard-layout {
+      flex-direction: row;
+    }
+  }
+
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    max-height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-right: var(--aura-fg) 4px solid;
+    border-bottom: none;
+    background: var(--aura-bg);
+    overflow-y: auto;
+  }
+
+  .dashboard-sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Overlay for mobile when sidebar is open */
+  .dashboard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .dashboard-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+    backdrop-filter: blur(4px);
+  }
+
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px 16px;
+    padding-bottom: 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--aura-bg);
+    border-bottom: var(--aura-fg) 4px solid;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  @media (min-width: 768px) {
+    .dashboard-sidebar {
+      position: relative;
+      transform: none;
+      width: 240px;
+      height: 100vh;
+      max-height: 100vh;
+      border-right: var(--aura-fg) 4px solid;
+      border-bottom: none;
+    }
+    .dashboard-overlay {
+      display: none;
+    }
+    .mobile-header {
+      display: none;
+    }
+    .main-content {
+      padding: 28px 32px;
+    }
+  }
+
   .brutal-btn-teal {
     @apply brutal-btn bg-brutal-teal text-brutal-black;
   }
@@ -388,33 +486,25 @@ html.dark .landing-page--reference-bg {
 }
 
 .bento {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
 
-.c4 {
-  grid-column: span 4;
+@media (min-width: 768px) {
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+  }
 }
 
-.c5 {
-  grid-column: span 5;
-}
-
-.c6 {
-  grid-column: span 6;
-}
-
-.c7 {
-  grid-column: span 7;
-}
-
-.c8 {
-  grid-column: span 8;
-}
-
-.c12 {
-  grid-column: span 12;
+@media (min-width: 768px) {
+  .c4 { grid-column: span 4; }
+  .c5 { grid-column: span 5; }
+  .c6 { grid-column: span 6; }
+  .c7 { grid-column: span 7; }
+  .c8 { grid-column: span 8; }
+  .c12 { grid-column: span 12; }
 }
 
 .bc {
@@ -849,4 +939,46 @@ html.dark #cc-main .cm__btn,
 html.dark #cc-main .pm__btn {
   border-color: #fafafa;
   box-shadow: 4px 4px 0 #fafafa;
+}
+
+@media (max-width: 768px) {
+  .grid-stack {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   LANDSCAPE MOBILE  (altura < 500px, horizontal)
+   Aplica a teléfonos girados: iPhone SE, 14, etc.
+   ───────────────────────────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Onboarding: orb eq — oculto para ganar espacio vertical */
+  .aura-eq-orb {
+    display: none;
+  }
+
+  /* Onboarding: título más compacto */
+  .aura-onboarding-title {
+    font-size: clamp(1.35rem, 4.5vh, 2rem) !important;
+    line-height: 1 !important;
+  }
+
+  /* Onboarding: copy más pequeño */
+  .aura-screen-copy {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Landing: sección hero — reduce el top padding */
+  .landing-page section:first-of-type {
+    padding-top: 4rem !important;
+  }
+
+  /* Auth pages: reduce la barra de acceso */
+  .auth-header {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
 }

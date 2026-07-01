@@ -36,7 +36,7 @@ const plans = [
     cta: 'EJECUTAR_PLAN',
     headerClassName: 'bg-brutal-purple text-white',
     className:
-      'relative z-10 flex h-full -translate-y-4 flex-col border-4 border-l-0 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md dark:bg-zinc-900/95 md:border-l-4',
+      'relative z-10 flex h-full flex-col border-4 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md dark:bg-zinc-900/95 md:-translate-y-4 md:border-l-4',
     buttonClassName: 'bg-brutal-purple text-white',
     checkClassName: 'text-brutal-purple',
     popular: true,
@@ -55,7 +55,7 @@ const plans = [
     cta: 'UPGRADE_FULL',
     headerClassName: 'bg-brutal-coral text-white',
     className:
-      'flex h-full flex-col border-4 border-l-0 border-brutal-black bg-white/80 p-8 backdrop-blur-md dark:bg-zinc-900/90',
+      'flex h-full flex-col border-4 border-brutal-black bg-white/80 p-8 backdrop-blur-md dark:bg-zinc-900/90 md:border-l-0',
     buttonClassName: 'bg-brutal-coral text-white',
     checkClassName: 'text-brutal-coral',
   },
@@ -118,7 +118,7 @@ export function PricingSection() {
           </div>
         )}
 
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-0 font-mono md:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 font-mono md:gap-0 md:grid-cols-3">
           {plans.map((plan) => (
             <div key={plan.name} className={plan.className}>
               {plan.popular && (

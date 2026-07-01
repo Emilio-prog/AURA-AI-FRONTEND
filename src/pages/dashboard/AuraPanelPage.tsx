@@ -1,4 +1,4 @@
-﻿/* eslint-disable */
+/* eslint-disable */
 // @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -646,25 +646,13 @@ function sectionFromPath(pathname) {
 }
 
 /* ── SIDEBAR ── */
-function Sidebar({ active, set }) {
+function Sidebar({ active, set, isOpen, setIsOpen }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const panelUser = user ?? DEFAULT_PANEL_USER;
 
   return (
-    <aside
-      style={{
-        width: 240,
-        height: '100vh',
-        background: W,
-        borderRight: BORDE,
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        position: 'relative',
-        zIndex: 20,
-      }}
-    >
+    <aside className={`dashboard-sidebar ${isOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column' }}>
       <div
         style={{
           padding: '20px 18px',
@@ -692,12 +680,24 @@ function Sidebar({ active, set }) {
             PANEL_INTERIOR_V2
           </div>
         </div>
+        <button
+          className="md:hidden"
+          style={{ marginLeft: 'auto', padding: 8, cursor: 'pointer' }}
+          onClick={() => setIsOpen(false)}
+        >
+          <span className="icon" style={{ fontSize: 24, color: 'var(--aura-fg)' }}>
+            close
+          </span>
+        </button>
       </div>
       <nav style={{ flex: 1, overflowY: 'auto' }}>
         {NAV.map(({ id, icon, label, labelKey, sos }) => (
           <button
             key={id}
-            onClick={() => set(id)}
+            onClick={() => {
+              set(id);
+              setIsOpen(false);
+            }}
             className={['nav-item', active === id ? 'active' : '', sos ? 'sos-nav' : '']
               .filter(Boolean)
               .join(' ')}
@@ -998,7 +998,7 @@ function HeroBentoCard() {
           {panelDateLabel()} · <span style={{ color: T }}>REGISTRA_TU_ESTADO_EMOCIONAL</span>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {MOOD_CHECKIN_OPTIONS.map(({ e, l, c }) => (
           <button
             key={l}
@@ -1050,6 +1050,7 @@ function HeroBentoCard() {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
+            flexWrap: 'wrap',
           }}
         >
           <span className="mono" style={{ fontSize: 10, color: T, fontWeight: 700 }}>
@@ -1119,7 +1120,7 @@ function MoodChartCard() {
   const tendencia = tieneDatos ? etiquetaTendenciaMood(estadisticas) : 'SIN_DATOS';
   return (
     <div className="bc c8" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 14, letterSpacing: '-0.02em' }}>
             LOG_DIARIO_ESTADO_EMOCIONAL
@@ -1218,7 +1219,7 @@ function MoodChartCard() {
               ))}
             </svg>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+          <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
             {[
               { l: 'PROM_ANTES', v: formatoMood(avgBefore), c: 'var(--aura-border-subtle)' },
               { l: 'PROM_DESPUES', v: formatoMood(avgAfter), c: M },
@@ -1331,7 +1332,7 @@ function SoundPlayerCard() {
           </span>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
         {sounds.map(({ id, icon, l }) => (
           <button
             key={id}
@@ -1432,7 +1433,7 @@ function QuickAccess({ setSection, openBreathing }) {
     { icon: 'air', l: 'RESPIRACIÓN_GUIADA', sec: null, action: openBreathing, c: CR, bg: CL },
   ];
   return (
-    <div className="c12" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+    <div className="c12 grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
       {items.map(({ icon, l, sec, action, c, bg }) => (
         <button
           key={l}
@@ -1636,8 +1637,9 @@ function AchievementsSummaryCard({ setSection }) {
         boxShadow: SOMBRA,
         background: W,
         padding: 22,
-        display: 'grid',
-        gridTemplateColumns: '1fr auto',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
         gap: 18,
         alignItems: 'center',
       }}
@@ -1729,8 +1731,8 @@ function AchievementsView() {
 
       {loading ? (
         <div
-          className="bc"
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}
+          className="bc grid-stack"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}
         >
           {Array.from({ length: 8 }, (_, index) => (
             <div
@@ -1761,7 +1763,7 @@ function AchievementsView() {
                 flexDirection: 'column',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <span
                   className="chip"
                   style={{
@@ -1825,8 +1827,9 @@ function PushOptInBanner() {
           border: BORDE,
           boxShadow: SOMBRA_SM,
           padding: 18,
-          display: 'grid',
-          gridTemplateColumns: '1fr auto',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
           gap: 14,
           alignItems: 'center',
         }}
@@ -2630,10 +2633,10 @@ function ChatbotView() {
   );
   return (
     <div
+      className="flex flex-col md:flex-row"
       style={{
-        display: 'flex',
         gap: 14,
-        height: 'calc(100vh - 156px)',
+        height: 'clamp(400px, calc(100dvh - 156px), 100vh)',
         animation: 'fadeUp .3s ease',
       }}
     >
@@ -2648,37 +2651,38 @@ function ChatbotView() {
         }}
       >
         <div
+          className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-3"
           style={{
             padding: '16px 20px',
             borderBottom: BORDE,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
           }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              border: BORDE,
-              background: ML,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 20,
-            }}
-          >
-            🤖
-          </div>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: '-0.01em' }}>
-              AURA · ASISTENTE_IA
+          <div className="flex items-center gap-3">
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                border: BORDE,
+                background: ML,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                flexShrink: 0,
+              }}
+            >
+              🤖
             </div>
-            <div className="lbl lbl-turquesa" style={{ fontSize: 9 }}>
-              {sessionTitle ? `SESIÓN_GUARDADA · ${sessionTitle}` : 'DISPONIBLE_24/7 · TCC_DIGITAL'}
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: '-0.01em' }}>
+                AURA · ASISTENTE_IA
+              </div>
+              <div className="lbl lbl-turquesa" style={{ fontSize: 9 }}>
+                {sessionTitle ? `SESIÓN_GUARDADA · ${sessionTitle}` : 'DISPONIBLE_24/7 · TCC_DIGITAL'}
+              </div>
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div className="flex flex-wrap items-center gap-4 sm:ml-auto mt-2 sm:mt-0">
             <button
               onClick={createFreshSession}
               disabled={isBusy}
@@ -3079,7 +3083,7 @@ function MoodTrackerView() {
           ))}
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
         <div className="bc" style={{ gap: 14, display: 'flex', flexDirection: 'column' }}>
           <div className="lbl" style={{ fontSize: 9 }}>
             NIVEL_ANSIEDAD_ANTES · ESCALA_1-10
@@ -3774,8 +3778,8 @@ function MinijuegosView() {
         </div>
       </div>
 
-      {/* 2-col bento grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      {/* Responsive bento grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5 lg:gap-8">
         {juegos.map(({ id, hero, chips, title, desc, cta, btnBg, btnColor }) => (
           <div
             key={id}
@@ -3843,9 +3847,11 @@ function MinijuegosView() {
               <div
                 style={{
                   fontWeight: 900,
-                  fontSize: 19,
+                  fontSize: 'clamp(15px, 1.6vw, 19px)',
                   letterSpacing: '-0.025em',
                   lineHeight: 1.1,
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
                 }}
               >
                 {title}
@@ -3901,6 +3907,7 @@ function MinijuegosView() {
       {/* Game modal overlay */}
       {active && (
         <div
+          className="p-3 sm:p-6"
           style={{
             position: 'fixed',
             inset: 0,
@@ -3910,7 +3917,6 @@ function MinijuegosView() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 24,
           }}
           onClick={() => setActive(null)}
         >
@@ -3918,8 +3924,6 @@ function MinijuegosView() {
             style={{
               width: '100%',
               maxWidth: 860,
-              maxHeight: '90vh',
-              overflowY: 'auto',
               animation: 'fadeUp .25s ease',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -3957,6 +3961,9 @@ function GamePanel({ id, onClose }) {
         background: W,
         overflow: 'hidden',
         animation: 'fadeUp .3s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 'calc(100dvh - 32px)',
       }}
     >
       <div
@@ -3967,6 +3974,7 @@ function GamePanel({ id, onClose }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           background: 'var(--aura-bg-soft)',
+          flexShrink: 0,
         }}
       >
         <div>
@@ -3981,7 +3989,7 @@ function GamePanel({ id, onClose }) {
           CERRAR ×
         </button>
       </div>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: 'clamp(16px, 4vw, 24px)', overflowY: 'auto', flex: 1, minHeight: 0 }}>
         {id === 'arena' && <GameArena />}
         {id === 'cromatica' && <GameCromatica />}
         {id === 'burbujas' && <GameBurbujas />}
@@ -4014,7 +4022,10 @@ function GameArena() {
   const getPos = (e, canvas) => {
     const r = canvas.getBoundingClientRect();
     const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - r.left, y: src.clientY - r.top };
+    return { 
+      x: (src.clientX - r.left) * (canvas.width / r.width), 
+      y: (src.clientY - r.top) * (canvas.height / r.height) 
+    };
   };
 
   const draw = (e) => {
@@ -4081,9 +4092,12 @@ function GameArena() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    // Set actual pixel dimensions
-    canvas.width = canvas.offsetWidth || 860;
-    canvas.height = canvas.offsetHeight || 340;
+    // Defer to allow modal layout to complete
+    setTimeout(() => {
+      if (!canvas) return;
+      canvas.width = canvas.offsetWidth || 860;
+      canvas.height = canvas.offsetHeight || 340;
+    }, 100);
   }, []);
 
   const modes = [
@@ -4118,7 +4132,7 @@ function GameArena() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {COLORS.map((c) => (
             <button
               key={c}
@@ -4135,7 +4149,7 @@ function GameArena() {
             />
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
           <span className="lbl" style={{ fontSize: 9 }}>
             TAMAÑO
           </span>
@@ -4164,7 +4178,7 @@ function GameArena() {
       >
         <canvas
           ref={canvasRef}
-          style={{ display: 'block', width: '100%', height: 340, touchAction: 'none' }}
+          style={{ display: 'block', width: '100%', height: 'clamp(220px, 40vh, 340px)', touchAction: 'none' }}
           onMouseDown={start}
           onMouseMove={draw}
           onMouseUp={stop}
@@ -4255,7 +4269,7 @@ function GameCromatica() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3 sm:gap-0">
         <div className="lbl" style={{ fontSize: 9 }}>
           ARRASTRA_Y_ORDENA_POR_MATIZ · DE_ROJO_A_PÚRPURA
         </div>
@@ -4327,6 +4341,14 @@ function GameCromatica() {
             onDragEnd={() => {
               setDrag(null);
               setDragOver(null);
+            }}
+            onClick={() => {
+              if (drag === null) {
+                setDrag(i);
+              } else {
+                if (drag !== i) drop(i);
+                else setDrag(null);
+              }
             }}
             style={{
               flex: 1,
@@ -4912,7 +4934,7 @@ function SonidosView() {
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp .3s ease' }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3 sm:gap-0">
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           AMBIENTES_SONOROS
         </div>
@@ -4942,7 +4964,7 @@ function SonidosView() {
           ))}
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {ambientes.map(({ id, icon, l, dur }) => (
           <button
             key={id}
@@ -4995,14 +5017,12 @@ function SonidosView() {
       </div>
       {playing && (
         <div
+          className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5"
           style={{
             border: '4px solid #000',
             boxShadow: SOMBRA,
             background: DK,
             padding: '18px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 20,
           }}
         >
           <div style={{ fontSize: 24 }}>{ambientes.find((a) => a.id === playing)?.icon}</div>
@@ -5213,6 +5233,7 @@ function DiarioView() {
 
   return (
     <div
+      className="grid-stack"
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr 280px',
@@ -5294,11 +5315,11 @@ function DiarioView() {
           </div>
         )}
         <div className="bc" style={{ gap: 14, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <div className="lbl" style={{ fontSize: 9 }}>
               {panelDateLabel()} · {editingId ? 'EDITANDO_ENTRADA' : 'ENTRADA_DE_HOY'}
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {MOOD_OPTIONS.map(({ emoji, label, color }) => (
                 <button
                   key={emoji}
@@ -5764,7 +5785,7 @@ function ContactosView() {
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp .3s ease' }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.03em' }}>
           CONTACTOS_DE_CONFIANZA
         </div>
@@ -5792,7 +5813,7 @@ function ContactosView() {
         </div>
       )}
       {formOpen && (
-        <div className="bc" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="bc grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
           <input
             aria-label="Nombre contacto"
             value={form.name}
@@ -5869,7 +5890,7 @@ function ContactosView() {
         <div
           key={id}
           className="bc"
-          style={{ flexDirection: 'row', gap: 16, alignItems: 'center', display: 'flex' }}
+          style={{ flexDirection: 'row', gap: 16, alignItems: 'center', display: 'flex', flexWrap: 'wrap' }}
         >
           <div
             style={{
@@ -6162,10 +6183,11 @@ function ConfigView() {
               {content[s]}
               {s === 'PERFIL' && (
                 <div
+                  className="grid-stack"
                   style={{
                     marginTop: 14,
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                     gap: 10,
                   }}
                 >
@@ -6527,8 +6549,8 @@ function BreathingModal({ onClose }) {
           background: W,
           border: '6px solid #000',
           boxShadow: '12px 12px 0 0 #000',
-          padding: 48,
-          width: 440,
+          width: '100%',
+          maxWidth: 440,
           textAlign: 'center',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -6594,7 +6616,7 @@ function BreathingModal({ onClose }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3,1fr)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))',
             gap: 8,
             marginBottom: 24,
           }}
@@ -6774,6 +6796,21 @@ function SectionView({ id, setSection, openBreathing }) {
   }
 }
 
+function MobileHeader({ onMenuClick }) {
+  return (
+    <header className="mobile-header">
+      <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1 }}>
+        AURA <span style={{ color: M }}>AI</span>
+      </div>
+      <button onClick={onMenuClick} style={{ padding: 4, cursor: 'pointer' }}>
+        <span className="icon" style={{ fontSize: 28, color: 'var(--aura-fg)' }}>
+          menu
+        </span>
+      </button>
+    </header>
+  );
+}
+
 /* ── APP ── */
 function AuraPanelApp() {
   const location = useLocation();
@@ -6781,6 +6818,7 @@ function AuraPanelApp() {
   const [section, setSection] = useState(
     () => sectionFromPath(location.pathname) || localStorage.getItem('aura-section') || 'inicio',
   );
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
   const [tweaks, setTweaks] = useState(false);
   const [achievementToast, setAchievementToast] = useState(null);
@@ -6824,21 +6862,31 @@ function AuraPanelApp() {
         <div className="blob b2"></div>
         <div className="blob b3"></div>
       </div>
-      <div
-        style={{
-          display: 'flex',
-          height: '100vh',
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
-        <Sidebar active={section} set={selectSection} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      
+      <div className="dashboard-layout">
+        <div 
+          className={`dashboard-overlay ${isSidebarOpen ? 'open' : ''}`} 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+        <Sidebar 
+          active={section} 
+          set={selectSection} 
+          isOpen={isSidebarOpen} 
+          setIsOpen={setIsSidebarOpen} 
+        />
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            minWidth: 0,
+            width: '100%',
+          }}
+        >
+          <MobileHeader onMenuClick={() => setIsSidebarOpen(true)} />
           <StatsBar />
-          <main
-            style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', background: 'transparent' }}
-          >
+          <main className="main-content">
             <div style={{ maxWidth: 960, margin: '0 auto' }} key={section}>
               <SectionView
                 id={section}

@@ -151,15 +151,12 @@ export function BillingView() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <header
+        className="flex flex-col md:flex-row md:items-center gap-5 md:gap-[18px]"
         style={{
           border: BORDE,
           boxShadow: SOMBRA,
           background: W,
           padding: '24px',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) auto',
-          gap: 18,
-          alignItems: 'center',
         }}
       >
         <div>

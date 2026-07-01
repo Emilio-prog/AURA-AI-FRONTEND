@@ -12,10 +12,10 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ badge, title, subtitle, children, footer }: AuthLayoutProps) {
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-x-hidden">
       <BlobsBackground />
 
-      <header className="relative z-10 border-b-4 border-brutal-black bg-white/85 px-6 py-4 backdrop-blur-md lg:px-8">
+      <header className="relative z-10 border-b-4 border-brutal-black bg-white/85 px-6 py-4 ls:py-2 backdrop-blur-md lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link
             to="/"
@@ -33,9 +33,9 @@ export function AuthLayout({ badge, title, subtitle, children, footer }: AuthLay
         </div>
       </header>
 
-      <main className="relative z-10 flex min-h-[calc(100vh-72px)] items-center justify-center px-6 py-12 lg:px-8">
+      <main className="relative z-10 flex min-h-[calc(100vh-72px)] items-center justify-center px-6 py-12 ls:py-4 ls:items-start lg:px-8">
         <div className="w-full max-w-md">
-          <div className="border-4 border-brutal-black bg-white/90 p-8 shadow-brutal backdrop-blur-md">
+          <div className="border-4 border-brutal-black bg-white/90 p-8 ls:p-5 shadow-brutal backdrop-blur-md">
             <span className="inline-block border-2 border-brutal-black bg-brutal-purple px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">
               {badge}
             </span>
@@ -46,7 +46,7 @@ export function AuthLayout({ badge, title, subtitle, children, footer }: AuthLay
               {subtitle}
             </p>
 
-            <div className="mt-8">{children}</div>
+            <div className="mt-8 ls:mt-4">{children}</div>
           </div>
 
           {footer && <div className="mt-6 text-center">{footer}</div>}

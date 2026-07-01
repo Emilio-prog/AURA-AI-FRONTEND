@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
 import { CrisisFab } from '@/components/ui';
+import { registerLenis, unregisterLenis } from '@/lib/smoothScroll';
 import { LandingNavbar } from './components/LandingNavbar';
 import { HeroSection } from './components/HeroSection';
 import { StatsMarquee } from './components/StatsMarquee';
@@ -12,9 +13,12 @@ import { FooterSection } from './components/FooterSection';
 export function LandingPage() {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      lerp: 0.035,
+      smoothWheel: true,
+      touchMultiplier: 1.8,
     });
+
+    registerLenis(lenis);
 
     let rafId: number;
     function raf(time: number) {
@@ -26,6 +30,7 @@ export function LandingPage() {
     return () => {
       cancelAnimationFrame(rafId);
       lenis.destroy();
+      unregisterLenis();
     };
   }, []);
 

@@ -109,6 +109,11 @@ const config: Config = {
       backdropBlur: {
         brutal: '20px',
       },
+      screens: {
+        // Mobile landscape: altura < 500px + orientación horizontal.
+        // Uso: ls:h-10, ls:pt-4, ls:hidden, etc.
+        ls: { raw: '(max-height: 500px) and (orientation: landscape)' },
+      },
     },
   },
   plugins: [],

@@ -1,58 +1,73 @@
+import { type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { smoothScrollTo } from '@/lib/smoothScroll';
 
 const navLinks = [
-  { label: 'Inicio', href: '#' },
-  { label: 'Funcionalidades', href: '#funcionalidades' },
-  { label: 'Testimonios', href: '#testimonios' },
+  { label: 'Inicio', target: 0 },
+  { label: 'Funcionalidades', target: '#funcionalidades' },
+  { label: 'Testimonios', target: '#testimonios' },
 ];
+
+const NAVBAR_HEIGHT = 80;
 
 export function LandingNavbar() {
   const { isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
 
+  const handleNavClick = (e: MouseEvent<HTMLAnchorElement>, target: string | number) => {
+    e.preventDefault();
+    smoothScrollTo(target, typeof target === 'number' ? 0 : -NAVBAR_HEIGHT);
+  };
+
   return (
     <nav className="fixed top-0 z-50 w-full border-b-4 border-brutal-black bg-white/85 text-ink backdrop-blur-md transition-colors dark:bg-zinc-950/90 dark:text-white">
-      <div className="mx-auto flex h-20 w-full max-w-7xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
+      <div className="mx-auto flex h-20 ls:h-12 w-full max-w-7xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
         <Link to="/" className="flex items-center gap-3 no-underline" aria-label="Aura AI inicio">
-          <div className="h-9 w-9 shrink-0 border-[6px] border-brutal-black bg-gradient-to-tr from-brutal-purple to-brutal-teal sm:h-10 sm:w-10" />
-          <div className="whitespace-nowrap font-headline text-2xl font-black uppercase tracking-tighter sm:text-3xl">
+          <div className="h-9 w-9 ls:h-7 ls:w-7 shrink-0 border-[6px] ls:border-4 border-brutal-black bg-gradient-to-tr from-brutal-purple to-brutal-teal sm:h-10 sm:w-10" />
+          <div className="whitespace-nowrap font-headline text-2xl ls:text-lg font-black uppercase tracking-tighter sm:text-3xl">
             Aura <span className="text-brutal-purple">AI</span>
           </div>
         </Link>
 
         <div className="ml-8 hidden items-center gap-8 font-mono text-sm font-bold uppercase md:flex">
-          {navLinks.map(({ label, href }) => (
-            <a key={label} className="decoration-4 underline-offset-4 hover:underline" href={href}>
+          {navLinks.map(({ label, target }) => (
+            <a
+              key={label}
+              href={typeof target === 'string' ? target : '#'}
+              onClick={(e) => handleNavClick(e, target)}
+              className="decoration-4 underline-offset-4 hover:underline cursor-pointer"
+            >
               {label}
             </a>
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-4">
+        <div className="ml-auto flex items-center gap-3 sm:gap-4">
           {isAuthenticated ? (
             <Link
               to="/dashboard"
-              className="border-4 border-brutal-black bg-brutal-purple px-6 py-3 font-bold uppercase tracking-tighter text-white shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="border-2 sm:border-4 border-brutal-black bg-brutal-purple px-3 py-1.5 sm:px-6 sm:py-3 text-xs sm:text-base font-bold uppercase tracking-tighter text-white shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
-              IR_AL_PANEL
+              PANEL
             </Link>
           ) : (
             <>
               <Link
                 to="/login"
-                className="hidden font-mono text-xs font-bold uppercase hover:underline sm:inline sm:text-sm"
+                className="font-mono text-xs font-bold uppercase hover:underline sm:text-sm"
               >
                 Log_In
               </Link>
               <Link
                 to="/register"
-                className="hidden border-4 border-brutal-black bg-brutal-teal px-6 py-3 font-bold uppercase tracking-tighter text-black shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none sm:inline-flex"
+                className="border-2 sm:border-4 border-brutal-black bg-brutal-teal px-3 py-1.5 sm:px-6 sm:py-3 text-xs sm:text-base font-bold uppercase tracking-tighter text-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-brutal-sm transition-all active:translate-x-1 active:translate-y-1 active:shadow-none inline-flex"
               >
-                START_FREE
+                <span className="sm:hidden">START</span>
+                <span className="hidden sm:inline">START_FREE</span>
               </Link>
             </>
           )}

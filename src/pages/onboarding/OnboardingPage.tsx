@@ -274,7 +274,7 @@ export function OnboardingPage() {
             variant={screen === 6 || screen === 7 ? 'wide' : 'segments'}
             onSkip={skipQuestion}
           />
-          <main className="relative z-10 h-[calc(100dvh-122px)] overflow-y-auto overflow-x-hidden px-4 pb-7 pt-3 md:px-6 lg:px-8">
+          <main className="relative z-10 h-[calc(100dvh-122px)] ls:h-[calc(100dvh-88px)] overflow-y-auto overflow-x-hidden px-4 pb-7 ls:pb-4 pt-3 md:px-6 lg:px-8">
             {renderScreen()}
             {error && (
               <div
@@ -353,7 +353,7 @@ export function OnboardingPage() {
               Elige todas las que apliquen. Sin límite.
             </p>
 
-            <div className="mx-auto mt-7 grid max-w-[1040px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mx-auto mt-7 grid max-w-[1040px] gap-4 ls:grid-cols-4 sm:grid-cols-2 lg:grid-cols-4">
               {goalOptions.map((option) => {
                 const active = goals.includes(option.id);
                 return (
@@ -362,7 +362,7 @@ export function OnboardingPage() {
                     type="button"
                     onClick={() => setGoals(toggleValue(goals, option.id))}
                     className={cn(
-                      'relative flex min-h-28 flex-col items-center justify-center border-4 border-black p-3 transition-transform',
+                      'relative flex min-h-28 ls:min-h-16 flex-col items-center justify-center border-4 border-black p-3 transition-transform',
                       active
                         ? `${option.activeClass} translate-x-1 translate-y-1 shadow-[8px_8px_0_#000]`
                         : 'bg-white hover:-translate-y-1 hover:shadow-[8px_8px_0_#000]',
@@ -396,7 +396,7 @@ export function OnboardingPage() {
               Esta será tu línea base. Mediremos tu progreso desde aquí.
             </p>
 
-            <div className="mt-8 font-headline text-[72px] font-black leading-none text-[#8127CF]">
+            <div className="mt-8 ls:mt-2 font-headline text-[72px] ls:text-[48px] font-black leading-none text-[#8127CF]">
               {String(moodIntensity).padStart(2, '0')}
             </div>
 
@@ -455,7 +455,7 @@ export function OnboardingPage() {
             <p className="mt-10 font-mono text-sm font-black uppercase tracking-[0.12em] text-[#6b7a76]">
               // MOMENTOS_FRECUENTES
             </p>
-            <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-5 grid gap-5 ls:grid-cols-3 md:grid-cols-2 lg:grid-cols-3">
               {triggerOptions.map((option) => {
                 const active = anxietyTriggers.includes(option.id);
                 return (
@@ -464,7 +464,7 @@ export function OnboardingPage() {
                     type="button"
                     onClick={() => setAnxietyTriggers(toggleValue(anxietyTriggers, option.id))}
                     className={cn(
-                      'relative flex min-h-28 flex-col items-center justify-center border-4 border-black p-4 transition-transform',
+                      'relative flex min-h-28 ls:min-h-16 flex-col items-center justify-center border-4 border-black p-4 transition-transform',
                       active
                         ? 'translate-x-[-4px] translate-y-[-4px] bg-[#62FAE3]/25 shadow-[8px_8px_0_#000]'
                         : 'bg-white hover:translate-x-1 hover:translate-y-1',
@@ -514,7 +514,7 @@ export function OnboardingPage() {
               Personalizaremos tus accesos rápidos según esto.
             </p>
 
-            <div className="mt-7 grid gap-4 lg:grid-cols-3">
+            <div className="mt-7 grid gap-4 ls:grid-cols-3 lg:grid-cols-3">
               {toolOptions.map((option) => {
                 const Icon = option.icon;
                 const active = toolPreferences.includes(option.id);
@@ -524,7 +524,7 @@ export function OnboardingPage() {
                     type="button"
                     onClick={() => setToolPreferences(toggleValue(toolPreferences, option.id))}
                     className={cn(
-                      'relative flex min-h-36 flex-col border-4 border-black p-5 text-left transition-transform',
+                      'relative flex min-h-36 ls:min-h-24 flex-col border-4 border-black p-5 ls:p-3 text-left transition-transform',
                       active
                         ? option.id === 'sounds'
                           ? 'bg-[#2DD4BF]/25 shadow-[6px_6px_0_#000]'
@@ -696,7 +696,7 @@ export function OnboardingPage() {
               // PUEDES_DESACTIVAR_TODO_DESDE_CONFIGURACIÓN
             </div>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="mt-6 grid gap-5 ls:grid-cols-2 md:grid-cols-2">
               <NotificationCard
                 icon={<BarChart3 className="h-8 w-8" strokeWidth={3} />}
                 title="RECORDATORIO_MOOD_DIARIO"
@@ -762,7 +762,7 @@ export function OnboardingPage() {
             <p className="aura-screen-copy mt-3">Tu refugio digital está preparado.</p>
 
             <div className="mt-4 border-4 border-black bg-[#080808] p-4 text-white shadow-[8px_8px_0_#A855F7] md:p-5">
-              <div className="grid gap-4 md:grid-cols-[1fr_1px_1fr]">
+              <div className="grid gap-4 ls:grid-cols-[1fr_1px_1fr] md:grid-cols-[1fr_1px_1fr]">
                 <div className="space-y-3">
                   <SummaryBlock label="OBJETIVOS_PRIORITARIOS" value={summaryGoals()} />
                   <SummaryBlock
@@ -772,7 +772,7 @@ export function OnboardingPage() {
                   <SummaryBlock label="FRECUENCIA_DE_CRISIS" value={capitalize(frequency)} />
                   <SummaryBlock label="CONTACTOS_SOS" value={summaryContact()} />
                 </div>
-                <div className="hidden bg-white/30 md:block" />
+                <div className="hidden bg-white/30 ls:block md:block" />
                 <div className="space-y-3">
                   <SummaryBlock label="LÍNEA_BASE_EMOCIONAL" value={`${moodIntensity}/10`} />
                   <SummaryBlock label="MOMENTOS_CRÍTICOS" value={summaryTriggers()} />
@@ -858,8 +858,8 @@ function AuraBlobs() {
 function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
   return (
     <>
-      <nav className="fixed left-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b-[5px] border-black bg-[#f9f9f9] px-5 shadow-[6px_6px_0_#000] md:px-8">
-        <div className="font-headline text-3xl font-black leading-none">Aura AI</div>
+      <nav className="fixed left-0 top-0 z-50 flex h-14 ls:h-10 w-full items-center justify-between border-b-[5px] border-black bg-[#f9f9f9] px-5 shadow-[6px_6px_0_#000] md:px-8">
+        <div className="font-headline text-3xl ls:text-xl font-black leading-none">Aura AI</div>
         <button
           type="button"
           onClick={onSkip}
@@ -868,10 +868,10 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           SALTAR_ONBOARDING
         </button>
       </nav>
-      <main className="relative z-10 flex h-dvh items-center justify-center overflow-y-auto px-5 pb-8 pt-20 text-center">
+      <main className="relative z-10 flex h-dvh items-center justify-center ls:items-start overflow-y-auto px-5 pb-8 pt-20 ls:pt-12 text-center">
         <div className="mx-auto flex max-w-[1000px] flex-col items-center">
           <EqualizerOrb />
-          <div className="mb-4 mt-6 bg-[#2DD4BF] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#00574d]">
+          <div className="mb-4 mt-6 ls:mt-3 bg-[#2DD4BF] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#00574d]">
             DURACIÓN_ESTIMADA: DOS_MINUTOS
           </div>
           <h1 className="aura-onboarding-title">BIENVENIDO_A_TU_REFUGIO</h1>
@@ -881,11 +881,11 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           <button
             type="button"
             onClick={onStart}
-            className="mt-7 w-full max-w-md border-4 border-black bg-gradient-to-r from-[#8127CF] to-[#A93349] px-8 py-4 font-headline text-xl font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] md:text-2xl"
+            className="mt-7 ls:mt-4 w-full max-w-md border-4 border-black bg-gradient-to-r from-[#8127CF] to-[#A93349] px-8 py-4 ls:py-3 font-headline text-xl font-black uppercase text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_#000] md:text-2xl"
           >
             COMENZAR_VIAJE
           </button>
-          <p className="mt-4 max-w-md font-mono text-xs font-black leading-4 text-[#6b7a76]">
+          <p className="mt-4 ls:mt-2 max-w-md font-mono text-xs font-black leading-4 text-[#6b7a76]">
             Puedes saltarte cualquier pregunta. Tus respuestas son privadas y encriptadas.
           </p>
         </div>
@@ -919,8 +919,8 @@ function TopBar({
   onSkip: () => void;
 }) {
   return (
-    <nav className="relative z-40 flex h-14 items-center justify-between gap-4 border-b-[5px] border-black bg-[#f9f9f9] px-5 md:px-7">
-      <div className="shrink-0 font-headline text-3xl font-black leading-none">Aura AI</div>
+    <nav className="relative z-40 flex h-14 ls:h-10 items-center justify-between gap-4 border-b-[5px] border-black bg-[#f9f9f9] px-5 md:px-7">
+      <div className="shrink-0 font-headline text-3xl ls:text-xl font-black leading-none">Aura AI</div>
       {final ? (
         <span className="font-mono text-sm font-black uppercase tracking-[0.2em] text-[#8127CF]">
           PASO_08_DE_08
@@ -960,7 +960,7 @@ function Footer({
   onBack: () => void;
 }) {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-[68px] items-center justify-between gap-3 border-t-[5px] border-black bg-[#f9f9f9] px-5 md:px-8">
+    <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-[68px] ls:h-[48px] items-center justify-between gap-3 border-t-[5px] border-black bg-[#f9f9f9] px-5 md:px-8">
       <button
         type="button"
         onClick={onBack}
@@ -981,14 +981,14 @@ function Footer({
         <button
           type="submit"
           disabled={loading}
-          className="border-4 border-black bg-[#A855F7] px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.1em] text-white shadow-[4px_4px_0_#000] disabled:opacity-60 md:px-8"
+          className="border-4 border-black bg-[#A855F7] px-5 py-3 ls:py-1.5 font-mono text-xs font-black uppercase tracking-[0.1em] text-white shadow-[4px_4px_0_#000] disabled:opacity-60 md:px-8"
         >
           {loading ? 'CARGANDO' : 'PASO_08_DE_08 - COMPLETADO'}
         </button>
       ) : (
         <button
           type="submit"
-          className="border-4 border-black bg-[#8127CF] px-7 py-3 font-mono text-xs font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-none md:px-10"
+          className="border-4 border-black bg-[#8127CF] px-7 py-3 ls:py-1.5 font-mono text-xs font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0_#000] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-none md:px-10"
         >
           CONTINUAR
         </button>
